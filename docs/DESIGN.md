@@ -18,6 +18,7 @@ Argentine game *Tutti Frutti* / *Basta*. Hosted on the homelab at
 | Lobbies | Private, 4-char code, invite link, QR. Max 10 players |
 | Letter | Hidden alphabet cycles from A; the round's *chooser* taps STOP. Used letters are skipped |
 | Basta | The caller triggers a 3 s grace countdown for everyone else, then inputs lock |
+| Vote to stop | Whoever has not filled every category can ask everyone to stop: every other connected player must say yes within 15 s, and it then counts as their Basta (host setting, on by default) |
 | Review | Players vote to reject invalid answers (majority of other players); answers can be merged as "the same" by majority |
 | Extras v1 | Invite link + QR, optional round time limit, custom per-game categories, installable PWA |
 
@@ -86,6 +87,7 @@ replica). The category catalog is an embedded JSON file, not a table.
 | Lobby language | `es` / `en` / `nl` — sets alphabet, hard-letter list, category labels | `es` |
 | Exclude hard letters | on/off | on |
 | Time limit | off, 60, 90, 120, 180 s | off |
+| Ask everyone to stop | on/off | on |
 
 * Alphabets: `es` = A–Z with **Ñ** after N (27 letters); `en` and `nl` = A–Z (26).
 * Hard letters: `es` = **K Ñ Q W X Y Z**; `en` = **Q U V X Y Z**; `nl` =
@@ -111,7 +113,8 @@ replica). The category catalog is an embedded JSON file, not a table.
   the server already has them when Basta is called.
 * **Basta** is only enabled when every field is filled (client-side hint); the
   server validates the caller has every category non-empty and starting with the
-  letter, otherwise rejects the call.
+  letter, otherwise rejects the call (`basta_not_allowed`). A player who has not
+  filled everything can ask the others to stop instead (see "Vote to stop").
 * Server-side letter check: an answer that does not start with the round's
   letter (after normalization) scores 0 and is flagged `wrong_letter`.
 * If a time limit is set and expires, the room moves to `GRACE`/lock with no
@@ -122,6 +125,65 @@ replica). The category catalog is an embedded JSON file, not a table.
 * Everyone sees the full-screen overlay + vibration where available. A **3 s**
   grace countdown starts; then answers lock. Updates arriving up to **500 ms**
   after the lock are still accepted (network lag allowance).
+
+### Vote to stop
+
+A player who has not filled every category cannot call Basta, but with the lobby
+setting **Ask everyone to stop** on (the default) they can **ask everyone to stop**:
+a vote that every other connected player has to win. If it passes, the round
+goes to grace exactly as if the asker had called Basta.
+
+* **Setting.** `Settings.stopVote`, chosen by the host in the lobby (like every
+  setting it cannot change while a game is on, and a rematch keeps it). Off:
+  `ask_stop` is refused (`stop_vote_disabled`) and Basta needs every category
+  filled, as before.
+* **Asking.** `ask_stop`, only in `playing`, only by a participant who has **not**
+  filled every category with a valid answer (one who has calls Basta:
+  `stop_not_needed`). One vote at a time (`stop_vote_pending`). The vote lasts
+  **15 s** (`StopVoteDuration`; the deadline is exclusive like every other) and
+  everybody hears `stop_asked {playerId, name}`. A confirm dialog before asking is
+  a client concern.
+* **Electorate.** The connected participants other than the asker, evaluated
+  **live** like the review votes: offline players cannot block the vote, one who
+  reconnects joins it (a yes they gave earlier is still on record) and mid-round
+  joiners (not participants) neither count nor vote (`not_participant`). The
+  asker cannot vote (`self_vote`).
+* **Voting.** `vote_stop {yes}` (`no_stop_vote` when none is open). The vote
+  **passes** when every current voter has said yes (voting yes twice is the same
+  as once). Any **no rejects it at once**; a voter may change a yes into a no. The
+  decliner is not named anywhere (not in the event, not in the state). When the
+  electorate is empty (nobody else is connected) the vote passes at once and
+  `stop_asked` is never sent.
+* **Passing = a Basta by the asker**: the same transition (`grace`, `callerId` =
+  the asker, `graceEndsAt` = now + 3 s, then lock and review) and the same `basta`
+  event; empty cells simply score 0 (answers keep being accepted until the lock,
+  as after any Basta). `set_answer` also keeps working while a vote is open.
+* **Failing.** `stop_rejected {playerId, name}` (the asker) with a `reason`:
+  `declined` (a voter said no), `timeout` (15 s without agreement) or `ended`
+  (the vote became moot: someone else called Basta, the time limit expired, or the
+  asker disconnected, left or was kicked). A vote that ends this way is announced
+  *before* the event that caused it (`stop_rejected` then `basta`, or then
+  `time_up`). When the time limit and the 15 s coincide the limit wins (`ended`).
+  The asker's own Basta, once everything is filled in, ends their vote too.
+* **No cooldown.** After a rejection anybody, the same player included, can ask
+  again at once.
+* **State.** `RoundView.stopVote {callerId, endsAt, voters, yes}` exists only in
+  `playing`: `voters` is the live electorate in join order and `yes` the voters
+  who said yes (in the order they voted; always a subset of `voters`). Everybody,
+  spectators included, sees the same. The answers stay private as ever.
+* **Event sequences** (each followed by the usual `state`): ask → `stop_asked`;
+  a yes that does not complete it → nothing; last yes, or a voter leaving /
+  disconnecting → `basta`; a no → `stop_rejected(declined)`; 15 s → `stop_rejected(timeout)`;
+  another player's Basta → `stop_rejected(ended)`, `basta`; time limit →
+  `stop_rejected(ended)`, `time_up`; asker gone → `stop_rejected(ended)`.
+* **Persistence.** The vote is part of the round, so it is in the snapshots, but
+  a **restore drops it silently**: every seat is disconnected at that moment, so
+  the electorate would be empty and a stale vote would pass by itself. Snapshots
+  saved before the setting existed have no `stopVote` field and restore with it
+  **off** for that game (the host can switch it on after the rematch).
+* **Metrics.** `tuttifrutti_stop_votes_total{result}` with the fixed values
+  `asked`, `passed`, `declined`, `timeout`, `ended`; a vote that passes is also one
+  Basta in `tuttifrutti_basta_total`.
 
 ### Answer normalization & matching
 
@@ -223,14 +285,19 @@ section 9b (`web/src/lib/protocol/api.ts` is generated from `internal/api`).
 Envelope `{ "t": string, "d": object, "v": protocolVersion }`.
 
 * client → server: `join`, `leave`, `update_settings`, `kick`, `start_game`,
-  `stop_letter`, `set_answer`, `basta`, `vote_reject`, `propose_merge`,
-  `vote_merge`, `review_nav`, `finish_review`, `next_round`, `end_game`,
-  `rematch`, `ping`
+  `stop_letter`, `set_answer`, `basta`, `ask_stop`, `vote_stop`, `vote_reject`,
+  `propose_merge`, `vote_merge`, `review_nav`, `finish_review`, `next_round`,
+  `end_game`, `rematch`, `ping`
 * server → client: `state` (filtered full snapshot), `event`, `error`.
   Engine event types: `game_started`, `round_started` (carries the chooser),
-  `letter_revealed`, `basta`, `time_up`, `round_locked`, `round_scored`, `kicked`,
-  `host_changed`, `game_over`, `rematch`; the room layer adds `server_restarting`.
+  `letter_revealed`, `basta`, `stop_asked`, `stop_rejected` (carries the asker and a
+  `reason`: `declined`, `timeout` or `ended`), `time_up`, `round_locked`,
+  `round_scored`, `kicked`, `host_changed`, `game_over`, `rematch`; the room layer adds
+  `server_restarting`.
 * `vote_reject` takes `{category, targetPlayer, withdraw?}` (a vote can be withdrawn).
+  `ask_stop` takes no payload and `vote_stop` takes `{yes}`; their error codes are
+  `stop_vote_disabled`, `stop_vote_pending`, `no_stop_vote` and `stop_not_needed`, next to
+  the existing `wrong_phase`, `not_participant` and `self_vote` (see "Vote to stop").
   Connection state is **not** a wire command: the room layer calls the trusted
   `Game.SetConnected(now, playerID, connected)` on connect/disconnect, and a wire
   `set_connected` is rejected as an unknown command (a client must not be able to
@@ -255,6 +322,9 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 * **Votes are evaluated live** against the players connected at that moment. Reject
   needs `yes*2 > connected participants except the author`; merge needs
   `yes*2 > connected participants` (the proposer counts as yes).
+* **Vote to stop:** its electorate is evaluated live like the other votes (connected
+  participants other than the asker); a player leaving, being kicked or disconnecting
+  re-evaluates it, a restore drops it. Details in "Vote to stop" (section 3).
 * **Leaving:** in the lobby a leave/kick removes the seat; in a started game the seat is
   flagged `Left` (scores stay, no more votes, skipped as chooser). Kicked players are
   banned for the life of the game (also after a rematch); a player who left voluntarily
@@ -275,13 +345,29 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 2. **Lobby** — huge code, **Share** (Web Share API), **QR**, player list with 👑,
    settings card (host editable), category picker (search, groups, "Clásicas"
    and "Sorprendeme" presets, reorderable selection, custom category input,
-   recent customs from `localStorage`), **Start** (≥ 2 players).
+   recent customs from `localStorage`), the *Ask everyone to stop* switch
+   (`role="switch"`; guests see a read-only chip), **Start** (≥ 2 players).
 3. **Letter** — chooser: spinning "?" + huge **STOP** button; others: "X is
    choosing the letter…"; animated reveal.
 4. **Playing** — giant letter, optional timer, other players' progress dots,
    one field per category (Enter → next field, autocorrect off, capitalized),
-   sticky **BASTA!/Stop!** button (disabled until all valid), Screen Wake Lock.
-5. **Basta overlay** — caller name + 3-2-1.
+   sticky **BASTA!/Stop!** button, Screen Wake Lock. With every field valid the
+   button calls Basta (pulsing). With answers missing it is secondary and, when
+   the host left *Ask everyone to stop* on, tapping it opens a confirm sheet
+   (`alertdialog`: "Ask everyone to stop?", how many are missing, everybody must
+   agree within 15 s; *Keep playing* is focused first). With the setting off, or
+   while offline, it stays disabled as before. See "Vote to stop" (section 3).
+   * **Asker:** a banner in the sticky footer ("Waiting for the others · 12 s ·
+     1 of 3 said yes"), the button disabled until every field is valid (then it
+     calls Basta, which ends the vote), the fields still editable; a toast
+     says "Not everyone agreed" / "Time ran out" when the vote fails.
+   * **Voters:** a **non-modal** sheet in the footer ("X wants to stop. Stop?",
+     **Yes, stop** / **No, keep going**, a countdown). It never blocks typing or
+     scrolling; it announces itself assertively and vibrates like the Basta
+     call (not under reduced motion). After a yes: "Waiting for the others
+     (n/total)". Spectators only see a one-line note.
+5. **Basta overlay** — caller name + 3-2-1 (also when a vote to stop passed:
+   the caller is the asker).
 6. **Review** — category carousel ("País · 2/6"), one card per answer (player,
    answer, points badge, 👎 count, "same"), host ◀ ▶ + **Finish review**.
 7. **Round summary** — round points, totals, **Next round** (host).
@@ -392,7 +478,8 @@ the persistence contract is `server/internal/store`.
    is restored from its snapshot by the next pod, so clients must retry, never
    give up. The same holds for the WebSocket (`server_busy` + close 1012).
 2. Client opens `wss://host/ws` (cookie authenticates). The **first frame must be
-   `join`** (`protocol.JoinRequest`, `v` = the protocol version, 2 since Dutch).
+   `join`** (`protocol.JoinRequest`, `v` = the protocol version: 3 since the vote to stop,
+   2 since Dutch).
    The server looks the room up, applies `game.Join` and then the trusted `Game.SetConnected(now, id, true)`.
 3. After every accepted command the room broadcasts `state` (a per-viewer
    `game.View`) to all connected clients, preceded by `event` frames for the
@@ -437,7 +524,9 @@ the persistence contract is `server/internal/store`.
 * **Restore (startup):** `Hub.Start` loads all snapshots, rebuilds the rooms with
   **every player disconnected** (`SetConnected(false)`; nobody has a socket yet),
   sets `lastActive = now` (so the idle clock restarts) and re-arms timers.
-  Corrupt/unknown-version snapshots are logged and deleted.
+  Corrupt/unknown-version snapshots are logged and deleted. An open **vote to stop** is
+  dropped silently first (see "Vote to stop"), and a snapshot written before the
+  `stopVote` setting existed restores with it off.
 * **Shutdown:** `Hub.Shutdown(ctx)`: stop accepting joins → broadcast `event
   server_restarting` → flush a final snapshot of every room (synchronously) →
   close every socket with `1012` → wait for the pumps to finish or ctx to expire.
@@ -478,8 +567,8 @@ the persistence contract is `server/internal/store`.
   `Local` would make them truly per-client.
 * Metrics (Prometheus): `tuttifrutti_rooms` (gauge), `tuttifrutti_connections`
   (gauge), `tuttifrutti_commands_total{type,result}`, `tuttifrutti_rounds_total`,
-  `tuttifrutti_basta_total`, `tuttifrutti_snapshot_errors_total`,
-  `tuttifrutti_ws_closes_total{code}`.
+  `tuttifrutti_basta_total`, `tuttifrutti_stop_votes_total{result}`,
+  `tuttifrutti_snapshot_errors_total`, `tuttifrutti_ws_closes_total{code}`.
 
 ### Persistence schema (goose, embedded, run at startup)
 
@@ -618,9 +707,10 @@ Grafana Alerting) but nothing notifies until a receiver is added.
 | `tuttifrutti_rooms`                         | gauge     |                                                                         | Live rooms in memory (cap `MAX_ROOMS`, chart `server.maxRooms`) |
 | `tuttifrutti_connections`                   | gauge     |                                                                         | Clients attached to a room (joined)                             |
 | `tuttifrutti_ws_connections_open`           | gauge     |                                                                         | All live sockets, joined or not (cap 2000 → `503 server_busy`)  |
-| `tuttifrutti_commands_total`                | counter   | `type` (16 commands, `unknown`), `result` (`ok` or the error code)      | Client frames handled by a room                                 |
+| `tuttifrutti_commands_total`                | counter   | `type` (18 commands, `unknown`), `result` (`ok` or the error code)      | Client frames handled by a room                                 |
 | `tuttifrutti_rounds_total`                  | counter   |                                                                         | Rounds started                                                  |
 | `tuttifrutti_basta_total`                   | counter   |                                                                         | Basta calls (rounds that end by time-up have no counter)        |
+| `tuttifrutti_stop_votes_total`              | counter   | `result`: `asked`, `passed`, `declined`, `timeout`, `ended`             | Votes to stop: opened (or passed at once), then how each ended  |
 | `tuttifrutti_snapshot_errors_total`         | counter   |                                                                         | Failed room snapshot writes / deletions (each retry counts)     |
 | `tuttifrutti_stats_recorded_total`          | counter   | `result`: `ok`, `error` (failed attempt, retried), `dropped` (given up) | Finished games handed to the stats store                        |
 | `tuttifrutti_logins_total`                  | counter   | `result`: `ok`, `failed`, `cancelled`                                   | Google logins that reached the callback                         |
@@ -633,6 +723,10 @@ Grafana Alerting) but nothing notifies until a receiver is added.
 The dashboard and alerts also read kube-state-metrics (`kube_pod_status_ready`,
 `kube_pod_container_status_restarts_total`, `kube_pod_container_resource_{limits,requests}`)
 and cAdvisor (`container_memory_working_set_bytes`), selected by pod name (`<server>-.+`).
+
+`tuttifrutti_stop_votes_total` has no panel or alert yet (the dashboard is generated from
+`helm/`); a passed vote also counts in `tuttifrutti_basta_total`, so "rounds ended by Basta"
+includes them.
 
 **Not instrumented yet** (so no panel or alert exists for them; proposal for a server
 change, names are suggestions): `tuttifrutti_games_started_total` / `_games_finished_total`
@@ -805,8 +899,8 @@ and `wss://`): zero `securitypolicyviolation` events and no Permissions-Policy w
 context (own cookies and storage); a test is a conversation between players. Base URL `E2E_BASE_URL` (default
 `http://localhost:8000`); `E2E_COMPOSE_PROJECT` names the stack for the server-restart test (skipped without it).
 
-**Projects.** `chromium` (every spec but the next two, ~2 min), `slow` (`*.slow.spec.ts`: the 60 s round time limit,
-which must run against the server's own clock; the shortest allowed limit is 60 s) and `restart`
+**Projects.** `chromium` (every spec but the next two, ~2 min), `slow` (`*.slow.spec.ts`: the 60 s round time limit and the 15 s
+vote-to-stop timeout, which must run against the server's own clock; the shortest allowed limit is 60 s) and `restart`
 (`*.restart.spec.ts`: restarts the server container, so it runs alone after the other two via project dependencies).
 Two workers, one retry in CI, trace on failure, no video, HTML + list reporters.
 
@@ -823,7 +917,18 @@ bots), kicked player, mid-round joiner, second tab "replaced", finished game. (8
 manifest. (9) axe on every main screen in all three languages: no `serious`/`critical` violation; findings still open are
 listed per element in `e2e/src/a11y.ts` with the reason and a TODO for the web app. (11) first-visit language from the
 browser (`nl-NL`/`nl-BE` → Dutch, `en-GB` → English, `es-ES`/`fr-FR` → Spanish); a choice in the switch beats the
-browser and survives a reload.
+browser and survives a reload. (12) the vote to stop: with a category empty the button stays enabled and opens the
+confirmation (`alertdialog`, focus on "keep playing", Escape sends nothing); the asker's banner and the voters'
+non-modal prompt (typing is not blocked), "n of total", the last yes shows the Basta overlay with the asker's name and
+leads to lock, review and scores with the empty cell at 0 (the asker sent no `basta`); a no rejects at once (only the
+asker is told, nobody is named) and she can ask again right away; with the lobby switch off the button is disabled
+until everything is valid; another player's Basta ends the vote and the overlay names that player; a voter going
+offline or closing the tab leaves the electorate, the asker going offline cancels the vote; a spectator sees the
+onlooker line and cannot vote (a bot spectator's `vote_stop` gets `not_participant`); the whole vote also in English and
+Dutch (exact words, `Stop!`, no Spanish on any screen); axe on the confirmation and the voter's prompt in all three
+languages; at 360×740 in Dutch with a 16-letter name the focused field stays wholly visible while the prompt is open;
+the 15 s timeout runs for real in the `slow` project (`12-stop-vote-timeout.slow`, es/en/nl). The older specs adapted
+to the new contract: where a field is missing the button now offers the vote instead of being disabled (1/2/10, 4).
 
 **Rules of the suite.** (A spec of its own checks that the guard, the no-Spanish check (English and Dutch) and the accessibility check really fail when they should; the main assertions were also mutation-checked against deliberately broken servers and messages.) Labels come from the app's real `web/messages/**` (never retyped, so they cannot drift); the
 exact Basta words and the game rules (alphabets, hard letters, points) are written out in the tests, so drift from this
@@ -1078,8 +1183,14 @@ of clearing it.
   English are unaffected. Before such a rollback, wait until no Dutch game is in
   progress (there is no per-language metric by design, so ask the players), and
   expect any Dutch room that is still open to be gone afterwards. Clients also
-  send protocol version 2, which the older server refuses, so every open tab is
-  asked to reload anyway.
+  send protocol version 2 (3 since the vote to stop), which the older server refuses,
+  so every open tab is asked to reload anyway.
+* **Rolling back past the vote to stop** is safe for the rooms: the old binary ignores
+  the new `stopVote` fields of the snapshots (the setting is lost when it rewrites them, so
+  a game restored by the next release starts with the feature off, and an open vote is gone
+  either way), but it speaks protocol version 2 and refuses `v:3`
+  (`unsupported_version`, close 4003), so every open tab is told to reload and then runs
+  the older client, which knows neither the setting nor the vote. Nothing else needs doing.
 * Stats are best effort. A finished game is lost without a `dropped` count only
   when the stats store keeps failing **and** its room closes for good before the
   record is delivered; the `error` counter and the log still show it.
