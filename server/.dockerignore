@@ -1,0 +1,5 @@
+bin/
+*.test
+coverage.txt
+Dockerfile
+.dockerignore
