@@ -28,7 +28,7 @@
 		"@inlang/paraglide-js": "^2.29.0",
 		"@inlang/plugin-message-format": "4.5.0",
 		"@sveltejs/adapter-static": "^3.0.10",
-		"@sveltejs/kit": "^2.70.3",
+		"@sveltejs/kit": "^3.0.0",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "^4.3.3",
 		"@testing-library/svelte": "^5.4.2",
