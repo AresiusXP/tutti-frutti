@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.2.1...v0.3.0) (2026-10-18)
+
+
+### Features
+
+* **web:** deliver complete room gameplay client ([5f1ac2a](https://github.com/AresiusXP/tutti-frutti/commit/5f1ac2a56cfb2dc92fa4774f72155fbfb9ce052d))
+
+
+### Documentation
+
+* document Phase 3 web client architecture ([d3ebb02](https://github.com/AresiusXP/tutti-frutti/commit/d3ebb02a20ced53405d62c6b5a5da88727066520))
+
 ## [0.2.1](https://github.com/AresiusXP/tutti-frutti/compare/v0.2.0...v0.2.1) (2026-10-18)
 
 
