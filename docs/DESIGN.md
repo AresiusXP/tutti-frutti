@@ -381,6 +381,39 @@ nickname, avatar, Join), a "Conectando…" screen, a "Reconectando…" banner ov
 a **closed** screen per reason (room gone, kicked, replaced by another tab, new version, join
 refused). See "Web client architecture" in 9a.
 
+### Privacy policy page
+
+`https://tuttifrutti.aresius.xyz/privacy` is the policy linked from the Google Cloud consent screen
+(OAuth branding: *Application home page* `https://tuttifrutti.aresius.xyz`, *Application privacy policy
+link* `https://tuttifrutti.aresius.xyz/privacy`, *Authorized domain* `aresius.xyz`). It is **not** an SPA
+route: `web/static/privacy.html` + `privacy.css` are plain HTML with no script and no inline style (so the
+strict CSP needs no change, and crawlers and people without JavaScript read it the same).
+
+* **Languages.** One file, three `<section class="doc" id="en|es|nl" lang="…">` blocks; the URL fragment
+  picks one (`/privacy#es`), pure CSS (`:target`). English is shown without a fragment or with an unknown
+  one. The app's link (`PrivacyLink`, on Home and on the stats page, 48 px, `rel="external"` so SvelteKit
+  does a real page load) appends the current screen language. The sticky bar has EN / ES / NL and a way
+  back to the game.
+* **Serving.** nginx answers `/privacy`, `/privacy/` and `/privacy.html` with `privacy.html` and
+  `/privacy.css`, all `Cache-Control: no-cache` plus the usual security headers. The service worker neither
+  precaches them nor treats them as an SPA fallback (`navigateFallbackDenylist`), so an installed app opens
+  the real page. It needs the network; that is intentional (a corrected policy is never stale).
+* **Contact.** `aresiusxp@gmail.com`, the address already used for the cluster's Let's Encrypt issuer.
+* **What it says** is derived from this document and the code: the data in 9b *Privacy* (Google `sub` and
+  display name only, scopes `openid profile`, no email or picture), the three cookies (`tf_guest` 1 year,
+  `tf_session` 30 days, `tf_oauth` 10 minutes, all `HttpOnly`, `Secure`, `SameSite=Lax`), the browser
+  storage (`tf.nickname`, `tf.avatar`, `tf.customs`, the language), retention (room snapshots until the room
+  closes and never past 6 h; accounts until deleted; Loki access logs 7 days), the Google API Services
+  User Data Policy *Limited Use* statement, deletion (in-app *Delete my account*, or by email, 30 days) and
+  the GDPR rights.
+* **Keeping it true.** Any change to what is collected, stored or set as a cookie, to a retention period or
+  to the Google scopes needs the three language blocks and the *Last updated* date changed in the same
+  commit. `src/lib/privacy.test.ts` checks the three languages have the same sections and facts (cookie
+  names, scopes, contact, retention figures, Google links); `13-privacy.spec.ts` checks that the cookie the
+  app really sets is the one the page names, that the page is reachable with an active service worker, that
+  Home still fits one screen with the link, and runs axe on all three languages. `security.test.ts` fails
+  if the page gains a script, an inline style or an embedded third-party resource.
+
 ## 7. Repository layout
 
 ```
@@ -929,6 +962,13 @@ Dutch (exact words, `Stop!`, no Spanish on any screen); axe on the confirmation 
 languages; at 360×740 in Dutch with a 16-letter name the focused field stays wholly visible while the prompt is open;
 the 15 s timeout runs for real in the `slow` project (`12-stop-vote-timeout.slow`, es/en/nl). The older specs adapted
 to the new contract: where a field is missing the button now offers the vote instead of being disabled (1/2/10, 4).
+(13) the privacy policy: Home shows the 48 px link in all three languages without scrolling, it opens
+`/privacy#<language>` as a real page load (no script, no app shell, no sideways scroll) with the right title,
+sentence and `lang`, the way back leads to the game; without a fragment (or with an unknown one) the page is English,
+the EN/ES/NL bar switches language and stays on screen, `/privacy/`, `/privacy.html` and the stylesheet answer, the
+page is `no-cache` with the app's security headers, an app whose service worker is active still shows the policy, the
+cookie a guest really gets (`tf_guest`, `HttpOnly`, `Lax`, about a year) is the one the page names, every outgoing link
+goes to one of the five known hosts, and axe is clean in es, en and nl.
 
 **Rules of the suite.** (A spec of its own checks that the guard, the no-Spanish check (English and Dutch) and the accessibility check really fail when they should; the main assertions were also mutation-checked against deliberately broken servers and messages.) Labels come from the app's real `web/messages/**` (never retyped, so they cannot drift); the
 exact Basta words and the game rules (alphabets, hard letters, points) are written out in the tests, so drift from this
