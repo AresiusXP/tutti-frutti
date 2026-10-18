@@ -10,6 +10,10 @@
     "github-actions",
     "helm-values"
   ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
   "packageRules": [
     {
       "description": "Group minor/patch updates per ecosystem",
@@ -18,9 +22,18 @@
       "groupName": "go dependencies"
     },
     {
+      "description": "Web (SvelteKit) npm dependencies",
       "matchManagers": ["npm"],
+      "matchFileNames": ["web/**"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "npm dependencies"
+    },
+    {
+      "description": "End-to-end suite npm dependencies, separate so a Playwright bump never holds back the web app",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["e2e/**"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "e2e dependencies"
     },
     {
       "matchManagers": ["dockerfile", "docker-compose"],
@@ -36,6 +49,42 @@
       "matchManagers": ["helm-values"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "helm values images"
+    },
+    {
+      "description": "The Go toolchain in server/Dockerfile (golang image) and server/go.mod (go directive, which setup-go reads in ci-server.yml) move together so CI tests with the Go the image is built with",
+      "matchPackageNames": ["go", "golang"],
+      "groupName": "go toolchain"
+    },
+    {
+      "description": "Node major: the build image (web/Dockerfile), setup-node in the workflows and @types/node (which must match the Node major in use) change together in one PR",
+      "matchPackageNames": ["node", "@types/node"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "node runtime"
+    },
+    {
+      "description": "BLOCKED: dev/CI Postgres follows production (CloudPirates Postgres 18.6). Bump docker-compose.yml, ci-server.yml (services.postgres.image) and the example in server/internal/store/doc.go by hand, in one change, after production moves. Postgres 18+ images keep the data under /var/lib/postgresql/<major>/docker: a volume made by an older major is refused, so remind developers to run `docker compose down -v` once.",
+      "matchManagers": ["docker-compose", "github-actions"],
+      "matchPackageNames": ["postgres"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "BLOCKED (SvelteKit 3 toolchain): @sveltejs/kit 3, @sveltejs/adapter-static 4 and vite-plugin-pwa 2 only work together, and @vite-pwa/sveltekit 1.1.0 (the PWA/service worker plugin, peer @sveltejs/kit ^1.3.1 || ^2.0.1, depends on vite-plugin-pwa ^1.2.0) supports none of them: npm ci fails with ERESOLVE, and forcing it builds an app WITHOUT a service worker (vite-pwa/sveltekit#111). Kit 3 also needs a config migration (svelte.config.js, $lib alias). Retry when `npm view @vite-pwa/sveltekit peerDependencies` lists @sveltejs/kit ^3 and its vite-plugin-pwa dependency is ^2: then enable this rule so the three arrive in one PR.",
+      "matchPackageNames": [
+        "@sveltejs/kit",
+        "@sveltejs/adapter-static",
+        "@vite-pwa/sveltekit",
+        "vite-plugin-pwa"
+      ],
+      "matchUpdateTypes": ["major"],
+      "groupName": "sveltekit toolchain",
+      "enabled": false
+    },
+    {
+      "description": "BLOCKED (TypeScript 7 is the native compiler and ships no JavaScript API): typescript-eslint refuses it (peer typescript >=4.8.4 <6.1.0, throws 'does not support TS 7.0'), svelte-check 4 (peer ^5 || ^6) only runs it as an alias next to TypeScript 6 with --tsgo, and @sveltejs/kit peers ^5.3.3 || ^6. Retry when `npm view typescript-eslint peerDependencies` and `npm view svelte-check peerDependencies` accept typescript 7.",
+      "matchPackageNames": ["typescript"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
     }
   ]
 }

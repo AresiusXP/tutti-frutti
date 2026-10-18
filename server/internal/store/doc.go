@@ -49,7 +49,7 @@
 // for example:
 //
 //	docker run -d --rm --name tf-store-test -e POSTGRES_USER=tutti \
-//	  -e POSTGRES_PASSWORD=tutti -e POSTGRES_DB=tutti -p 127.0.0.1:55432:5432 postgres:17-alpine
+//	  -e POSTGRES_PASSWORD=tutti -e POSTGRES_DB=tutti -p 127.0.0.1:55432:5432 postgres:18-alpine
 //	TEST_DATABASE_URL='postgres://tutti:tutti@127.0.0.1:55432/tutti?sslmode=disable' \
 //	  go test -race -cover ./internal/store/...
 package store
