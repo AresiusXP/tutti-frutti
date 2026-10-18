@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.3.0...v0.4.0) (2026-10-18)
+
+
+### Features
+
+* **helm:** add optional Grafana dashboard and Prometheus alerts ([ada0859](https://github.com/AresiusXP/tutti-frutti/commit/ada0859c4066c0d4ff21770eb35df8355d1b7497))
+* **server:** add Google auth, accounts, and durable game stats ([d590329](https://github.com/AresiusXP/tutti-frutti/commit/d59032981c4ead64886d6d44df3dbcadea81db33))
+* **web:** add Google accounts and stats UI ([432149a](https://github.com/AresiusXP/tutti-frutti/commit/432149ab13934b7a6d291f36810818d1a9a6b5de))
+* **web:** harden security headers and enrich PWA metadata ([ad79545](https://github.com/AresiusXP/tutti-frutti/commit/ad79545efba5cd1cb1298d853f2b09f614042bae))
+
+
+### Documentation
+
+* document accounts, stats, observability, and E2E contracts ([a57b711](https://github.com/AresiusXP/tutti-frutti/commit/a57b711fa7c396b12f32ad89ea7e0e16ce472c8e))
+
 ## [0.3.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.2.1...v0.3.0) (2026-10-18)
 
 
