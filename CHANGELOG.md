@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/AresiusXP/tutti-frutti/compare/v0.2.0...v0.2.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **server:** return retryable busy responses during shutdown ([6c000b6](https://github.com/AresiusXP/tutti-frutti/commit/6c000b6c9780cde68954764d08cf5ad525df6c2b))
+
 ## [0.2.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.1.0...v0.2.0) (2026-10-18)
 
 
