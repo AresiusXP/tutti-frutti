@@ -1,4 +1,4 @@
-import { type Avatar, DEFAULT_AVATAR, isAvatar } from './avatar';
+import { type Avatar, DEFAULT_AVATAR, isAvatar, randomAvatar } from './avatar';
 import { normalizeNickname } from './nickname';
 
 export const NICKNAME_KEY = 'tf.nickname';
@@ -28,14 +28,30 @@ export class ProfileStore {
 	nickname = $state('');
 	avatar = $state<Avatar>({ ...DEFAULT_AVATAR });
 
-	constructor(storage: StorageLike | null = browserStorage()) {
+	/**
+	 * `randomDefault`: a player without a saved avatar gets a random one (and it
+	 * is remembered) instead of the fixed default. Off by default so tests stay
+	 * deterministic; the app's singleton turns it on.
+	 */
+	constructor(
+		storage: StorageLike | null = browserStorage(),
+		options: { randomDefault?: boolean; rng?: () => number } = {}
+	) {
 		this.#storage = storage;
+		let saved = false;
 		try {
 			this.nickname = normalizeNickname(storage?.getItem(NICKNAME_KEY) ?? '');
-			const saved: unknown = JSON.parse(storage?.getItem(AVATAR_KEY) ?? 'null');
-			if (isAvatar(saved)) this.avatar = saved;
+			const stored: unknown = JSON.parse(storage?.getItem(AVATAR_KEY) ?? 'null');
+			if (isAvatar(stored)) {
+				this.avatar = stored;
+				saved = true;
+			}
 		} catch {
 			// corrupted storage: keep defaults
+		}
+		if (!saved && options.randomDefault) {
+			this.avatar = randomAvatar(options.rng);
+			write(storage, AVATAR_KEY, JSON.stringify(this.avatar));
 		}
 	}
 
@@ -54,4 +70,4 @@ export class ProfileStore {
 	}
 }
 
-export const profile = new ProfileStore();
+export const profile = new ProfileStore(undefined, { randomDefault: true });

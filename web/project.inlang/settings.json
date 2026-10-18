@@ -4,6 +4,12 @@
 	"locales": ["es", "en"],
 	"modules": ["./node_modules/@inlang/plugin-message-format/dist/index.js"],
 	"plugin.inlang.messageFormat": {
-		"pathPattern": "./messages/{locale}.json"
+		"pathPattern": [
+			"./messages/{locale}.json",
+			"./messages/net/{locale}.json",
+			"./messages/lobby/{locale}.json",
+			"./messages/play/{locale}.json",
+			"./messages/review/{locale}.json"
+		]
 	}
 }

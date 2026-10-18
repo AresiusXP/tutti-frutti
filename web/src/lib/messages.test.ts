@@ -5,11 +5,26 @@ import { m } from './paraglide/messages';
 
 type Catalog = Record<string, string>;
 
-function load(locale: string): Catalog {
+/** Message areas: the shared catalog plus one folder per feature (each owned by one part of the app). */
+const AREAS = ['', 'net/', 'lobby/', 'play/', 'review/'];
+
+function readArea(area: string, locale: string): Catalog {
 	const raw = JSON.parse(
-		readFileSync(new URL(`../../messages/${locale}.json`, import.meta.url), 'utf8')
+		readFileSync(new URL(`../../messages/${area}${locale}.json`, import.meta.url), 'utf8')
 	) as Catalog;
 	return Object.fromEntries(Object.entries(raw).filter(([key]) => !key.startsWith('$')));
+}
+
+function load(locale: string): Catalog {
+	const merged: Catalog = {};
+	for (const area of AREAS) {
+		for (const [key, value] of Object.entries(readArea(area, locale))) {
+			if (key in merged)
+				throw new Error(`duplicate message key "${key}" (${area || 'core'}/${locale})`);
+			merged[key] = value;
+		}
+	}
+	return merged;
 }
 
 const es = load('es');

@@ -1,9 +1,16 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { ApiError, api, type RoomInfo } from '$lib/api';
 	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
 	import AvatarPicker from '$lib/components/AvatarPicker.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import LanguageSwitch from '$lib/components/LanguageSwitch.svelte';
 	import RoomCodeInput from '$lib/components/RoomCodeInput.svelte';
 	import Wordmark from '$lib/components/Wordmark.svelte';
+	import { errorMessage } from '$lib/errors';
+	import { markRoom } from '$lib/game/roomMark';
+	import { i18n } from '$lib/i18n.svelte';
 	import { capNickname, NICKNAME_MAX } from '$lib/nickname';
 	import { m } from '$lib/paraglide/messages';
 	import { profile } from '$lib/profile.svelte';
@@ -12,8 +19,10 @@
 
 	let draft = $state(profile.nickname);
 	let code = $state('');
+	/** The action in flight: its button shows progress and everything else is disabled meanwhile. */
+	let busy = $state<'create' | 'join' | null>(null);
 
-	const canCreate = $derived(profile.nickname.length > 0);
+	const canCreate = $derived(profile.nickname.length > 0 && busy === null);
 	const canJoin = $derived(canCreate && isCompleteRoomCode(code));
 
 	function onNicknameInput() {
@@ -25,9 +34,58 @@
 		toasts.show(m.coming_soon());
 	}
 
-	const primary =
-		'h-14 w-full rounded-2xl px-6 text-xl font-black text-night shadow-pop transition active:translate-y-1 active:shadow-none disabled:bg-night-3 disabled:text-cream-muted disabled:shadow-none';
+	function notJoinable(info: RoomInfo): string {
+		if (info.phase === 'final') return m.home_game_over();
+		if (info.players >= info.maxPlayers) return m.home_room_full();
+		return m.home_not_joinable();
+	}
+
+	async function enter(target: string) {
+		markRoom(target);
+		await goto(resolve('/[code=roomcode]', { code: target }));
+	}
+
+	async function create() {
+		if (!canCreate) return;
+		busy = 'create';
+		try {
+			const created = await api.createRoom({
+				name: profile.nickname,
+				avatar: profile.avatar,
+				lang: i18n.locale
+			});
+			await enter(created.code);
+		} catch (e) {
+			toasts.show(errorMessage(e instanceof ApiError ? e.code : 'unknown'));
+		} finally {
+			busy = null;
+		}
+	}
+
+	async function join() {
+		if (!canJoin) return;
+		busy = 'join';
+		try {
+			const info = await api.getRoom(code);
+			if (!info.joinable) toasts.show(notJoinable(info));
+			else await enter(info.code);
+		} catch (e) {
+			toasts.show(errorMessage(e instanceof ApiError ? e.code : 'unknown'));
+		} finally {
+			busy = null;
+		}
+	}
 </script>
+
+{#snippet pending(label: string)}
+	<span class="flex items-center justify-center gap-3">
+		<span
+			class="size-5 animate-spin rounded-full border-[3px] border-night/30 border-t-night"
+			aria-hidden="true"
+		></span>
+		{label}
+	</span>
+{/snippet}
 
 <!--
 	Mobile-first, thumb-friendly: everything needed to start a game fits in one
@@ -78,9 +136,18 @@
 	</section>
 
 	<section class="mt-auto flex flex-col gap-2 tall:gap-3">
-		<button type="button" disabled={!canCreate} onclick={comingSoon} class="{primary} bg-banana">
-			{m.create_game()}
-		</button>
+		<Button
+			tone="banana"
+			disabled={!canCreate && busy !== 'create'}
+			aria-busy={busy === 'create'}
+			onclick={create}
+		>
+			{#if busy === 'create'}
+				{@render pending(m.home_create_pending())}
+			{:else}
+				{m.create_game()}
+			{/if}
+		</Button>
 
 		<div class="flex items-center gap-3 text-sm text-cream-muted" aria-hidden="true">
 			<span class="h-px flex-1 bg-night-3"></span>
@@ -93,12 +160,21 @@
 				<span class="text-sm font-bold text-cream-muted">{m.code_label()}</span>
 				<span id="code-hint" class="text-xs text-cream-muted">{m.code_hint()}</span>
 			</div>
-			<RoomCodeInput bind:value={code} describedby="code-hint" />
+			<RoomCodeInput bind:value={code} describedby="code-hint" disabled={busy !== null} />
 		</div>
 
-		<button type="button" disabled={!canJoin} onclick={comingSoon} class="{primary} bg-strawberry">
-			{m.join_game()}
-		</button>
+		<Button
+			tone="strawberry"
+			disabled={!canJoin && busy !== 'join'}
+			aria-busy={busy === 'join'}
+			onclick={join}
+		>
+			{#if busy === 'join'}
+				{@render pending(m.home_join_pending())}
+			{:else}
+				{m.join_game()}
+			{/if}
+		</Button>
 
 		<a
 			href="/api/auth/google/login?returnTo=%2F"
