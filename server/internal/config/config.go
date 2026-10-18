@@ -28,7 +28,8 @@ type Config struct {
 	// MinSessionSecretBytes long, so that a guessable value cannot be
 	// brute-forced offline from a single signed cookie.
 	SessionSecret string
-	// GoogleClientID and GoogleClientSecret enable Google login when both set.
+	// GoogleClientID and GoogleClientSecret enable Google login when both set;
+	// it then requires PUBLIC_URL, because the redirect URI derives from it.
 	GoogleClientID     string
 	GoogleClientSecret string
 	// AllowedOrigins are extra origins (scheme://host[:port], no path) that
@@ -45,6 +46,10 @@ type Config struct {
 	// 1..100000).
 	MaxRooms int
 }
+
+// googleCallbackPath is the path of the OAuth redirect URI under PUBLIC_URL
+// (see auth.GoogleCallbackPath).
+const googleCallbackPath = "/api/auth/google/callback"
 
 const (
 	defaultMaxRooms = 1000
@@ -90,6 +95,9 @@ func Load(getenv func(string) string) (Config, error) {
 
 	if (cfg.GoogleClientID == "") != (cfg.GoogleClientSecret == "") {
 		return Config{}, fmt.Errorf("config: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together")
+	}
+	if cfg.GoogleEnabled() && cfg.PublicURL == "" {
+		return Config{}, fmt.Errorf("config: Google login needs PUBLIC_URL (the OAuth redirect URI is PUBLIC_URL%s)", googleCallbackPath)
 	}
 
 	origins, err := parseOrigins(getenv("ALLOWED_ORIGINS"))
@@ -166,6 +174,15 @@ func (c Config) SecureCookies() bool {
 // GoogleEnabled reports whether Google login is configured.
 func (c Config) GoogleEnabled() bool {
 	return c.GoogleClientID != "" && c.GoogleClientSecret != ""
+}
+
+// GoogleRedirectURL is the OAuth redirect URI registered with Google:
+// PUBLIC_URL + /api/auth/google/callback ("" without PUBLIC_URL).
+func (c Config) GoogleRedirectURL() string {
+	if c.PublicURL == "" {
+		return ""
+	}
+	return c.PublicURL + googleCallbackPath
 }
 
 func valueOr(v, fallback string) string {

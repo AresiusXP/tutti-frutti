@@ -95,3 +95,24 @@ func TestMemoryStaysUsableAfterClose(t *testing.T) {
 		t.Errorf("LoadAll returned %d snapshots", len(got))
 	}
 }
+
+func TestMemoryAccountsContract(t *testing.T) {
+	testAccountsContract(t, func(*testing.T) Accounts { return NewMemory() })
+}
+
+func TestMemoryAccountsUseTheClock(t *testing.T) {
+	now := baseTime
+	m := NewMemoryWithClock(func() time.Time { return now })
+	u, err := m.UpsertGoogleUser(t.Context(), "sub", "Ana")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !u.CreatedAt.Equal(baseTime) || !u.LastLoginAt.Equal(baseTime) {
+		t.Errorf("times = %v / %v, want %v", u.CreatedAt, u.LastLoginAt, baseTime)
+	}
+	now = baseTime.Add(time.Hour)
+	again, _ := m.UpsertGoogleUser(t.Context(), "sub", "Ana")
+	if !again.CreatedAt.Equal(baseTime) || !again.LastLoginAt.Equal(baseTime.Add(time.Hour)) {
+		t.Errorf("times after the second login = %v / %v", again.CreatedAt, again.LastLoginAt)
+	}
+}

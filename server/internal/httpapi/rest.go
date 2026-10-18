@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/AresiusXP/tutti-frutti/server/internal/api"
 	"github.com/AresiusXP/tutti-frutti/server/internal/catalog"
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
 	"github.com/AresiusXP/tutti-frutti/server/internal/ratelimit"
@@ -52,8 +53,11 @@ func (s *Server) limitKey(r *http.Request) string {
 
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	s.guests.Ensure(w, r)
-	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, map[string]bool{"guest": true})
+	info := api.SessionInfo{Guest: true, GoogleEnabled: s.google != nil}
+	if s.sessions != nil {
+		_, info.LoggedIn = s.sessions.Identify(r)
+	}
+	writeJSON(w, http.StatusOK, info)
 }
 
 func (s *Server) handleCategories(w http.ResponseWriter, r *http.Request) {

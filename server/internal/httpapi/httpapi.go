@@ -24,6 +24,7 @@ import (
 	"github.com/AresiusXP/tutti-frutti/server/internal/auth"
 	"github.com/AresiusXP/tutti-frutti/server/internal/ratelimit"
 	"github.com/AresiusXP/tutti-frutti/server/internal/room"
+	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 )
 
 // Per-client-IP limits (docs/DESIGN.md section 9a). Behind the homelab's
@@ -37,6 +38,11 @@ const (
 	createBurst = 10                     // ...in bursts of 10
 	lookupRate  = rate.Limit(300.0 / 60) // GET /api/rooms/{code}: 300 per minute...
 	lookupBurst = 60                     // ...in bursts of 60
+	// The login and callback endpoints share one bucket (each login spends two
+	// tokens): 60 per minute in bursts of 30 lets a dozen friends log in at
+	// once, while a flood costs us nothing but redirects.
+	authRate  = rate.Limit(60.0 / 60)
+	authBurst = 30
 
 	// limiterIdleTTL is how long an idle IP keeps its bucket.
 	limiterIdleTTL = 10 * time.Minute
@@ -56,6 +62,13 @@ type Options struct {
 	// Guests mints and verifies the guest cookie: it enables GET /api/session
 	// and POST /api/rooms.
 	Guests *auth.Guests
+	// Sessions and Accounts enable the account endpoints (/api/me...,
+	// /api/auth/...); GET /api/session reports loggedIn when Sessions is set.
+	Sessions *auth.Sessions
+	Accounts store.Accounts
+	// Google runs the Google login; nil answers 404 auth_disabled on the login
+	// endpoints and googleEnabled=false on GET /api/session.
+	Google *auth.Google
 	// AllowedOrigins are the origins that may call unsafe methods under /api
 	// (PUBLIC_URL's origin already merged with ALLOWED_ORIGINS by the caller;
 	// see config.Config.Origins). Only enforced when Rooms or Guests is set.
@@ -87,6 +100,10 @@ type Limits struct {
 	// LookupRate and LookupBurst bound GET /api/rooms/{code}.
 	LookupRate  rate.Limit
 	LookupBurst int
+	// AuthRate and AuthBurst bound GET /api/auth/google/login and /callback
+	// together.
+	AuthRate  rate.Limit
+	AuthBurst int
 }
 
 func (l Limits) withDefaults() Limits {
@@ -101,6 +118,12 @@ func (l Limits) withDefaults() Limits {
 	}
 	if l.LookupBurst <= 0 {
 		l.LookupBurst = lookupBurst
+	}
+	if l.AuthRate <= 0 {
+		l.AuthRate = authRate
+	}
+	if l.AuthBurst <= 0 {
+		l.AuthBurst = authBurst
 	}
 	return l
 }
@@ -117,11 +140,16 @@ type Server struct {
 
 	rooms       room.Rooms
 	guests      *auth.Guests
+	sessions    *auth.Sessions
+	accounts    store.Accounts
+	google      *auth.Google
+	logins      *prometheus.CounterVec
 	origins     []string
 	trustXFF    bool
 	readyChecks []func(context.Context) error
 	createLimit *ratelimit.Keyed
 	lookupLimit *ratelimit.Keyed
+	authLimit   *ratelimit.Keyed
 }
 
 // New builds a Server. It starts ready; call SetReady(false) when shutting
@@ -138,11 +166,16 @@ func New(opts Options) *Server {
 		mux:         http.NewServeMux(),
 		rooms:       opts.Rooms,
 		guests:      opts.Guests,
+		sessions:    opts.Sessions,
+		accounts:    opts.Accounts,
+		google:      opts.Google,
+		logins:      newLoginMetric(),
 		origins:     opts.AllowedOrigins,
 		trustXFF:    opts.TrustForwardedFor,
 		readyChecks: opts.ReadyChecks,
 		createLimit: ratelimit.NewKeyed(lim.CreateRate, lim.CreateBurst, limiterIdleTTL, opts.Now),
 		lookupLimit: ratelimit.NewKeyed(lim.LookupRate, lim.LookupBurst, limiterIdleTTL, opts.Now),
+		authLimit:   ratelimit.NewKeyed(lim.AuthRate, lim.AuthBurst, limiterIdleTTL, opts.Now),
 	}
 	if s.registry == nil {
 		s.registry = prometheus.NewRegistry()
@@ -163,6 +196,7 @@ func New(opts Options) *Server {
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		s.requests,
 		s.duration,
+		s.logins,
 	)
 
 	s.mux.HandleFunc("GET /healthz", s.handleHealthz)
@@ -170,12 +204,15 @@ func New(opts Options) *Server {
 	s.mux.Handle("GET /metrics", promhttp.HandlerFor(s.registry, promhttp.HandlerOpts{}))
 	s.mux.HandleFunc("GET /api/version", s.handleVersion)
 	s.registerREST()
+	s.registerAccounts()
 	s.mux.HandleFunc("/api/", handleAPINotFound)
 	return s
 }
 
 // Handler returns the root handler (with logging and metrics middleware).
-func (s *Server) Handler() http.Handler { return s.instrument(s.guardOrigin(s.mux)) }
+func (s *Server) Handler() http.Handler {
+	return s.instrument(secureHeaders(s.guardOrigin(s.mux)))
+}
 
 // Mux exposes the underlying mux so other packages can register routes; cmd/server
 // uses it to mount the WebSocket handler: api.Mux().Handle("GET /ws", ws.NewHandler(...)).
@@ -234,11 +271,26 @@ func writeError(w http.ResponseWriter, status int, code string) {
 	writeJSON(w, status, map[string]string{"error": code})
 }
 
+// secureHeaders adds the headers every response carries: no content sniffing,
+// no referrer to other origins, and, under /api, no caching unless the handler
+// says otherwise (it overrides the default by setting its own Cache-Control).
+func secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "same-origin")
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			h.Set("Cache-Control", "no-store")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // guardOrigin rejects unsafe-method requests under /api whose Origin header is
 // missing or not allowed (CSRF defence in depth on top of SameSite=Lax). It is
-// only active when the REST API (Rooms or Guests) is configured.
+// only active when the REST API (Rooms, Guests or Sessions) is configured.
 func (s *Server) guardOrigin(next http.Handler) http.Handler {
-	if s.rooms == nil && s.guests == nil {
+	if s.rooms == nil && s.guests == nil && s.sessions == nil {
 		return next
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

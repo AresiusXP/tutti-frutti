@@ -87,6 +87,11 @@ type Deps struct {
 	Rooms room.Rooms
 	// Guests identifies the player from the guest cookie. Required.
 	Guests *auth.Guests
+	// Sessions, when set, reads the account cookie of the upgrade request: a
+	// valid session links the player to that user (statistics, see
+	// room.UserLinked). An invalid or missing session just means a guest: it
+	// is never an error.
+	Sessions *auth.Sessions
 	// AllowedOrigins is PUBLIC_URL's origin merged with ALLOWED_ORIGINS
 	// (config.Config.Origins). See the package documentation.
 	AllowedOrigins []string
@@ -128,6 +133,7 @@ type Deps struct {
 type Handler struct {
 	rooms            room.Rooms
 	guests           *auth.Guests
+	sessions         *auth.Sessions
 	origins          []string
 	trustXFF         bool
 	log              *slog.Logger
@@ -171,6 +177,7 @@ func NewHandler(d Deps) *Handler {
 	h := &Handler{
 		rooms:            d.Rooms,
 		guests:           d.Guests,
+		sessions:         d.Sessions,
 		origins:          d.AllowedOrigins,
 		trustXFF:         d.TrustForwardedFor,
 		log:              d.Logger,
@@ -280,6 +287,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ws.SetReadLimit(protocol.MaxMessageBytes)
 
 	c := newConn(h, ws, id, ip)
+	if h.sessions != nil {
+		c.userID, _ = h.sessions.Identify(r)
+	}
 	shuttingDown, forced := h.register(c)
 	defer h.unregister(c)
 	if shuttingDown {

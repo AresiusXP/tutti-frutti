@@ -86,4 +86,46 @@
 // is exiting and the stale snapshot is the next process's to discard); it keeps
 // the snapshots of live rooms, after writing a final one per room and waiting
 // for it, so that the next process picks the games up where they were.
+//
+// # Accounts and statistics
+//
+// A Client that implements UserLinked carries the account its connection was
+// signed in with. A successful "join" links the player to that user, the room
+// keeps player -> user in its snapshot (Persisted.Users, absent in older
+// snapshots) and drops a link with its seat (a seat that merely left a started
+// game keeps it: it still gets credit for the rounds it played, until the
+// rematch). The link follows the latest join only until the player takes part in
+// the game (a participant of the round in progress or a player with a scored
+// round); from then on it is frozen until the rematch, absent links included, so
+// that reconnecting with another account's session cannot move the credit of
+// rounds already played (the guest cookie is the bearer credential of a seat).
+//
+// A finished game goes through three stages, all inside the room's goroutine
+// except the delivery:
+//
+//   - At game_started the room mints the game's id. Every snapshot of the game
+//     carries it (Persisted.GameID), so a game replayed after a crash, from a
+//     snapshot taken before game_over, ends under the same id and the store
+//     counts it once. A restored started game without an id gets one.
+//   - At game_over the room builds the store.GameRecord once (buildRecord: the
+//     players linked to a user who took part in a scored round of a game with at
+//     least two participants), appends it to its outbox (room.pending, saved as
+//     Persisted.Pending, at most maxPendingRecords) and offers it to the
+//     recorder. The record is never rebuilt afterwards, so nothing that happens
+//     later can change who gets credit.
+//   - The recorder is one goroutine with a bounded queue that retries a failing
+//     store with exponential backoff on the hub's clock. It reports back to the
+//     room through a posted task (statsJob.done): when the store has the record
+//     (or refused it for good) the room removes it from the outbox and saves; a
+//     record the recorder gave up on stays in the outbox and is offered again with
+//     the room's next snapshot, by the next process at its start (onInit), and
+//     once more when the room is closed for good. The room never waits for the
+//     recorder and never fails because of it.
+//
+// Hub.Shutdown lets the recorder give every queued game one last attempt once the
+// rooms stopped, within the shutdown budget; the final snapshots carry the outbox,
+// so whatever still fails is recorded by the next process. A final-phase snapshot
+// written before the outbox existed (a game id but no Persisted.Outbox marker)
+// rebuilds its record once at restore. Without Config.Recorder none of this
+// exists.
 package room

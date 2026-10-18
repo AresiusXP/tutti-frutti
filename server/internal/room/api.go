@@ -82,6 +82,10 @@ type Config struct {
 	MaxRooms int
 	// CodeSource is the randomness for room codes (default crypto/rand).
 	CodeSource io.Reader
+	// Recorder receives the results of finished games for the players linked
+	// to an account (see UserLinked). Nil disables statistics: no link is kept
+	// and nothing is recorded.
+	Recorder Recorder
 }
 
 // CreateRequest describes the host of a new room.
@@ -120,6 +124,16 @@ type Client interface {
 	// Close starts closing the connection with a WebSocket close code
 	// (protocol.Close*) and reason. It is idempotent.
 	Close(code int, reason string)
+}
+
+// UserLinked is optionally implemented by a Client whose connection carries a
+// signed-in account (the transport read a valid session cookie). When the
+// client joins, the room links its player to that user; the link decides who
+// gets statistics when the game ends. A client that does not implement it, or
+// returns "", is a guest.
+type UserLinked interface {
+	// UserID is the id of the user, or "" for a guest.
+	UserID() string
 }
 
 // Session is the room-side handle of a connected Client.

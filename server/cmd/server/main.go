@@ -31,9 +31,10 @@ const (
 	// readinessGrace gives Kubernetes time to take the pod out of the
 	// Service endpoints before we stop accepting connections.
 	readinessGrace = 2 * time.Second
-	// hubShutdownTimeout bounds the room drain: final snapshots + closing every
+	// hubShutdownTimeout bounds the room drain: final snapshots, closing every
 	// WebSocket with 1012 (http.Server.Shutdown does not track hijacked
-	// connections, so the hub is what drains them).
+	// connections, so the hub is what drains them) and the last attempt to
+	// record the statistics of games that just ended.
 	hubShutdownTimeout = 15 * time.Second
 	// wsShutdownTimeout bounds closing the sockets the hub does not track and
 	// waiting for their goroutines.
@@ -72,7 +73,7 @@ func run() error {
 	defer cancelStart()
 
 	var (
-		st          store.Store
+		st          store.Backend
 		readyChecks []func(context.Context) error
 	)
 	if cfg.DatabaseURL != "" {
@@ -93,6 +94,7 @@ func run() error {
 		Logger:     logger,
 		Registerer: reg,
 		MaxRooms:   cfg.MaxRooms,
+		Recorder:   st,
 	})
 	// hub.Start ties its janitor to the context it receives, so that context
 	// must live as long as the server (the signal context), not just for the
@@ -109,7 +111,24 @@ func run() error {
 	}
 	logger.Info("rooms restored", "count", restored)
 
-	guests := auth.NewGuests([]byte(cfg.SessionSecret), cfg.SecureCookies(), logger)
+	// One secret for every signed cookie; an empty SESSION_SECRET becomes one
+	// random secret (with a warning) shared by all of them.
+	secret := auth.NewSecret([]byte(cfg.SessionSecret), logger)
+	guests := auth.NewGuests(secret, cfg.SecureCookies(), logger)
+	sessions := auth.NewSessions(secret, cfg.SecureCookies())
+	// Google's discovery is lazy: an unreachable Google never delays or fails
+	// the start (the first login retries it).
+	var google *auth.Google
+	if cfg.GoogleEnabled() {
+		google = auth.NewGoogle(auth.GoogleConfig{
+			ClientID:     cfg.GoogleClientID,
+			ClientSecret: cfg.GoogleClientSecret,
+			RedirectURL:  cfg.GoogleRedirectURL(),
+			Secret:       secret,
+			Secure:       cfg.SecureCookies(),
+			Logger:       logger,
+		})
+	}
 	origins := cfg.Origins()
 
 	api := httpapi.New(httpapi.Options{
@@ -118,6 +137,9 @@ func run() error {
 		Registry:          reg,
 		Rooms:             hub,
 		Guests:            guests,
+		Sessions:          sessions,
+		Accounts:          st,
+		Google:            google,
 		AllowedOrigins:    origins,
 		TrustForwardedFor: cfg.TrustForwardedFor,
 		ReadyChecks:       readyChecks,
@@ -125,6 +147,7 @@ func run() error {
 	wsHandler := ws.NewHandler(ws.Deps{
 		Rooms:             hub,
 		Guests:            guests,
+		Sessions:          sessions,
 		AllowedOrigins:    origins,
 		TrustForwardedFor: cfg.TrustForwardedFor,
 		Logger:            logger,
@@ -143,7 +166,7 @@ func run() error {
 	errCh := make(chan error, 1)
 	go func() {
 		logger.Info("server listening", "addr", srv.Addr, "version", version,
-			"database", cfg.DatabaseURL != "", "origins", origins)
+			"database", cfg.DatabaseURL != "", "google", google != nil, "origins", origins)
 		errCh <- srv.ListenAndServe()
 	}()
 

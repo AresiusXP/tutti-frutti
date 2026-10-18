@@ -45,6 +45,8 @@ type Hub struct {
 	clock Clock
 	store store.Store
 	m     *metrics
+	// recorder is nil when Config.Recorder is.
+	recorder *recorder
 
 	// baseCtx is the context of every store call made in the background; it
 	// is cancelled at the very end of Shutdown to abort calls that hang.
@@ -127,7 +129,7 @@ func NewHub(cfg Config) *Hub {
 	}
 	log := cfg.Logger.With("component", "room")
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Hub{
+	h := &Hub{
 		cfg:         cfg,
 		log:         log,
 		clock:       cfg.Clock,
@@ -143,6 +145,10 @@ func NewHub(cfg Config) *Hub {
 		minBackoff:  defaultMinBackoff,
 		maxBackoff:  defaultMaxBackoff,
 	}
+	if cfg.Recorder != nil {
+		h.recorder = newRecorder(h, cfg.Recorder)
+	}
+	return h
 }
 
 // Start restores the rooms saved in the store (every player disconnected, the
@@ -240,6 +246,7 @@ func (h *Hub) restore(ctx context.Context) ([]*room, error) {
 			continue
 		}
 		r := h.newRoom(p.Code, g, p.CreatedAt, true)
+		r.restoreStats(p)
 		h.spawnLocked(r)
 		h.mu.Unlock()
 		restored = append(restored, r)
@@ -509,6 +516,12 @@ func (h *Hub) shutdown(ctx context.Context) error {
 		case <-ctx.Done():
 			fail(ctx.Err())
 		}
+	}
+
+	// The rooms no longer produce results: let the recorder finish what is
+	// queued (its goroutine is one of the hub's and is waited for below).
+	if h.recorder != nil {
+		h.recorder.beginClose()
 	}
 
 	// 2. Wait until the final snapshots are in the store.

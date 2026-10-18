@@ -126,6 +126,8 @@ func kinds(frames []frameRec) []string {
 // fakeClient implements Client by recording what the room does to it.
 type fakeClient struct {
 	id string
+	// user is the account the connection is signed in with (see UserLinked).
+	user string
 
 	mu        sync.Mutex
 	frames    []frameRec
@@ -139,6 +141,9 @@ var _ Client = (*fakeClient)(nil)
 func newFakeClient(id string) *fakeClient { return &fakeClient{id: id} }
 
 func (c *fakeClient) PlayerID() string { return c.id }
+
+// UserID implements UserLinked.
+func (c *fakeClient) UserID() string { return c.user }
 
 func (c *fakeClient) Send(frame []byte) bool {
 	c.mu.Lock()
@@ -608,6 +613,19 @@ func (e *env) handle(code string, s Session, typ string, payload any) {
 	}
 	s.Handle(typ, d)
 	e.sync(code)
+}
+
+// joinAs is join with a client signed in as user.
+func (e *env) joinAs(code, id, name, user string) (*fakeClient, Session) {
+	e.t.Helper()
+	c := newFakeClient(id)
+	c.user = user
+	s, err := e.hub.Connect(code, c)
+	if err != nil {
+		e.t.Fatalf("Connect(%s, %s): %v", code, id, err)
+	}
+	e.handle(code, s, game.CmdJoin, protocol.JoinRequest{Code: code, Name: name, Avatar: testAvatar})
+	return c, s
 }
 
 // join connects a client and joins it to the room.

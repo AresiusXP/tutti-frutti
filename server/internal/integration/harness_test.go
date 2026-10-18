@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/AresiusXP/tutti-frutti/server/internal/auth"
+	"github.com/AresiusXP/tutti-frutti/server/internal/auth/authtest"
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
 	"github.com/AresiusXP/tutti-frutti/server/internal/httpapi"
 	"github.com/AresiusXP/tutti-frutti/server/internal/protocol"
@@ -60,6 +61,8 @@ type stackOpts struct {
 	noForwardedFor bool
 	// limits overrides the (very generous) REST rate limits of the harness.
 	limits httpapi.Limits
+	// idp enables Google login against this fake identity provider.
+	idp *authtest.IdP
 }
 
 type stack struct {
@@ -69,6 +72,9 @@ type stack struct {
 	hub      *room.Hub
 	wsh      *ws.Handler
 	guests   *auth.Guests
+	sessions *auth.Sessions
+	backend  store.Backend // the store, when it also keeps accounts
+	idp      *authtest.IdP
 	api      *httpapi.Server
 	srv      *httptest.Server
 	reg      *prometheus.Registry
@@ -130,7 +136,13 @@ func newStack(t *testing.T, o stackOpts) *stack {
 	}
 	reg := prometheus.NewRegistry()
 
+	// Like cmd/server: the store that keeps the snapshots also keeps the
+	// accounts and records the statistics.
+	backend, _ := st.(store.Backend)
 	cfg := room.Config{Store: st, Clock: clk, Logger: logger, Registerer: reg}
+	if backend != nil {
+		cfg.Recorder = backend
+	}
 	if o.hub != nil {
 		o.hub(&cfg)
 	}
@@ -141,9 +153,18 @@ func newStack(t *testing.T, o stackOpts) *stack {
 	}
 
 	guests := auth.NewGuests([]byte(secret), false, logger)
+	sessions := auth.NewSessions([]byte(secret), false, auth.WithSessionClock(clk.Now))
 	srv := httptest.NewUnstartedServer(nil)
 	origin := "http://" + srv.Listener.Addr().String()
 	origins := []string{origin}
+	var google *auth.Google
+	if o.idp != nil {
+		o.idp.SetClock(clk.Now)
+		google = auth.NewGoogle(auth.GoogleConfig{
+			ClientID: o.idp.ClientID, ClientSecret: o.idp.ClientSecret, RedirectURL: origin + auth.GoogleCallbackPath,
+			Secret: []byte(secret), Issuer: o.idp.URL, Now: clk.Now, Logger: logger,
+		})
+	}
 
 	limits := httpapi.Limits{CreateRate: 1000, CreateBurst: 1 << 20, LookupRate: 1000, LookupBurst: 1 << 20}
 	if o.limits.CreateRate > 0 {
@@ -162,20 +183,27 @@ func newStack(t *testing.T, o stackOpts) *stack {
 	// is with X-Forwarded-For: the per-IP upgrade bucket (20, refilled at 1 per
 	// second) would otherwise be shared by every test client.
 	trustXFF := !o.noForwardedFor
-	api := httpapi.New(httpapi.Options{
+	httpOpts := httpapi.Options{
 		Logger:            logger,
 		Version:           "integration",
 		Registry:          reg,
 		Rooms:             hub,
 		Guests:            guests,
+		Sessions:          sessions,
+		Google:            google,
 		AllowedOrigins:    origins,
 		TrustForwardedFor: trustXFF,
 		Now:               clk.Now,
 		Limits:            limits,
-	})
+	}
+	if backend != nil {
+		httpOpts.Accounts = backend
+	}
+	api := httpapi.New(httpOpts)
 	deps := ws.Deps{
 		Rooms:             hub,
 		Guests:            guests,
+		Sessions:          sessions,
 		AllowedOrigins:    origins,
 		TrustForwardedFor: trustXFF,
 		Logger:            logger,
@@ -191,7 +219,8 @@ func newStack(t *testing.T, o stackOpts) *stack {
 	srv.Start()
 
 	s := &stack{
-		t: t, clock: clk, store: st, hub: hub, wsh: wsh, guests: guests, api: api, srv: srv, reg: reg,
+		t: t, clock: clk, store: st, hub: hub, wsh: wsh, guests: guests, sessions: sessions, backend: backend, idp: o.idp,
+		api: api, srv: srv, reg: reg,
 		logs: logs, origin: origin, restored: restored,
 		http: &http.Client{
 			Transport: &http.Transport{DisableKeepAlives: true},

@@ -16,9 +16,17 @@ type Memory struct {
 	mu    sync.RWMutex
 	now   func() time.Time
 	items map[string]Snapshot
+
+	accMu    sync.Mutex
+	users    map[string]*memUser // by user id
+	userSubs map[string]string   // Google subject -> user id
 }
 
-var _ Store = (*Memory)(nil)
+var (
+	_ Store    = (*Memory)(nil)
+	_ Accounts = (*Memory)(nil)
+	_ Backend  = (*Memory)(nil)
+)
 
 // NewMemory returns an empty Memory store using the wall clock.
 func NewMemory() *Memory {
@@ -31,7 +39,12 @@ func NewMemoryWithClock(now func() time.Time) *Memory {
 	if now == nil {
 		now = time.Now
 	}
-	return &Memory{now: now, items: make(map[string]Snapshot)}
+	return &Memory{
+		now:      now,
+		items:    make(map[string]Snapshot),
+		users:    make(map[string]*memUser),
+		userSubs: make(map[string]string),
+	}
 }
 
 // Save implements Store.

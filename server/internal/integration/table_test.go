@@ -42,9 +42,22 @@ func newTable(t *testing.T, s *stack, names ...string) *table {
 // that the players' ConnectedAt differ (host election).
 func newTableGap(t *testing.T, s *stack, gap time.Duration, names ...string) *table {
 	t.Helper()
+	players := make([]*player, len(names))
+	for i, n := range names {
+		players[i] = s.newPlayer(n)
+	}
+	return newTableOf(t, s, gap, players...)
+}
+
+// newTableOf is newTableGap for players that already exist (they may carry an
+// account session cookie): the first one hosts.
+func newTableOf(t *testing.T, s *stack, gap time.Duration, players ...*player) *table {
+	t.Helper()
 	tb := &table{t: t, s: s, sent: map[int]map[string][]string{}}
-	for _, n := range names {
-		tb.seats = append(tb.seats, &seat{p: s.newPlayer(n)})
+	names := make([]string, len(players))
+	for i, p := range players {
+		tb.seats = append(tb.seats, &seat{p: p})
+		names[i] = p.name
 	}
 	tb.code = s.createRoom(tb.seats[0].p, "")
 	for i := range tb.seats {

@@ -1,6 +1,12 @@
 // Package auth identifies guests: a signed, HttpOnly cookie carries a random
 // guest ID that doubles as the player ID. It also holds the Origin check
-// shared by the REST API and the WebSocket endpoint.
+// shared by the REST API and the WebSocket endpoint, and the account side
+// (docs/DESIGN.md section 9b): Sessions (the signed tf_session cookie of a
+// logged-in user), Google (the OpenID Connect authorization-code flow with
+// PKCE, with a lazy discovery and a verified ID token) and SafeReturnTo (the
+// allow-list of where a login returns to). The guest, session and OAuth
+// cookies are signed with keys derived from the one SESSION_SECRET with
+// different labels, so none of them can be replayed as another.
 package auth
 
 import (

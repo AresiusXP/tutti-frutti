@@ -42,8 +42,11 @@ type conn struct {
 	h        *Handler
 	ws       *websocket.Conn
 	playerID string
-	ip       string
-	log      *slog.Logger
+	// userID is the account the upgrade request was signed in with ("" for a
+	// guest). It is only written before run starts.
+	userID string
+	ip     string
+	log    *slog.Logger
 
 	ctx    context.Context // bounds every read
 	cancel context.CancelFunc
@@ -92,6 +95,11 @@ func newConn(h *Handler, ws *websocket.Conn, playerID, ip string) *conn {
 
 // PlayerID implements room.Client.
 func (c *conn) PlayerID() string { return c.playerID }
+
+// UserID implements room.UserLinked.
+func (c *conn) UserID() string { return c.userID }
+
+var _ room.UserLinked = (*conn)(nil)
 
 // Send implements room.Client: it enqueues frame without blocking and reports
 // false when the queue is full or the connection is closing. The frame must

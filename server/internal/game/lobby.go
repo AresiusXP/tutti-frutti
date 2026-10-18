@@ -50,7 +50,8 @@ func (g *Game) join(now time.Time, id string, c Join) error {
 	if err != nil {
 		return err
 	}
-	if len(c.Avatar.Emoji) > maxAvatarField || len(c.Avatar.Color) > maxAvatarField {
+	if len(c.Avatar.Emoji) > maxAvatarField || len(c.Avatar.Color) > maxAvatarField ||
+		!plainField(c.Avatar.Emoji) || !plainField(c.Avatar.Color) {
 		return ErrInvalidAvatar
 	}
 	if g.seatedCount() >= MaxPlayers {

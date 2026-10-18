@@ -58,6 +58,27 @@ func TestLoad(t *testing.T) {
 		{name: "bad public url", env: map[string]string{"PUBLIC_URL": "ftp://x"}, wantErr: true},
 		{name: "public url without host", env: map[string]string{"PUBLIC_URL": "https://"}, wantErr: true},
 		{name: "google id without secret", env: map[string]string{"GOOGLE_CLIENT_ID": "id"}, wantErr: true},
+		{name: "google secret without id", env: map[string]string{"GOOGLE_CLIENT_SECRET": "secret", "PUBLIC_URL": "https://x.example"}, wantErr: true},
+		{name: "google without public url", env: map[string]string{"GOOGLE_CLIENT_ID": "id", "GOOGLE_CLIENT_SECRET": "secret"}, wantErr: true},
+		{name: "google with a public url made of slashes", env: map[string]string{"GOOGLE_CLIENT_ID": "id", "GOOGLE_CLIENT_SECRET": "secret", "PUBLIC_URL": "///"}, wantErr: true},
+		{
+			name: "google with a public url",
+			env:  map[string]string{"GOOGLE_CLIENT_ID": "id", "GOOGLE_CLIENT_SECRET": "secret", "PUBLIC_URL": "http://localhost:8000/"},
+			check: func(t *testing.T, c Config) {
+				if !c.GoogleEnabled() || c.GoogleRedirectURL() != "http://localhost:8000/api/auth/google/callback" {
+					t.Errorf("GoogleEnabled=%v redirect=%q", c.GoogleEnabled(), c.GoogleRedirectURL())
+				}
+			},
+		},
+		{
+			name: "no google needs no public url",
+			env:  map[string]string{},
+			check: func(t *testing.T, c Config) {
+				if c.GoogleEnabled() || c.GoogleRedirectURL() != "" {
+					t.Errorf("GoogleEnabled=%v redirect=%q", c.GoogleEnabled(), c.GoogleRedirectURL())
+				}
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

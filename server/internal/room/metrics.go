@@ -34,6 +34,7 @@ type metrics struct {
 	rounds         prometheus.Counter
 	basta          prometheus.Counter
 	snapshotErrors prometheus.Counter
+	statsRecorded  *prometheus.CounterVec
 }
 
 func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
@@ -52,6 +53,14 @@ func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
 			Name: "tuttifrutti_basta_total", Help: "Basta calls."}),
 		snapshotErrors: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "tuttifrutti_snapshot_errors_total", Help: "Failed snapshot writes and deletions."}),
+		statsRecorded: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "tuttifrutti_stats_recorded_total",
+			Help: "Finished games handed to the statistics store, by result: ok, error (a failed attempt, retried) or dropped (given up)."},
+			[]string{"result"}),
+	}
+	// Constant cardinality: every series exists from the start.
+	for _, r := range []string{statsOK, statsError, statsDropped} {
+		m.statsRecorded.WithLabelValues(r)
 	}
 	if reg == nil {
 		return m
@@ -62,6 +71,7 @@ func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
 	m.rounds = register(reg, m.rounds, log)
 	m.basta = register(reg, m.basta, log)
 	m.snapshotErrors = register(reg, m.snapshotErrors, log)
+	m.statsRecorded = register(reg, m.statsRecorded, log)
 	return m
 }
 

@@ -169,7 +169,7 @@ func TestSession(t *testing.T) {
 
 	t.Run("mints a guest cookie", func(t *testing.T) {
 		rec := e.do(http.MethodGet, "/api/session", "")
-		if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"guest":true}` {
+		if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"guest":true,"googleEnabled":false,"loggedIn":false}` {
 			t.Fatalf("= %d %q", rec.Code, rec.Body.String())
 		}
 		if cc := rec.Header().Get("Cache-Control"); cc != "no-store" {

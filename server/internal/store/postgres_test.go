@@ -22,7 +22,7 @@ import (
 //
 //	TEST_DATABASE_URL='postgres://tutti:tutti@127.0.0.1:55432/tutti?sslmode=disable'
 //
-// WARNING: they TRUNCATE room_snapshots and DROP the room_snapshots and
+// WARNING: they TRUNCATE the data tables and DROP the room_snapshots, user and
 // goose_db_version tables to exercise the migrations from scratch, so the URL
 // must point at a throwaway database (CI uses a service container).
 const testDatabaseEnv = "TEST_DATABASE_URL"
@@ -86,14 +86,16 @@ func adminQueryInt(t *testing.T, dsn, query string, args ...any) int {
 // migrates from scratch.
 func resetSchema(t *testing.T, dsn string) {
 	t.Helper()
-	adminExec(t, dsn, `DROP TABLE IF EXISTS room_snapshots`, `DROP TABLE IF EXISTS goose_db_version`)
+	adminExec(t, dsn,
+		`DROP TABLE IF EXISTS user_games, user_stats, users, room_snapshots`,
+		`DROP TABLE IF EXISTS goose_db_version`)
 }
 
 func TestPostgresContract(t *testing.T) {
 	dsn := testDatabaseURL(t)
 	testStoreContract(t, func(t *testing.T) Store {
 		p := openTestPostgres(t, dsn)
-		adminExec(t, dsn, `TRUNCATE room_snapshots`)
+		adminExec(t, dsn, `TRUNCATE room_snapshots, users CASCADE`)
 		return p
 	})
 }
@@ -131,12 +133,15 @@ func TestPostgresMigrations(t *testing.T) {
 		}
 		if n := adminQueryInt(t, dsn, `SELECT count(*) FROM pg_index i
 			JOIN pg_class c ON c.oid = i.indrelid
+			JOIN pg_namespace ns ON ns.oid = c.relnamespace
 			JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY (i.indkey)
-			WHERE c.relname = 'room_snapshots' AND i.indisprimary AND a.attname = 'code'`); n != 1 {
+			WHERE ns.nspname = current_schema()
+			AND c.relname = 'room_snapshots' AND i.indisprimary AND a.attname = 'code'`); n != 1 {
 			t.Error("code is not the primary key")
 		}
 		if n := adminQueryInt(t, dsn, `SELECT count(*) FROM pg_indexes
-			WHERE tablename = 'room_snapshots' AND indexname = 'room_snapshots_updated_at_idx'
+			WHERE schemaname = current_schema()
+			AND tablename = 'room_snapshots' AND indexname = 'room_snapshots_updated_at_idx'
 			AND indexdef LIKE '%(updated_at)%'`); n != 1 {
 			t.Error("index room_snapshots_updated_at_idx on (updated_at) not found")
 		}
@@ -152,8 +157,8 @@ func TestPostgresMigrations(t *testing.T) {
 		}
 		mustSave(t, first, snap("KEEP", `{"survives":true}`, baseTime))
 		applied := adminQueryInt(t, dsn, `SELECT count(*) FROM goose_db_version WHERE is_applied`)
-		if applied != 2 { // goose's version 0 bootstrap row + our migration
-			t.Fatalf("goose_db_version has %d applied rows, want 2", applied)
+		if applied != 3 { // goose's version 0 bootstrap row + our two migrations
+			t.Fatalf("goose_db_version has %d applied rows, want 3", applied)
 		}
 
 		var secondLog bytes.Buffer
@@ -190,8 +195,10 @@ func TestPostgresMigrations(t *testing.T) {
 			}
 			t.Cleanup(stores[i].Close)
 		}
-		if got := adminQueryInt(t, dsn, `SELECT count(*) FROM goose_db_version WHERE version_id = 1 AND is_applied`); got != 1 {
-			t.Errorf("migration 1 recorded %d times, want 1", got)
+		for _, version := range []int{1, 2} {
+			if got := adminQueryInt(t, dsn, `SELECT count(*) FROM goose_db_version WHERE version_id = $1 AND is_applied`, version); got != 1 {
+				t.Errorf("migration %d recorded %d times, want 1", version, got)
+			}
 		}
 	})
 
@@ -209,11 +216,16 @@ func TestPostgresMigrations(t *testing.T) {
 		if _, err := provider.DownTo(t.Context(), 0); err != nil {
 			t.Fatalf("down: %v", err)
 		}
-		if n := adminQueryInt(t, dsn, `SELECT count(*) FROM pg_tables WHERE tablename = 'room_snapshots'`); n != 0 {
+		if n := adminQueryInt(t, dsn, `SELECT count(*) FROM pg_tables WHERE schemaname = current_schema() AND tablename = 'room_snapshots'`); n != 0 {
 			t.Error("room_snapshots still exists after down")
 		}
-		if n := adminQueryInt(t, dsn, `SELECT count(*) FROM pg_indexes WHERE indexname = 'room_snapshots_updated_at_idx'`); n != 0 {
+		if n := adminQueryInt(t, dsn, `SELECT count(*) FROM pg_indexes WHERE schemaname = current_schema() AND indexname = 'room_snapshots_updated_at_idx'`); n != 0 {
 			t.Error("index still exists after down")
+		}
+		for _, table := range []string{"users", "user_stats", "user_games"} {
+			if n := adminQueryInt(t, dsn, `SELECT count(*) FROM pg_tables WHERE schemaname = current_schema() AND tablename = $1`, table); n != 0 {
+				t.Errorf("%s still exists after down", table)
+			}
 		}
 
 		p := openTestPostgres(t, dsn)
@@ -254,7 +266,7 @@ func TestPostgresMigrations(t *testing.T) {
 		resetSchema(t, dsn)
 		var out bytes.Buffer
 		openTestPostgres(t, dsn, WithLogger(slog.New(slog.NewTextHandler(&out, &slog.HandlerOptions{Level: slog.LevelDebug}))))
-		for _, want := range []string{"00001_room_snapshots.sql", "migrations applied"} {
+		for _, want := range []string{"00002_accounts.sql", "migrations applied", "count=2"} {
 			if !strings.Contains(out.String(), want) {
 				t.Errorf("log output lacks %q:\n%s", want, out.String())
 			}

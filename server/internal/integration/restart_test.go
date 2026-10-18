@@ -17,6 +17,14 @@ import (
 // after the old one stopped. The table then talks to the new stack. Nobody has
 // reconnected when it returns.
 func (tb *table) restart(downtime time.Duration) {
+	tb.t.Helper()
+	tb.restartWith(downtime, nil)
+}
+
+// restartWith is restart with a hook that runs once the old server is gone
+// and before the new one starts (a test can tamper with the store there, to
+// play a crash that lost the newest snapshots).
+func (tb *table) restartWith(downtime time.Duration, between func()) {
 	t := tb.t
 	t.Helper()
 	old := tb.s
@@ -41,8 +49,11 @@ func (tb *table) restart(downtime time.Duration) {
 		t.Fatalf("final snapshot phase = %s, want %s", g.Phase, phase)
 	}
 	old.srv.Close()
+	if between != nil {
+		between()
+	}
 
-	next := newStack(t, stackOpts{store: old.store, start: old.clock.Now().Add(downtime)})
+	next := newStack(t, stackOpts{store: old.store, start: old.clock.Now().Add(downtime), idp: old.idp})
 	if next.restored != 1 {
 		t.Fatalf("Hub.Start restored %d rooms, want 1", next.restored)
 	}

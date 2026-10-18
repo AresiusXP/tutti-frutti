@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -29,20 +30,51 @@ type Persisted struct {
 	LastActive time.Time `json:"lastActive"`
 	// Game is the JSON of the *game.Game.
 	Game json.RawMessage `json:"game"`
+	// Users links player ids to the accounts they were signed in with. It is
+	// absent for rooms without signed-in players and in snapshots written
+	// before accounts existed.
+	Users map[string]string `json:"users,omitempty"`
+	// GameID identifies the game in progress (minted when it starts, kept in
+	// every snapshot until the rematch), so that a game replayed after a crash
+	// is recorded under the same id and counts once. Empty in the lobby.
+	GameID string `json:"gameId,omitempty"`
+	// Pending is the outbox: the finished games of this room whose statistics
+	// the store has not confirmed yet, oldest first (at most maxPendingRecords).
+	// A restart offers them again (recording is idempotent).
+	Pending []store.GameRecord `json:"pending,omitempty"`
+	// Outbox is outboxVersion in snapshots written by a server that keeps the
+	// outbox; it is absent in older ones (a final-phase snapshot with a game id
+	// and no outbox marker records its game again, see restoreStats).
+	Outbox int `json:"outbox,omitempty"`
+
+	// droppedPending counts the pending records decodePersisted discarded
+	// (unreadable, duplicated or beyond the bound).
+	droppedPending int
 }
 
+const (
+	// outboxVersion marks the snapshots that carry the outbox.
+	outboxVersion = 1
+	// maxPendingRecords bounds a room's outbox. A room finishes a game every few
+	// minutes at best, so it only fills up when the database stays down for hours;
+	// the oldest record is then given up (and counted as dropped).
+	maxPendingRecords = 8
+)
+
 func encodePersisted(code string, createdAt, lastActive time.Time, g *game.Game) ([]byte, error) {
+	return encodeRoomState(Persisted{Code: code, CreatedAt: createdAt, LastActive: lastActive}, g)
+}
+
+// encodeRoomState marshals p with the game g (the Version and Game fields are
+// filled in here).
+func encodeRoomState(p Persisted, g *game.Game) ([]byte, error) {
 	raw, err := json.Marshal(g)
 	if err != nil {
 		return nil, fmt.Errorf("marshal game: %w", err)
 	}
-	return json.Marshal(Persisted{
-		Version:    persistedVersion,
-		Code:       code,
-		CreatedAt:  createdAt,
-		LastActive: lastActive,
-		Game:       raw,
-	})
+	p.Version = persistedVersion
+	p.Game = raw
+	return json.Marshal(p)
 }
 
 // decodePersisted parses and sanity-checks a snapshot.
@@ -64,7 +96,51 @@ func decodePersisted(snap store.Snapshot) (Persisted, *game.Game, error) {
 	if err := sanitize(&g); err != nil {
 		return p, nil, err
 	}
+	p.Users, p.GameID = cleanLinks(&g, p.Users, p.GameID)
+	p.Pending, p.droppedPending = cleanPending(p.Pending)
 	return p, &g, nil
+}
+
+// cleanPending keeps the outbox records the store could accept, without
+// repeats, and at most maxPendingRecords (the newest). It reports how many it
+// discarded. A snapshot is trusted for its structure, not for these: they feed
+// the statistics.
+func cleanPending(pending []store.GameRecord) ([]store.GameRecord, int) {
+	var kept []store.GameRecord
+	dropped := 0
+	for _, rec := range pending {
+		if rec.Validate() != nil || slices.ContainsFunc(kept, func(k store.GameRecord) bool { return k.ID == rec.ID }) {
+			dropped++
+			continue
+		}
+		kept = append(kept, rec)
+	}
+	if extra := len(kept) - maxPendingRecords; extra > 0 {
+		kept = kept[extra:]
+		dropped += extra
+	}
+	return kept, dropped
+}
+
+// cleanLinks keeps the account links of the seats that exist (with a
+// well-formed user id) and the id of the game in progress (any phase but the
+// lobby). A snapshot is trusted for its structure but not for these: they feed
+// the statistics.
+func cleanLinks(g *game.Game, users map[string]string, gameID string) (map[string]string, string) {
+	var clean map[string]string
+	for id, userID := range users {
+		if !store.ValidID(userID) || !slices.ContainsFunc(g.Players, func(p game.Player) bool { return p.ID == id }) {
+			continue
+		}
+		if clean == nil {
+			clean = map[string]string{}
+		}
+		clean[id] = userID
+	}
+	if g.Phase == game.PhaseLobby || !store.ValidID(gameID) {
+		gameID = ""
+	}
+	return clean, gameID
 }
 
 // sanitize fixes what a JSON round trip loses (nil maps) and rejects states
