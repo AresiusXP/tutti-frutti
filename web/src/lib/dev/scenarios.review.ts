@@ -1,11 +1,12 @@
 /**
  * Playground scenarios of the review, summary and final screens
  * (`/dev?s=review-host&lang=es&bare=1`). Every scenario also exists as
- * `<name>-en` with an English lobby (English answers and category labels);
- * the UI language is chosen separately with `&lang=`.
+ * `<name>-en` / `<name>-nl` with an English / Dutch lobby (answers and category
+ * labels in that language); the UI language is chosen separately with `&lang=`.
  */
 import { ReviewDemoSession } from '$lib/review/demo';
 import { reviewState, vote, type ReviewOptions } from '$lib/review/fixtures';
+import type { Lang } from '$lib/protocol';
 import type { Scenario } from './scenarios';
 
 const COMIDA = 3;
@@ -18,7 +19,15 @@ const frutilla = (votes: Array<{ voter: string; yes: boolean }>) => ({
 	votes
 });
 
-const definitions: Record<string, ReviewOptions> = {
+const LONG: Record<Lang, string> = {
+	es: 'Fideos caseros con salsa de hongos y ajo',
+	en: 'Homemade fettuccine with mushroom and garlic sauce',
+	nl: 'Fettuccine met paddenstoelen en knoflooksaus'
+};
+
+type Definition = ReviewOptions | ((lang: Lang) => ReviewOptions);
+
+const definitions: Record<string, Definition> = {
 	'review-host': {
 		category: COMIDA,
 		rejectVotes: rejectCaro,
@@ -61,13 +70,13 @@ const definitions: Record<string, ReviewOptions> = {
 		rejectVotes: [vote('p2', 'p3', COMIDA)]
 	},
 	'review-spectator': { spectator: true, category: 1 },
-	'review-long': {
+	'review-long': (lang) => ({
 		category: COMIDA,
 		answers: {
-			p3: { [COMIDA]: 'Fideos caseros con salsa de hongos y ajo' },
+			p3: { [COMIDA]: LONG[lang] },
 			p4: { [COMIDA]: 'F' + 'a'.repeat(39) }
 		}
-	},
+	}),
 	'review-ten': { size: 10, category: 1, rejectVotes: [vote('p2', 'p1', 1)] },
 	'summary-host': {
 		phase: 'round_summary',
@@ -107,7 +116,12 @@ const definitions: Record<string, ReviewOptions> = {
 };
 
 export const scenarios: Record<string, Scenario> = {};
-for (const [name, options] of Object.entries(definitions)) {
-	scenarios[name] = () => new ReviewDemoSession(reviewState(options));
-	scenarios[`${name}-en`] = () => new ReviewDemoSession(reviewState({ ...options, lang: 'en' }));
+for (const [name, definition] of Object.entries(definitions)) {
+	const options = (lang: Lang) =>
+		typeof definition === 'function' ? definition(lang) : definition;
+	scenarios[name] = () => new ReviewDemoSession(reviewState(options('es')));
+	for (const lang of ['en', 'nl'] as const) {
+		scenarios[`${name}-${lang}`] = () =>
+			new ReviewDemoSession(reviewState({ ...options(lang), lang }));
+	}
 }

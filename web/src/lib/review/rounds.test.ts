@@ -15,6 +15,14 @@ describe('availableLetters', () => {
 		expect(availableLetters('en', false, [])).not.toContain('Ñ');
 	});
 
+	it('Dutch has 26 letters, 23 without the hard ones (Q X Y)', () => {
+		expect(availableLetters('nl', false, [])).toHaveLength(26);
+		expect(availableLetters('nl', false, [])).not.toContain('Ñ');
+		const easy = availableLetters('nl', true, []);
+		expect(easy).toHaveLength(23);
+		for (const hard of ['Q', 'X', 'Y']) expect(easy).not.toContain(hard);
+	});
+
 	it('removes the hard letters of each language when asked', () => {
 		const es = availableLetters('es', true, []);
 		expect(es).toHaveLength(20);
@@ -35,7 +43,11 @@ describe('availableLetters', () => {
 });
 
 describe('lastRoundReason', () => {
-	const settings = (rounds: number, lang: 'es' | 'en' = 'es', excludeHardLetters = true) => ({
+	const settings = (
+		rounds: number,
+		lang: 'es' | 'en' | 'nl' = 'es',
+		excludeHardLetters = true
+	) => ({
 		rounds,
 		lang,
 		excludeHardLetters
@@ -58,6 +70,17 @@ describe('lastRoundReason', () => {
 		const every = availableLetters('en', true, []);
 		expect(lastRoundReason(settings(0, 'en'), 20, every)).toBe('letters');
 		expect(lastRoundReason(settings(0, 'en'), 19, every.slice(1))).toBeNull();
+	});
+
+	it('runs out of Dutch letters after 23 rounds (hard letters out) or 26', () => {
+		const easy = availableLetters('nl', true, []);
+		expect(lastRoundReason(settings(0, 'nl'), 23, easy)).toBe('letters');
+		expect(lastRoundReason(settings(0, 'nl'), 22, easy.slice(1))).toBeNull();
+		expect(lastRoundReason(settings(0, 'nl', false), 23, easy)).toBeNull();
+		expect(lastRoundReason(settings(0, 'nl', false), 26, availableLetters('nl', false, []))).toBe(
+			'letters'
+		);
+		expect(lastRoundReason(settings(23, 'nl'), 23, easy.slice(1))).toBe('rounds');
 	});
 
 	it('hard letters count only when they are excluded', () => {
@@ -88,6 +111,8 @@ describe('players helpers', () => {
 		expect(joinNames(['Ana', 'Beto', 'Caro'], 'es')).toBe('Ana, Beto y Caro');
 		expect(joinNames(['Ana', 'Beto', 'Caro'], 'en')).toBe('Ana, Beto, and Caro');
 		expect(joinNames(['Ana', 'Beto'], 'en')).toBe('Ana and Beto');
+		expect(joinNames(['Ana', 'Beto', 'Caro'], 'nl')).toBe('Ana, Beto en Caro');
+		expect(joinNames(['Ana', 'Beto'], 'nl')).toBe('Ana en Beto');
 		expect(joinNames(['Ana'], 'es')).toBe('Ana');
 	});
 

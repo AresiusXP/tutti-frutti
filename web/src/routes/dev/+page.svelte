@@ -10,7 +10,7 @@
 	 * Dev playground: renders any room screen with scripted data, no server.
 	 *   /dev                      -> list of scenarios
 	 *   /dev?s=lobby-host         -> that scenario
-	 *   /dev?s=...&lang=en        -> in English
+	 *   /dev?s=...&lang=en        -> in English (es | en | nl)
 	 *   /dev?s=...&bare=1         -> without the debug panel (for screenshots)
 	 * Only available in `vite dev`; in a production build `+page.ts` redirects home
 	 * and the scenarios are not bundled.

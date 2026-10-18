@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Version } from '$lib/protocol';
 import { decodeFrame, encodeFrame, wsUrl } from './transport';
 
 describe('wsUrl', () => {
@@ -14,10 +15,11 @@ describe('frames', () => {
 	it('encodes {t, v, d} and omits d for empty payloads', () => {
 		expect(JSON.parse(encodeFrame('kick', { playerId: 'p2' }))).toEqual({
 			t: 'kick',
-			v: 1,
+			v: Version,
 			d: { playerId: 'p2' }
 		});
-		expect(encodeFrame('ping')).toBe('{"t":"ping","v":1}');
+		expect(Version).toBe(2);
+		expect(encodeFrame('ping')).toBe(`{"t":"ping","v":${Version}}`);
 	});
 
 	it('decodes envelopes and rejects everything else', () => {

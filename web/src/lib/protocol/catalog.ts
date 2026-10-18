@@ -18,10 +18,11 @@ export interface Category {
    */
   group: string;
   /**
-   * ES and EN are the labels in each lobby language.
+   * ES, EN and NL are the labels in each lobby language.
    */
   es: string;
   en: string;
+  nl: string;
   /**
    * Default marks the six "Clásicas" categories.
    */

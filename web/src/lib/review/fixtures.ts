@@ -23,7 +23,8 @@ export const FIXTURE_LETTER = 'F';
 
 export const LABELS: Record<Lang, string[]> = {
 	es: ['Nombre', 'País', 'Animal', 'Comida', 'Color', 'Marca'],
-	en: ['Name', 'Country', 'Animal', 'Food', 'Color', 'Brand']
+	en: ['Name', 'Country', 'Animal', 'Food', 'Color', 'Brand'],
+	nl: ['Naam', 'Land', 'Dier', 'Eten', 'Kleur', 'Merk']
 };
 
 /** Answers of the 4 players (p1..p4), per category, in the lobby language. */
@@ -39,6 +40,12 @@ export const ANSWERS: Record<Lang, Record<string, string[]>> = {
 		p2: ['Fred', 'Finland', 'Flamingo', 'Fries', 'Fuchsia', 'Ferrari'],
 		p3: ['Frank', 'France', '', 'Fork', 'Fuchsia', 'Fila'],
 		p4: ['Peter', 'Fiji', 'Fox', 'Fudge', 'Fuchsia', 'Fanta']
+	},
+	nl: {
+		p1: ['Femke', 'Frankrijk', 'Flamingo', 'Friet', 'Fuchsia', 'Ford'],
+		p2: ['Femke', 'Finland', 'Fazant', 'Frieten', 'Fuchsia', 'Ferrari'],
+		p3: ['Frank', 'Frankrijk', '', 'Fondue', 'Fuchsia', 'Fila'],
+		p4: ['Peter', 'Filipijnen', 'Flamingo', 'Flan', 'Fuchsia', 'Fanta']
 	}
 };
 
@@ -200,7 +207,12 @@ function totalOf(state: ReviewState, id: string): number {
 function norm(text: string, lang: Lang): string {
 	const kept =
 		lang === 'es' ? text.trim().toLowerCase().replaceAll('ñ', '\uE000') : text.toLowerCase();
-	const plain = kept.normalize('NFD').replace(/\p{M}/gu, '').replace(/\s+/g, ' ').trim();
+	const plain = kept
+		.replaceAll('ĳ', 'ij')
+		.normalize('NFD')
+		.replace(/\p{M}/gu, '')
+		.replace(/\s+/g, ' ')
+		.trim();
 	return lang === 'es' ? plain.replaceAll('\uE000', 'ñ') : plain;
 }
 

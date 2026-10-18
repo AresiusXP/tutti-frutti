@@ -39,7 +39,8 @@
 
 	const langOptions = $derived<{ value: Lang; label: string }[]>([
 		{ value: 'es', label: m.lobby_lang_es() },
-		{ value: 'en', label: m.lobby_lang_en() }
+		{ value: 'en', label: m.lobby_lang_en() },
+		{ value: 'nl', label: m.lobby_lang_nl() }
 	]);
 	const timeOptions = $derived(
 		TIME_LIMITS.map((seconds) => ({

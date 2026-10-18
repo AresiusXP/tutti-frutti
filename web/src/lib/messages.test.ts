@@ -29,21 +29,39 @@ function load(locale: string): Catalog {
 
 const es = load('es');
 const en = load('en');
+const nl = load('nl');
+const catalogs = { es, en, nl };
 const params = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
 
 describe('message catalogs', () => {
-	it('es and en define exactly the same keys', () => {
+	it('every area defines exactly the same keys in es, en and nl', () => {
+		for (const area of AREAS) {
+			const keys = Object.keys(readArea(area, 'es')).sort();
+			expect(Object.keys(readArea(area, 'en')).sort(), `${area || 'core'}/en`).toEqual(keys);
+			expect(Object.keys(readArea(area, 'nl')).sort(), `${area || 'core'}/nl`).toEqual(keys);
+		}
 		expect(Object.keys(en).sort()).toEqual(Object.keys(es).sort());
+		expect(Object.keys(nl).sort()).toEqual(Object.keys(es).sort());
 	});
 
-	it('uses the same {parameters} in both languages', () => {
+	it('uses the same {parameters} in every language', () => {
 		for (const key of Object.keys(es)) {
-			expect(params(en[key]), key).toEqual(params(es[key]));
+			expect(params(en[key]), `en.${key}`).toEqual(params(es[key]));
+			expect(params(nl[key]), `nl.${key}`).toEqual(params(es[key]));
+		}
+	});
+
+	it('has no empty or untrimmed message', () => {
+		for (const [locale, catalog] of Object.entries(catalogs)) {
+			for (const [key, value] of Object.entries(catalog)) {
+				expect(value.trim(), `${locale}.${key}`).not.toBe('');
+				expect(value, `${locale}.${key}`).toBe(value.trim());
+			}
 		}
 	});
 
 	it('never contains the brand as literal text', () => {
-		for (const [locale, catalog] of Object.entries({ es, en })) {
+		for (const [locale, catalog] of Object.entries(catalogs)) {
 			for (const [key, value] of Object.entries(catalog)) {
 				expect(value.toLowerCase(), `${locale}.${key}`).not.toContain(BRAND.toLowerCase());
 				expect(value.toLowerCase().replace(/\s/g, ''), `${locale}.${key}`).not.toContain(
@@ -54,13 +72,17 @@ describe('message catalogs', () => {
 	});
 
 	it('passes the brand via {brand} where a message needs it', () => {
-		expect(params(es.share_text)).toEqual(['brand', 'code']);
-		expect(params(en.share_text)).toEqual(['brand', 'code']);
+		for (const catalog of Object.values(catalogs)) {
+			expect(params(catalog.share_text)).toEqual(['brand', 'code']);
+		}
 		expect(m.share_text({ brand: BRAND, code: 'KT7P' }, { locale: 'es' })).toBe(
 			'¡Jugá Tutti Frutti conmigo! Código KT7P'
 		);
 		expect(m.share_text({ brand: BRAND, code: 'KT7P' }, { locale: 'en' })).toBe(
 			'Play Tutti Frutti with me! Code KT7P'
+		);
+		expect(m.share_text({ brand: BRAND, code: 'KT7P' }, { locale: 'nl' })).toBe(
+			'Speel Tutti Frutti met me mee! Code KT7P'
 		);
 	});
 
@@ -69,16 +91,28 @@ describe('message catalogs', () => {
 		const html = readFileSync(new URL('../app.html', import.meta.url), 'utf8');
 		expect(html).toContain(`<title>${BRAND}</title>`);
 	});
+
+	it('compiles every key for every locale (no missing translation falls back to Spanish)', () => {
+		for (const locale of ['en', 'nl'] as const) {
+			for (const key of ['basta_button', 'create_game', 'lobby_lang_nl', 'language_label']) {
+				const fn = (m as unknown as Record<string, (i: object, o: object) => string>)[key];
+				expect(fn({}, { locale }), `${locale}.${key}`).toBe(catalogs[locale][key]);
+			}
+		}
+	});
 });
 
 describe('Basta / Stop wording', () => {
-	it('English says exactly "Stop!" with no Spanish text', () => {
-		expect(en.basta_button).toBe('Stop!');
-		expect(en.basta_overlay).toBe('Stop!');
-		expect(en.letter_stop).toBe('Stop!');
-		expect(m.basta_button({}, { locale: 'en' })).toBe('Stop!');
-		expect(m.basta_overlay({}, { locale: 'en' })).toBe('Stop!');
-		expect(m.letter_stop({}, { locale: 'en' })).toBe('Stop!');
+	it('English and Dutch say exactly "Stop!" with no Spanish text', () => {
+		for (const locale of ['en', 'nl'] as const) {
+			const catalog = catalogs[locale];
+			expect(catalog.basta_button, locale).toBe('Stop!');
+			expect(catalog.basta_overlay, locale).toBe('Stop!');
+			expect(catalog.letter_stop, locale).toBe('Stop!');
+			expect(m.basta_button({}, { locale }), locale).toBe('Stop!');
+			expect(m.basta_overlay({}, { locale }), locale).toBe('Stop!');
+			expect(m.letter_stop({}, { locale }), locale).toBe('Stop!');
+		}
 	});
 
 	it('Spanish uses ¡BASTA! and the full overlay sentence', () => {
@@ -94,8 +128,66 @@ describe('Basta / Stop wording', () => {
 		}
 	});
 
+	it('Dutch strings contain no Spanish punctuation, no ñ and never the word "basta"', () => {
+		for (const [key, value] of Object.entries(nl)) {
+			expect(value, `nl.${key}`).not.toMatch(/[¡¿ñÑ]/);
+		}
+	});
+
+	it('English and Dutch never say "basta"', () => {
+		for (const locale of ['en', 'nl'] as const) {
+			for (const [key, value] of Object.entries(catalogs[locale])) {
+				expect(value, `${locale}.${key}`).not.toMatch(/basta/i);
+			}
+		}
+	});
+
 	it('Spanish uses voseo', () => {
 		expect(es.create_game).toMatch(/^Creá/);
 		expect(es.join_game).toMatch(/^Unite/);
+	});
+});
+
+describe('Dutch wording', () => {
+	it('uses the shared glossary', () => {
+		expect(nl.account_sign_in_google).toBe('Inloggen met Google');
+		expect(nl.language_label).toBe('Taal');
+		expect(nl.lobby_lang_nl).toBe('Nederlands');
+		expect(nl.lobby_lang_es).toBe('Spaans');
+		expect(nl.lobby_lang_en).toBe('Engels');
+	});
+
+	it('speaks informally (je/jij), never formally (u)', () => {
+		for (const [key, value] of Object.entries(nl)) {
+			expect(value, `nl.${key}`).not.toMatch(/\b(u|uw)\b/i);
+		}
+	});
+
+	it('leaves no untranslated Spanish or English copy', () => {
+		// Values that are legitimately spelled the same in Dutch (loanwords, symbols, "Stop!").
+		const SAME = new Set([
+			'basta_button',
+			'basta_overlay',
+			'letter_stop',
+			'lobby_qr',
+			'lobby_host_badge',
+			'lobby_offline',
+			'lobby_time_secs',
+			'lobby_group_count',
+			'lobby_custom_counter',
+			'play_letter_announce',
+			'play_letter_name',
+			'review_category_pos',
+			'review_letter',
+			'review_offline',
+			'final_podium',
+			'final_home'
+		]);
+		for (const key of Object.keys(nl)) {
+			const copied = nl[key] === en[key] || nl[key] === es[key];
+			expect(!copied || SAME.has(key), `nl.${key} is a copy of the English/Spanish text`).toBe(
+				true
+			);
+		}
 	});
 });

@@ -11,11 +11,15 @@ import Playing from './Playing.svelte';
 const NOW = Date.parse('2026-05-01T12:00:00Z');
 const iso = (offsetMs: number) => new Date(NOW + offsetMs).toISOString();
 
-const LABELS = { es: ['Nombre', 'País', 'Animal'], en: ['Name', 'Country', 'Animal'] };
+const LABELS = {
+	es: ['Nombre', 'País', 'Animal'],
+	en: ['Name', 'Country', 'Animal'],
+	nl: ['Naam', 'Land', 'Dier']
+};
 
 interface Setup {
 	phase?: Phase;
-	lang?: 'es' | 'en';
+	lang?: 'es' | 'en' | 'nl';
 	letter?: string;
 	youId?: string;
 	mine?: string[];
@@ -705,6 +709,102 @@ describe('Playing: English', () => {
 		expect(screen.getByText('Check the letter in: Country')).toBeTruthy();
 		expect(screen.getByText('Round 2 of 5')).toBeTruthy();
 		expect(document.body.textContent).not.toMatch(/[¡¿ñáéíóúü]/i);
+	});
+});
+
+describe('Playing: Dutch', () => {
+	// Dutch (like English) says only "Stop!": no Spanish text, no "Basta" anywhere
+	const noSpanish = () => {
+		expect(document.body.textContent).not.toMatch(/[¡¿ñ]/i);
+		expect(document.body.textContent).not.toMatch(/basta/i);
+	};
+
+	it('uses Stop! for the button and Dutch hints', async () => {
+		i18n.set('nl');
+		setup({ lang: 'nl', mine: ['Femke', '', 'Flamingo'] });
+		const button = bastaButton() as HTMLButtonElement;
+		expect(button.textContent?.trim()).toBe('Stop!');
+		expect(button.disabled).toBe(true);
+		expect(screen.getByText('Vul elke categorie in')).toBeTruthy();
+		await type('Land', 'Brazilië');
+		expect(screen.getByText(/Moet beginnen met F/)).toBeTruthy();
+		expect(screen.getByText('Check de letter bij: Land')).toBeTruthy();
+		expect(screen.getByText('Ronde 2 van 5')).toBeTruthy();
+		noSpanish();
+	});
+
+	it('enables Stop! when every field is valid', async () => {
+		i18n.set('nl');
+		setup({ lang: 'nl', mine: ['Femke', 'Frankrijk', 'Flamingo'] });
+		expect((bastaButton() as HTMLButtonElement).disabled).toBe(false);
+		expect(screen.getByText('Alles klaar!')).toBeTruthy();
+		noSpanish();
+	});
+
+	it('shows the Dutch category labels of a Dutch lobby', () => {
+		i18n.set('nl');
+		setup({ lang: 'nl' });
+		for (const label of LABELS.nl) expect(input(label).tagName).toBe('INPUT');
+	});
+
+	it('the splash, the banner and the time-up screen say only "Stop!"', async () => {
+		i18n.set('nl');
+		setup({
+			phase: 'grace',
+			lang: 'nl',
+			mine: ['Femke', 'Frankrijk', ''],
+			round: { callerId: 'p2', graceEndsAt: iso(3000) }
+		});
+		await tick();
+		const splash = screen.getByTestId('basta-splash');
+		expect(splash.textContent?.replace(/\p{Extended_Pictographic}|\s+/gu, ' ').trim()).toBe(
+			'Beto Stop!'
+		);
+		expect(screen.getByRole('alert').textContent).toBe('Beto: Stop!');
+		expect(screen.getByTestId('grace-banner').textContent).toContain('Beto riep Stop!');
+		noSpanish();
+	});
+
+	it('time is up: Dutch banner', () => {
+		i18n.set('nl');
+		setup({
+			phase: 'grace',
+			lang: 'nl',
+			round: { callerId: '', graceEndsAt: iso(-50), timeLimitEndsAt: iso(-50) }
+		});
+		expect(screen.getByTestId('grace-banner').textContent).toContain('De tijd is om!');
+		expect(screen.getByTestId('grace-banner').textContent).toContain('Antwoorden vergrendeld');
+		noSpanish();
+	});
+
+	it('announces the letter in Dutch', async () => {
+		i18n.set('nl');
+		setup({ lang: 'nl' });
+		await tick();
+		expect(screen.getByRole('img', { name: 'Letter F' }).textContent?.trim()).toBe('F');
+	});
+
+	it('plays the digraph IJ: the ligature typed in a Dutch lobby counts as the letter I', async () => {
+		i18n.set('nl');
+		setup({ lang: 'nl', letter: 'I', mine: ['Iris', 'Ĳsland', 'IJsbeer'] });
+		expect((bastaButton() as HTMLButtonElement).disabled).toBe(false);
+		await type('Land', 'Jamaica');
+		expect((bastaButton() as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByText('Check de letter bij: Land')).toBeTruthy();
+		await type('Land', 'ĳsland');
+		expect((bastaButton() as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('the ligature counts as I in any lobby language, and never as J', () => {
+		setup({ lang: 'es', letter: 'J', mine: ['Jaime', 'Ĳsland', 'Jirafa'] });
+		expect((bastaButton() as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByText('Revisá la letra en: País')).toBeTruthy();
+	});
+
+	it('folds ñ to n in a Dutch lobby', () => {
+		i18n.set('nl');
+		setup({ letter: 'N', lang: 'nl', mine: ['Nora', 'Ñoquis', 'Nutria'] });
+		expect((bastaButton() as HTMLButtonElement).disabled).toBe(false);
 	});
 });
 

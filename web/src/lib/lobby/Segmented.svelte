@@ -29,7 +29,7 @@
 			aria-pressed={value === option.value}
 			aria-label={option.ariaLabel}
 			onclick={() => onchange(option.value)}
-			class="min-h-12 min-w-0 flex-1 rounded-xl px-2 text-base font-extrabold transition-colors {value ===
+			class="min-h-12 min-w-0 flex-1 rounded-xl px-1 text-[15px] font-extrabold transition-colors min-[380px]:px-2 min-[380px]:text-base {value ===
 			option.value
 				? 'bg-banana text-night'
 				: 'text-cream-muted hover:text-cream'}"

@@ -9,14 +9,14 @@ import {
 
 /**
  * Reactive locale for the SPA. Paraglide resolves the initial locale with its
- * strategy (localStorage -> browser language -> base locale `es`); afterwards
+ * strategy (localStorage -> browser language `es*`/`en*`/`nl*` -> base locale `es`); afterwards
  * `getLocale()` reads this rune, so every `m.*()` call inside a template or
  * `$derived` re-renders when the language changes. No page reload needed.
  */
 let current = $state<Locale>(getLocale());
 overwriteGetLocale(() => current);
 
-export const LOCALE_LABELS: Record<Locale, string> = { es: 'ES', en: 'EN' };
+export const LOCALE_LABELS: Record<Locale, string> = { es: 'ES', en: 'EN', nl: 'NL' };
 
 export const i18n = {
 	get locale(): Locale {

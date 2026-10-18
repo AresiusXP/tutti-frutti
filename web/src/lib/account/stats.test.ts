@@ -26,8 +26,8 @@ describe('derived stats', () => {
 });
 
 describe('accountErrorMessage', () => {
-	it('explains each REST failure in both languages and falls back to a generic sentence', () => {
-		const texts = (locale: 'es' | 'en') => {
+	it('explains each REST failure in every language and falls back to a generic sentence', () => {
+		const texts = (locale: 'es' | 'en' | 'nl') => {
 			i18n.set(locale);
 			return ['unauthorized', 'rate_limited', 'network', 'server_busy', 'whatever'].map((code) =>
 				accountErrorMessage(code)
@@ -35,6 +35,7 @@ describe('accountErrorMessage', () => {
 		};
 		const es = texts('es');
 		const en = texts('en');
+		const nl = texts('nl');
 		i18n.set('es');
 		expect(es).toEqual([
 			'Tu sesión venció. Iniciá sesión de nuevo.',
@@ -45,5 +46,13 @@ describe('accountErrorMessage', () => {
 		]);
 		expect(new Set(en).size).toBe(5);
 		for (const text of en) expect(text).not.toMatch(/[¡¿ñáéíóúü]/i);
+		expect(nl).toEqual([
+			'Je sessie is verlopen. Log opnieuw in.',
+			'Je gaat te snel. Wacht even en probeer het opnieuw.',
+			'De server is niet bereikbaar. Controleer je verbinding en probeer het opnieuw.',
+			'De server is druk. Probeer het over een poosje opnieuw.',
+			'Er ging iets mis. Probeer het opnieuw.'
+		]);
+		for (const text of nl) expect(text).not.toMatch(/[¡¿ñ]/);
 	});
 });

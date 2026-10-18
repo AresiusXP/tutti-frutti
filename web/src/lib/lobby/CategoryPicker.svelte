@@ -16,6 +16,7 @@
 		runeCount,
 		searchKey
 	} from './labels';
+	import { LANGS } from './letters';
 	import { classicRefs, surpriseRefs, type Rng } from './presets';
 	import { forgetCustom, loadRecents, rememberCustom } from './recents';
 	import {
@@ -46,17 +47,15 @@
 	let { settings, labels, onchange, rng = Math.random }: Props = $props();
 
 	const lang = $derived<Lang>(settings.lang);
-	const otherLang = $derived<Lang>(settings.lang === 'es' ? 'en' : 'es');
 	const loaded = $derived(catalog.state(lang));
 	const listing = $derived(catalog.listing(lang));
 
-	// The selected language is needed to pick; the other one only to catch duplicate custom names.
+	// The selected language is needed to pick; the others only to catch duplicate custom names.
 	$effect(() => {
 		const current = lang;
-		const other = otherLang;
 		untrack(() => {
 			void catalog.load(current);
-			void catalog.load(other);
+			for (const other of LANGS) if (other !== current) void catalog.load(other);
 		});
 	});
 
@@ -134,15 +133,14 @@
 	let recentError = $state('');
 	let customInput = $state<HTMLInputElement>();
 
-	const builtins = $derived(
-		builtinIndex(
-			{
-				...(catalog.listing('es') ? { es: catalog.listing('es')! } : {}),
-				...(catalog.listing('en') ? { en: catalog.listing('en')! } : {})
-			},
-			lang
-		)
-	);
+	const builtins = $derived.by(() => {
+		const listings: Partial<Record<Lang, Listing>> = {};
+		for (const code of LANGS) {
+			const ready = catalog.listing(code);
+			if (ready) listings[code] = ready;
+		}
+		return builtinIndex(listings, lang);
+	});
 	const check = $derived(checkCustom(draft, lang, builtins, customs));
 	const draftMessage = $derived.by(() => {
 		if (draft.trim() === '' || check.ok) return '';
@@ -163,8 +161,21 @@
 		customInput?.focus();
 	}
 
-	function submitCustom(event: SubmitEvent) {
+	/**
+	 * The duplicate check needs the built-in labels of EVERY language. A catalog that is still
+	 * loading, or that failed earlier, is (re)fetched before a name is committed, so a duplicate
+	 * is not let through just because one language had not arrived yet. If a language stays
+	 * unreachable the name goes through and the server, which is authoritative, decides.
+	 */
+	async function allCatalogs() {
+		await Promise.all(LANGS.map((code) => catalog.load(code)));
+	}
+
+	async function submitCustom(event: SubmitEvent) {
 		event.preventDefault();
+		if (!check.ok || !canAdd) return;
+		await allCatalogs();
+		// `check` is derived: it now sees every catalog that arrived meanwhile (and the latest draft).
 		if (!check.ok || !canAdd) return;
 		const label = check.label;
 		onchange(addCustom(settings, label));
@@ -173,7 +184,8 @@
 		customInput?.focus();
 	}
 
-	function addRecent(label: string) {
+	async function addRecent(label: string) {
+		await allCatalogs();
 		const result = checkCustom(label, lang, builtins, customs);
 		if (!result.ok) {
 			recentError =
@@ -186,7 +198,7 @@
 	}
 
 	const chip =
-		'flex min-h-12 items-center gap-1 rounded-full px-4 text-base font-bold transition-colors disabled:opacity-50';
+		'flex min-h-12 items-center gap-1 rounded-full px-4 py-1.5 text-center text-base leading-tight font-bold transition-colors disabled:opacity-50';
 </script>
 
 <div class="flex flex-col gap-4 pb-2">

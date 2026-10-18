@@ -425,3 +425,32 @@ describe('Review in English', () => {
 		expect(document.body.textContent).not.toMatch(/[¡¿ñáéíóúü]/i);
 	});
 });
+
+describe('Review in Dutch', () => {
+	it('contains no Spanish text and uses the glossary', async () => {
+		i18n.set('nl');
+		const { session } = open({
+			lang: 'nl',
+			category: COMIDA,
+			rejectVotes: [vote('p2', 'p3', COMIDA), vote('p4', 'p3', COMIDA)],
+			proposals: [pending([['p1', true]])]
+		});
+		expect(screen.getByRole('heading', { level: 1 }).textContent?.trim()).toBe('Eten · 4/6');
+		expect(screen.getByRole('button', { name: 'Nakijken afronden' })).toBeTruthy();
+		expect(document.body.textContent).not.toMatch(/[¡¿ñ]/i);
+		expect(document.body.textContent).toContain('Afgekeurd');
+		expect(document.body.textContent).toContain('Ana en Beto: zelfde antwoord?');
+		session.setView(reviewView({ lang: 'nl', youId: 'p2', category: 2 }));
+		await tick();
+		expect(document.body.textContent).toContain('Ana leidt het nakijken');
+		expect(document.body.textContent).toContain('— leeg —');
+		expect(document.body.textContent).not.toMatch(/[¡¿ñ]/i);
+	});
+
+	it('the "same answer" flow speaks Dutch', async () => {
+		i18n.set('nl');
+		open({ lang: 'nl', category: COMIDA });
+		await fireEvent.click(screen.getByRole('button', { name: /Zelfde/ }));
+		expect(document.body.textContent).toContain('Kies het eerste antwoord');
+	});
+});

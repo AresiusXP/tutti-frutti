@@ -35,6 +35,7 @@
 	"lobby_lang_hint": "Sets the alphabet, the hard letters and the category names.",
 	"lobby_lang_es": "Spanish",
 	"lobby_lang_en": "English",
+	"lobby_lang_nl": "Dutch",
 	"lobby_hard_label": "Skip hard letters",
 	"lobby_hard_on": "Out: {letters} · {count} letters in play",
 	"lobby_hard_off": "All {count} letters in play",

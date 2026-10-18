@@ -13,7 +13,7 @@ package and internal/game, and CI fails when the generated files are stale.
 
 Every frame, in both directions, is a JSON text message:
 
-	{"t": "<type>", "v": 1, "d": { ...payload... }}
+	{"t": "<type>", "v": <Version>, "d": { ...payload... }}
 
 Client -> server types: the game commands (game.Cmd* constants, whose
 payloads are the game.* command structs), plus "ping". The first frame of a
@@ -28,8 +28,11 @@ Server -> client types: TypeState, TypeEvent, TypeError, TypePong.
  * different "v" is answered with ErrUnsupportedVersion and the connection is
  * closed with CloseUnsupportedVersion; the web app then asks the user to
  * reload (new version available).
+ * Version 2 added the Dutch lobby language ("nl"): a version 1 client would
+ * not know the language of a room (labels, alphabet, normalization), so it
+ * must reload.
  */
-export const Version = 1;
+export const Version = 2;
 /**
  * TypePing is sent by clients every PingInterval (empty payload).
  */

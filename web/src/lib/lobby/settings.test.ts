@@ -31,6 +31,16 @@ describe('scalar settings', () => {
 		expect(withLang(makeSettings({ rounds: 0 }), 'en').rounds).toBe(0);
 	});
 
+	it('changes to Dutch and clamps rounds to its 26 / 23 letters', () => {
+		const all = makeSettings({ excludeHardLetters: false, rounds: 27 });
+		expect(withLang(all, 'nl')).toEqual({ ...all, lang: 'nl', rounds: 26 });
+		const easy = makeSettings({ excludeHardLetters: true, rounds: 20 });
+		expect(withLang(easy, 'nl')).toEqual({ ...easy, lang: 'nl' });
+		expect(withExcludeHard(withLang(all, 'nl'), true).rounds).toBe(23);
+		expect(withRounds(withLang(easy, 'nl'), 99).rounds).toBe(23);
+		expect(withLang(withLang(all, 'nl'), 'es').rounds).toBe(26);
+	});
+
 	it('toggles hard letters and clamps rounds when they are excluded', () => {
 		const s = makeSettings({ excludeHardLetters: false, rounds: 27 });
 		expect(withExcludeHard(s, true)).toEqual({ ...s, excludeHardLetters: true, rounds: 20 });

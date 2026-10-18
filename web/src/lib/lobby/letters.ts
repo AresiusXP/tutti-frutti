@@ -6,16 +6,18 @@ import type { Lang } from '$lib/protocol';
  * the server stays authoritative and rejects settings whose round count does
  * not fit.
  */
-export const LANGS: readonly Lang[] = ['es', 'en'];
+export const LANGS: readonly Lang[] = ['es', 'en', 'nl'];
 
 export const ALPHABETS: Record<Lang, readonly string[]> = {
 	es: 'A B C D E F G H I J K L M N Ñ O P Q R S T U V W X Y Z'.split(' '),
-	en: 'A B C D E F G H I J K L M N O P Q R S T U V W X Y Z'.split(' ')
+	en: 'A B C D E F G H I J K L M N O P Q R S T U V W X Y Z'.split(' '),
+	nl: 'A B C D E F G H I J K L M N O P Q R S T U V W X Y Z'.split(' ')
 };
 
 export const HARD_LETTERS: Record<Lang, readonly string[]> = {
 	es: ['K', 'Ñ', 'Q', 'W', 'X', 'Y', 'Z'],
-	en: ['Q', 'U', 'V', 'X', 'Y', 'Z']
+	en: ['Q', 'U', 'V', 'X', 'Y', 'Z'],
+	nl: ['Q', 'X', 'Y']
 };
 
 /** The letters that can come up (alphabetical order) for a language and the hard-letter toggle. */

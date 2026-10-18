@@ -118,6 +118,20 @@ describe('Stats screen', () => {
 			expect(document.title).toBe('Tutti Frutti · My stats');
 		});
 
+		it('is translated, with Dutch number formatting (1.240 and 103,3)', () => {
+			i18n.set('nl');
+			render(Stats);
+			expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Mijn statistieken');
+			expect(within(tile('Totaal punten')).getByText('1.240')).toBeTruthy();
+			expect(within(tile('Gewonnen')).getByText('42% van je spellen')).toBeTruthy();
+			expect(within(tile('Totaal punten')).getByText('103,3 per spel')).toBeTruthy();
+			expect(within(tile('Gespeelde spellen')).getByText('12')).toBeTruthy();
+			expect(within(tile('Unieke antwoorden')).getByText('37')).toBeTruthy();
+			expect(screen.getByRole('link', { name: 'Terug naar het beginscherm' })).toBeTruthy();
+			expect(document.title).toBe('Tutti Frutti · Mijn statistieken');
+			expect(document.body.textContent).not.toMatch(/[¡¿ñ]/);
+		});
+
 		it('a perfect record and a single game still produce sane numbers', () => {
 			fake.stats = { gamesPlayed: 1, wins: 1, totalPoints: 50, bestRound: 50, uniqueAnswers: 5 };
 			render(Stats);

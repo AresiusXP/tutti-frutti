@@ -210,6 +210,16 @@ describe('Lobby', () => {
 			expect(screen.getByText('Name')).toBeTruthy();
 		});
 
+		it('sees a Dutch lobby: language chip, 23 letters and Dutch category labels', () => {
+			const settings = makeSettings({ lang: 'nl' });
+			render(Lobby, { session: guest(settings) });
+			expect(screen.getByText('Holandés')).toBeTruthy();
+			expect(screen.getByText('Sin letras difíciles (23 letras)')).toBeTruthy();
+			expect(screen.getByText('Naam')).toBeTruthy();
+			expect(screen.getByText('Land')).toBeTruthy();
+			expect(screen.queryByText('Nombre')).toBeNull();
+		});
+
 		it('marks custom categories in the read-only list', () => {
 			const settings = makeSettings({
 				categories: [{ id: 'nombre' }, { id: 'pais' }, { custom: 'Excusas' }]
@@ -386,6 +396,50 @@ describe('Lobby', () => {
 				{ cmd: 'updateSettings', args: [makeSettings({ rounds: 20, lang: 'en' })] }
 			]);
 			await waitFor(() => expect(screen.getByText(/Out: |Fuera: Q U V X Y Z/)).toBeTruthy());
+		});
+
+		it('offers the three lobby languages and marks the current one', () => {
+			render(Lobby, { session: host(3, makeSettings({ lang: 'nl' })) });
+			const group = screen.getByRole('group', { name: 'Idioma de la partida' });
+			const buttons = within(group).getAllByRole('button');
+			expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Español', 'Inglés', 'Holandés']);
+			expect(buttons.map((b) => b.getAttribute('aria-pressed'))).toEqual([
+				'false',
+				'false',
+				'true'
+			]);
+		});
+
+		it('changes the lobby language to Dutch and clamps the rounds to its 26 letters', async () => {
+			const session = host(3, makeSettings({ excludeHardLetters: false, rounds: 27 }));
+			render(Lobby, { session });
+			await fireEvent.click(screen.getByRole('button', { name: 'Holandés' }));
+			expect(updates(session)).toEqual([
+				{
+					cmd: 'updateSettings',
+					args: [makeSettings({ excludeHardLetters: false, rounds: 26, lang: 'nl' })]
+				}
+			]);
+			await waitFor(() => expect(screen.getByText('Se juegan las 26 letras')).toBeTruthy());
+			expect(screen.getByText('hasta 26')).toBeTruthy();
+			// the picker follows the lobby language
+			await waitFor(() => expect(screen.getByText('Naam')).toBeTruthy());
+		});
+
+		it('shows the Dutch hard letters (Q X Y) and 23 playable letters', async () => {
+			const session = host(3, makeSettings({ lang: 'nl', rounds: 23 }));
+			render(Lobby, { session });
+			expect(screen.getByText('Fuera: Q X Y · se juegan 23 letras')).toBeTruthy();
+			expect(screen.getByText('hasta 23')).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Una ronda más' }).hasAttribute('disabled')).toBe(
+				true
+			);
+			await fireEvent.click(screen.getByRole('switch', { name: 'Excluir letras difíciles' }));
+			expect(updates(session)[0].args[0]).toEqual(
+				makeSettings({ lang: 'nl', rounds: 23, excludeHardLetters: false })
+			);
+			await waitFor(() => expect(screen.getByText('Se juegan las 26 letras')).toBeTruthy());
+			expect(screen.getByText('hasta 26')).toBeTruthy();
 		});
 
 		it('toggles the hard letters and shows the real ones for the language', async () => {
@@ -584,6 +638,41 @@ describe('Lobby', () => {
 			render(Lobby, { session: guest() });
 			expect(screen.getByText('Waiting for Ana to start…')).toBeTruthy();
 			expect(screen.getByText('Set up by Ana')).toBeTruthy();
+		});
+	});
+
+	describe('Dutch UI', () => {
+		it('has no Spanish or English chrome', () => {
+			i18n.set('nl');
+			render(Lobby, { session: host() });
+			expect(screen.getByRole('button', { name: 'Starten' })).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Verlaten' })).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Delen' })).toBeTruthy();
+			expect(screen.getByRole('heading', { name: 'Spelers' })).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Categorieën aanpassen' })).toBeTruthy();
+			expect(screen.getByRole('switch', { name: 'Moeilijke letters overslaan' })).toBeTruthy();
+		});
+
+		it('names the three game languages in Dutch, independent of the Spanish lobby', () => {
+			i18n.set('nl');
+			render(Lobby, { session: host() });
+			const group = screen.getByRole('group', { name: 'Taal van het spel' });
+			const buttons = within(group).getAllByRole('button');
+			expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Spaans', 'Engels', 'Nederlands']);
+			// the lobby is Spanish (es) while the screen is Dutch
+			expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+			// Spanish category labels are shown as is: they belong to the lobby language
+			expect(screen.getAllByText('Nombre').length).toBeGreaterThan(0);
+		});
+
+		it('shows a Dutch lobby on a Dutch screen: "Nederlands", Dutch letters and category labels', () => {
+			i18n.set('nl');
+			render(Lobby, { session: guest(makeSettings({ lang: 'nl', timeLimitSeconds: 90 })) });
+			expect(screen.getByText('Nederlands')).toBeTruthy();
+			expect(screen.getByText('Geen moeilijke letters (23 letters)')).toBeTruthy();
+			expect(screen.getByText('Tijd: 90 s')).toBeTruthy();
+			expect(screen.getByText('Wachten tot Ana start…')).toBeTruthy();
+			expect(screen.getByText('Eten')).toBeTruthy();
 		});
 	});
 

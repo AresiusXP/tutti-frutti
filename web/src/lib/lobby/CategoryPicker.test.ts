@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeSettings } from '$lib/game/fixtures';
 import { i18n } from '$lib/i18n.svelte';
@@ -227,12 +227,34 @@ describe('CategoryPicker', () => {
 				onchange: () => {}
 			});
 			await expandGroup(/^Personas/);
-			await waitFor(() => expect(catalog.listing('en')).not.toBeNull());
-			expect(fetcher.calls()).toBe(2);
+			// the chosen language plus every other one (for the duplicate check): 3 catalogs, once each
+			await waitFor(() => expect(catalog.listing('nl')).not.toBeNull());
+			expect(catalog.listing('en')).not.toBeNull();
+			expect(fetcher.calls()).toBe(3);
 			await view.rerender({ settings: makeSettings({ lang: 'en' }), labels: [] });
 			await expandGroup(/^Personas/);
 			await waitFor(() => expect(screen.getByRole('button', { name: 'Last name' })).toBeTruthy());
-			expect(fetcher.calls()).toBe(2);
+			await view.rerender({ settings: makeSettings({ lang: 'nl' }), labels: [] });
+			await expandGroup(/^Personas/);
+			await waitFor(() => expect(screen.getByRole('button', { name: 'Achternaam' })).toBeTruthy());
+			expect(fetcher.calls()).toBe(3);
+		});
+
+		it('shows the Dutch labels of a Dutch lobby, whatever the UI language', async () => {
+			mount(settingsWith(ids('nombre', 'pais', 'animal'), { lang: 'nl' }));
+			await expandGroup(/^Personas/);
+			expect(screen.getByRole('button', { name: 'Bekende persoon' })).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Zanger of band' })).toBeTruthy();
+		});
+
+		it('titles the groups in the UI language (Dutch screens, Spanish lobby)', async () => {
+			i18n.set('nl');
+			mount(settingsWith(ids('nombre', 'pais', 'animal'), { lang: 'es' }));
+			await expandGroup(/^Mensen/);
+			expect(screen.getByRole('button', { name: 'Apellido' })).toBeTruthy();
+			for (const title of [/^Plaatsen/, /^Natuur/, /^Voor de lol/, /^Werk, sport en meer/]) {
+				expect(screen.getByRole('button', { name: title })).toBeTruthy();
+			}
 		});
 	});
 
@@ -294,6 +316,7 @@ describe('CategoryPicker', () => {
 			mount(settings);
 			await screen.findByRole('button', { name: /^Personas/ });
 			await waitFor(() => expect(catalog.listing('en')).not.toBeNull());
+			await waitFor(() => expect(catalog.listing('nl')).not.toBeNull());
 			await fireEvent.click(screen.getByRole('button', { name: 'Agregar categoría propia' }));
 			return screen.getByLabelText('Nombre de la categoría') as HTMLInputElement;
 		}
@@ -330,6 +353,46 @@ describe('CategoryPicker', () => {
 			expect(screen.getByText('Ya existe: Fruta o verdura')).toBeTruthy();
 		});
 
+		it('rejects the built-in label of every other language, naming the one in the lobby language', async () => {
+			// Spanish lobby: the Dutch label is a duplicate too
+			const input = await openForm();
+			await type(input, 'Bijvoeglijk naamwoord');
+			expect(screen.getByText('Ya existe: Adjetivo')).toBeTruthy();
+			await type(input, 'TV-SERIE');
+			expect(screen.getByText('Ya existe: Serie')).toBeTruthy();
+			await type(input, 'Nombre de mascota');
+			expect(screen.getByText('Ya existe: Nombre de mascota')).toBeTruthy();
+			await type(input, 'Pet name');
+			expect(screen.getByText('Ya existe: Nombre de mascota')).toBeTruthy();
+			await type(input, 'Naam van een huisdier');
+			expect(screen.getByText('Ya existe: Nombre de mascota')).toBeTruthy();
+		});
+
+		it('checks the three catalogs from an English and from a Dutch lobby', async () => {
+			const english = await openForm(settingsWith(ids('nombre', 'pais', 'animal'), { lang: 'en' }));
+			await type(english, 'Naam');
+			expect(screen.getByText('Ya existe: Name')).toBeTruthy();
+			await type(english, 'país');
+			expect(screen.getByText('Ya existe: Country')).toBeTruthy();
+			cleanup();
+
+			const dutch = await openForm(settingsWith(ids('nombre', 'pais', 'animal'), { lang: 'nl' }));
+			await type(dutch, 'country');
+			expect(screen.getByText('Ya existe: Land')).toBeTruthy();
+			await type(dutch, 'PAÍS');
+			expect(screen.getByText('Ya existe: Land')).toBeTruthy();
+			await type(dutch, 'Algo nuevo');
+			expect(screen.queryByText(/Ya existe/)).toBeNull();
+		});
+
+		it('treats the ligature ĳ as ij when comparing labels', async () => {
+			const input = await openForm(settingsWith(ids('nombre', 'pais', 'animal'), { lang: 'nl' }));
+			await type(input, 'Bĳvoeglĳk naamwoord');
+			expect(screen.getByText('Ya existe: Bijvoeglijk naamwoord')).toBeTruthy();
+			await type(input, 'Ĳsvogel');
+			expect(screen.queryByText(/Ya existe/)).toBeNull();
+		});
+
 		it('rejects a duplicate of another custom category', async () => {
 			const input = await openForm(
 				settingsWith([...ids('nombre', 'pais', 'animal'), { custom: 'Algo que da risa' }])
@@ -344,6 +407,7 @@ describe('CategoryPicker', () => {
 			const onchange = lastOnchange!;
 			await type(input, '  Algo   que da risa ');
 			await fireEvent.click(add());
+			await waitFor(() => expect(onchange).toHaveBeenCalled());
 			expect(last(onchange).categories.at(-1)).toEqual({ custom: 'Algo que da risa' });
 			expect(JSON.parse(localStorage.getItem(RECENTS_KEY)!)).toEqual(['Algo que da risa']);
 			expect(input.value).toBe('');
@@ -358,6 +422,32 @@ describe('CategoryPicker', () => {
 			await type(input, 'Excusas');
 			await fireEvent.submit(input.closest('form')!);
 			expect(last(onchange).categories.at(-1)).toEqual({ custom: 'Excusas' });
+		});
+
+		it('retries a language that had not loaded before it accepts a name', async () => {
+			// The Dutch catalog fails once: until it arrives "Land" (the Dutch "País") looks free.
+			const base = fixtureFetch();
+			let failedNl = false;
+			const flaky = ((input: RequestInfo | URL, init?: RequestInit) => {
+				if (String(input).includes('lang=nl') && !failedNl) {
+					failedNl = true;
+					return Promise.resolve(new Response('{"error":"server_busy"}', { status: 503 }));
+				}
+				return base(input, init);
+			}) as typeof fetch;
+			catalog.reset(flaky);
+			mount();
+			await screen.findByRole('button', { name: /^Personas/ });
+			await waitFor(() => expect(catalog.listing('en')).not.toBeNull());
+			await waitFor(() => expect(catalog.state('nl')?.status).toBe('error'));
+			await fireEvent.click(screen.getByRole('button', { name: 'Agregar categoría propia' }));
+			const input = screen.getByLabelText('Nombre de la categoría') as HTMLInputElement;
+			const onchange = lastOnchange!;
+			await type(input, 'Land');
+			expect(add().hasAttribute('disabled')).toBe(false);
+			await fireEvent.click(add());
+			await waitFor(() => expect(screen.getByText('Ya existe: País')).toBeTruthy());
+			expect(onchange).not.toHaveBeenCalled();
 		});
 
 		it('ignores a submit while invalid', async () => {
@@ -377,6 +467,8 @@ describe('CategoryPicker', () => {
 		it('offers them as chips and re-adds one with a tap', async () => {
 			const { onchange } = mount();
 			await fireEvent.click(await screen.findByRole('button', { name: 'Agregar Excusas' }));
+			// Adding waits for every catalog (the duplicate check), so it lands a tick later.
+			await waitFor(() => expect(onchange).toHaveBeenCalled());
 			expect(last(onchange).categories.at(-1)).toEqual({ custom: 'Excusas' });
 			expect(JSON.parse(localStorage.getItem(RECENTS_KEY)!)[0]).toBe('Excusas');
 			expect(screen.queryByRole('button', { name: 'Agregar Excusas' })).toBeNull();
@@ -386,8 +478,8 @@ describe('CategoryPicker', () => {
 			const { onchange } = mount();
 			await waitFor(() => expect(catalog.listing('es')).not.toBeNull());
 			await fireEvent.click(screen.getByRole('button', { name: 'Agregar Ciudad' }));
+			await waitFor(() => expect(screen.getByText('Ya existe: Ciudad')).toBeTruthy());
 			expect(onchange).not.toHaveBeenCalled();
-			expect(screen.getByText('Ya existe: Ciudad')).toBeTruthy();
 		});
 
 		it('forgets one with its ✕ control', async () => {

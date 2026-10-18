@@ -35,6 +35,7 @@
 	"lobby_lang_hint": "Define el abecedario, las letras difíciles y los nombres de las categorías.",
 	"lobby_lang_es": "Español",
 	"lobby_lang_en": "Inglés",
+	"lobby_lang_nl": "Holandés",
 	"lobby_hard_label": "Excluir letras difíciles",
 	"lobby_hard_on": "Fuera: {letters} · se juegan {count} letras",
 	"lobby_hard_off": "Se juegan las {count} letras",

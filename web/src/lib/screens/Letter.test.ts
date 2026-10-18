@@ -202,3 +202,25 @@ describe('Letter: English', () => {
 		expect(document.body.textContent).not.toMatch(/[¡¿ñáéíóúü]/i);
 	});
 });
+
+describe('Letter: Dutch', () => {
+	beforeEach(() => i18n.set('nl'));
+
+	it('the chooser sees Stop! and the Dutch hint', () => {
+		setup();
+		expect(stopButton()!.textContent?.trim()).toBe('Stop!');
+		expect(screen.getByText('Tik op Stop wanneer je wilt')).toBeTruthy();
+		expect(screen.getByText('Ronde 3 van 5')).toBeTruthy();
+	});
+
+	it('the others see who is choosing, in Dutch', () => {
+		setup({ chooserId: 'p2' });
+		expect(screen.getByText('Beto kiest de letter…')).toBeTruthy();
+	});
+
+	it('has no Spanish text', () => {
+		setup({ chooserId: 'p2', participants: ['p1', 'p3'] });
+		expect(document.body.textContent).not.toMatch(/[¡¿ñ]/i);
+		expect(document.body.textContent).not.toMatch(/basta/i);
+	});
+});

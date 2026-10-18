@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
 	MAX_ANSWER_LEN,
@@ -66,7 +67,19 @@ const normalizeCases: [name: string, input: string, lang: string, want: string][
 	['NFD enye in en', 'N\u0303and\u0075\u0301', 'en', 'nandu'],
 	['lower NFD enye in es', 'n\u0303u', 'es', 'ñu'],
 	['enye after an accented n mark', 'n\u0301\u0303', 'es', 'ñ'],
-	['space between n and the tilde', 'n \u0303', 'es', 'n']
+	['space between n and the tilde', 'n \u0303', 'es', 'n'],
+	['ij ligature, lower, in nl', 'ĳsland', 'nl', 'ijsland'],
+	['ij ligature, upper, in nl', 'Ĳsland', 'nl', 'ijsland'],
+	['ij ligature equals the digraph in nl', 'IJsland', 'nl', 'ijsland'],
+	['ij ligature in the middle of a word', 'Bĳvoeglĳk', 'nl', 'bijvoeglijk'],
+	['ij ligature U+0133 / U+0132', '\u0132ssel \u0133s', 'nl', 'ijssel ijs'],
+	['ij ligature in en', 'Ĳsland', 'en', 'ijsland'],
+	['ij ligature in es', 'Ĳsland', 'es', 'ijsland'],
+	['ij ligature next to an enye in es', 'Ĳ ñu', 'es', 'ij ñu'],
+	['enye folds in nl', 'Ñandú', 'nl', 'nandu'],
+	['dutch diaeresis and accents', 'Reünie Café één Zoë', 'nl', 'reunie cafe een zoe'],
+	['decomposed diaeresis in nl', 'Zoe\u0308', 'nl', 'zoe'],
+	['apostrophes are kept', "Zo'n 's-Hertogenbosch", 'nl', "zo'n 's-hertogenbosch"]
 ];
 
 describe('normalizeAnswer (mirror of game.Normalize)', () => {
@@ -104,10 +117,11 @@ describe('normalizeAnswer (mirror of game.Normalize)', () => {
 			'Ắng',
 			'Øl Łódź',
 			'N\u0303u',
-			'\u200bMa\u00adrte \u200b x'
+			'\u200bMa\u00adrte \u200b x',
+			'Ĳsland Bĳ'
 		];
 		for (const s of samples) {
-			for (const lang of ['es', 'en']) {
+			for (const lang of ['es', 'en', 'nl']) {
 				const once = normalizeAnswer(s, lang);
 				expect(normalizeAnswer(once, lang)).toBe(once);
 			}
@@ -155,6 +169,15 @@ const startsCases: [name: string, answer: string, letter: string, lang: string, 
 	['NFD enye folds to N in en', 'N\u0303u', 'N', 'en', true],
 	['NFD enye matches the enye letter in en', 'N\u0303u', '\u00d1', 'en', true],
 	['NFC enye is not N in es', '\u00d1u', 'N', 'es', false],
+	['IJsland starts with I in nl', 'IJsland', 'I', 'nl', true],
+	['Ĳsland (ligature) starts with I in nl', 'Ĳsland', 'I', 'nl', true],
+	['ĳsland (ligature, lower) starts with i in nl', 'ĳsland', 'i', 'nl', true],
+	['Ĳsland (ligature) does not start with J in nl', 'Ĳsland', 'J', 'nl', false],
+	['IJsland does not start with J in nl', 'IJsland', 'J', 'nl', false],
+	['Ĳsland starts with I in en and es too', 'Ĳsland', 'I', 'en', true],
+	['Ĳsland starts with I in es', 'Ĳsland', 'I', 'es', true],
+	['enye folds to N in nl', 'Ñandú', 'N', 'nl', true],
+	['Éénmaal starts with E in nl', 'Éénmaal', 'E', 'nl', true],
 	['NFC enye folds to N in en', '\u00d1u', 'N', 'en', true],
 	['stacked marks', '\u1eaeng', 'A', 'es', true],
 	['stroked o', '\u00d8l', 'O', 'en', true],
@@ -189,6 +212,14 @@ describe('fieldStatus', () => {
 		expect(fieldStatus('Nube', 'Ñ', 'es')).toBe('wrong_letter');
 	});
 
+	it('treats the ij ligature like the digraph', () => {
+		expect(fieldStatus('Ĳsland', 'I', 'nl')).toBe('valid');
+		expect(fieldStatus('IJsland', 'I', 'nl')).toBe('valid');
+		expect(fieldStatus('Ĳsland', 'J', 'nl')).toBe('wrong_letter');
+		expect(fieldStatus('ĳ', 'I', 'nl')).toBe('valid');
+		expect(fieldStatus('\u200bĲ', 'I', 'nl')).toBe('valid');
+	});
+
 	it('is accent-insensitive', () => {
 		expect(fieldStatus('Árbol', 'A', 'es')).toBe('valid');
 		expect(fieldStatus('África', 'a', 'en')).toBe('valid');
@@ -210,5 +241,36 @@ describe('answerToSend', () => {
 		expect(Array.from(cut)).toHaveLength(40);
 		expect(cut).toBe('🍓'.repeat(40));
 		expect(answerToSend('a'.repeat(40))).toBe('a'.repeat(40));
+	});
+});
+
+const goTest = new URL('../../../../server/internal/game/normalize_test.go', import.meta.url);
+
+/** Drift guard: every row of the Go engine's `TestNormalize` table through the TypeScript port. */
+describe.skipIf(!existsSync(goTest))('normalizeAnswer vs server normalize_test.go', () => {
+	const source = existsSync(goTest) ? readFileSync(goTest, 'utf8') : '';
+	const table = /func TestNormalize\(t \*testing\.T\) \{[\s\S]*?\n\t\}\n/.exec(source)?.[0] ?? '';
+	const goString = (literal: string) =>
+		JSON.parse(
+			`"${literal.replace(/\\U([0-9a-fA-F]{8})/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))}"`
+		) as string;
+	const rows = [
+		...table.matchAll(
+			/^\t\t\{"[^"]*",\s*"((?:[^"\\]|\\.)*)",\s*(?:Lang(ES|EN|NL)|"(\w+)"),\s*"((?:[^"\\]|\\.)*)"\},$/gm
+		)
+	].map((match) => ({
+		input: goString(match[1]),
+		lang: match[2] ? match[2].toLowerCase() : match[3],
+		want: goString(match[4])
+	}));
+
+	it('found the table', () => {
+		expect(rows.length).toBeGreaterThan(40);
+	});
+
+	it('gives the same result for every row', () => {
+		for (const row of rows) {
+			expect(normalizeAnswer(row.input, row.lang), JSON.stringify(row)).toBe(row.want);
+		}
 	});
 });

@@ -1,12 +1,34 @@
 [
-	{ "id": "nombre", "group": "personas", "es": "Nombre", "en": "Name", "default": true },
-	{ "id": "apellido", "group": "personas", "es": "Apellido", "en": "Last name", "default": false },
-	{ "id": "famoso", "group": "personas", "es": "Famoso/a", "en": "Celebrity", "default": false },
+	{
+		"id": "nombre",
+		"group": "personas",
+		"es": "Nombre",
+		"en": "Name",
+		"nl": "Naam",
+		"default": true
+	},
+	{
+		"id": "apellido",
+		"group": "personas",
+		"es": "Apellido",
+		"en": "Last name",
+		"nl": "Achternaam",
+		"default": false
+	},
+	{
+		"id": "famoso",
+		"group": "personas",
+		"es": "Famoso/a",
+		"en": "Celebrity",
+		"nl": "Bekende persoon",
+		"default": false
+	},
 	{
 		"id": "personaje_historico",
 		"group": "personas",
 		"es": "Personaje histórico",
 		"en": "Historical figure",
+		"nl": "Historisch figuur",
 		"default": false
 	},
 	{
@@ -14,6 +36,7 @@
 		"group": "personas",
 		"es": "Futbolista",
 		"en": "Football player",
+		"nl": "Voetballer",
 		"default": false
 	},
 	{
@@ -21,17 +44,40 @@
 		"group": "personas",
 		"es": "Cantante o banda",
 		"en": "Singer or band",
+		"nl": "Zanger of band",
 		"default": false
 	},
 
-	{ "id": "pais", "group": "lugares", "es": "País", "en": "Country", "default": true },
-	{ "id": "ciudad", "group": "lugares", "es": "Ciudad", "en": "City", "default": false },
-	{ "id": "capital", "group": "lugares", "es": "Capital", "en": "Capital city", "default": false },
+	{
+		"id": "pais",
+		"group": "lugares",
+		"es": "País",
+		"en": "Country",
+		"nl": "Land",
+		"default": true
+	},
+	{
+		"id": "ciudad",
+		"group": "lugares",
+		"es": "Ciudad",
+		"en": "City",
+		"nl": "Stad",
+		"default": false
+	},
+	{
+		"id": "capital",
+		"group": "lugares",
+		"es": "Capital",
+		"en": "Capital city",
+		"nl": "Hoofdstad",
+		"default": false
+	},
 	{
 		"id": "provincia_estado",
 		"group": "lugares",
 		"es": "Provincia o estado",
 		"en": "Province or state",
+		"nl": "Provincie of staat",
 		"default": false
 	},
 	{
@@ -39,6 +85,7 @@
 		"group": "lugares",
 		"es": "Río, lago o mar",
 		"en": "River, lake or sea",
+		"nl": "Rivier, meer of zee",
 		"default": false
 	},
 	{
@@ -46,6 +93,7 @@
 		"group": "lugares",
 		"es": "Lugar turístico",
 		"en": "Tourist attraction",
+		"nl": "Toeristische attractie",
 		"default": false
 	},
 	{
@@ -53,6 +101,7 @@
 		"group": "lugares",
 		"es": "Nacionalidad",
 		"en": "Nationality",
+		"nl": "Nationaliteit",
 		"default": false
 	},
 	{
@@ -60,16 +109,32 @@
 		"group": "lugares",
 		"es": "Club de fútbol",
 		"en": "Football club",
+		"nl": "Voetbalclub",
 		"default": false
 	},
 
-	{ "id": "animal", "group": "naturaleza", "es": "Animal", "en": "Animal", "default": true },
-	{ "id": "ave", "group": "naturaleza", "es": "Ave", "en": "Bird", "default": false },
+	{
+		"id": "animal",
+		"group": "naturaleza",
+		"es": "Animal",
+		"en": "Animal",
+		"nl": "Dier",
+		"default": true
+	},
+	{
+		"id": "ave",
+		"group": "naturaleza",
+		"es": "Ave",
+		"en": "Bird",
+		"nl": "Vogel",
+		"default": false
+	},
 	{
 		"id": "animal_marino",
 		"group": "naturaleza",
 		"es": "Animal marino",
 		"en": "Sea creature",
+		"nl": "Zeedier",
 		"default": false
 	},
 	{
@@ -77,69 +142,126 @@
 		"group": "naturaleza",
 		"es": "Flor o planta",
 		"en": "Flower or plant",
+		"nl": "Bloem of plant",
 		"default": false
 	},
 
-	{ "id": "comida", "group": "comida", "es": "Comida", "en": "Food", "default": true },
+	{
+		"id": "comida",
+		"group": "comida",
+		"es": "Comida",
+		"en": "Food",
+		"nl": "Eten",
+		"default": true
+	},
 	{
 		"id": "fruta_verdura",
 		"group": "comida",
 		"es": "Fruta o verdura",
 		"en": "Fruit or vegetable",
+		"nl": "Fruit of groente",
 		"default": false
 	},
-	{ "id": "postre", "group": "comida", "es": "Postre", "en": "Dessert", "default": false },
-	{ "id": "bebida", "group": "comida", "es": "Bebida", "en": "Drink", "default": false },
+	{
+		"id": "postre",
+		"group": "comida",
+		"es": "Postre",
+		"en": "Dessert",
+		"nl": "Nagerecht",
+		"default": false
+	},
+	{
+		"id": "bebida",
+		"group": "comida",
+		"es": "Bebida",
+		"en": "Drink",
+		"nl": "Drank",
+		"default": false
+	},
 	{
 		"id": "algo_heladera",
 		"group": "comida",
 		"es": "Algo que hay en la heladera",
 		"en": "Something in the fridge",
+		"nl": "Iets in de koelkast",
 		"default": false
 	},
 
-	{ "id": "cosa", "group": "cosas", "es": "Cosa", "en": "Thing", "default": false },
-	{ "id": "color", "group": "cosas", "es": "Color", "en": "Color", "default": true },
+	{ "id": "cosa", "group": "cosas", "es": "Cosa", "en": "Thing", "nl": "Ding", "default": false },
+	{ "id": "color", "group": "cosas", "es": "Color", "en": "Color", "nl": "Kleur", "default": true },
 	{
 		"id": "ropa_accesorio",
 		"group": "cosas",
 		"es": "Ropa o accesorio",
 		"en": "Clothing or accessory",
+		"nl": "Kleding of accessoire",
 		"default": false
 	},
-	{ "id": "mueble", "group": "cosas", "es": "Mueble", "en": "Furniture", "default": false },
+	{
+		"id": "mueble",
+		"group": "cosas",
+		"es": "Mueble",
+		"en": "Furniture",
+		"nl": "Meubelstuk",
+		"default": false
+	},
 	{
 		"id": "util_escolar",
 		"group": "cosas",
 		"es": "Útil escolar",
 		"en": "School supply",
+		"nl": "Schoolbenodigdheid",
 		"default": false
 	},
-	{ "id": "juguete", "group": "cosas", "es": "Juguete", "en": "Toy", "default": false },
+	{
+		"id": "juguete",
+		"group": "cosas",
+		"es": "Juguete",
+		"en": "Toy",
+		"nl": "Speelgoed",
+		"default": false
+	},
 	{
 		"id": "transporte",
 		"group": "cosas",
 		"es": "Medio de transporte",
 		"en": "Vehicle",
+		"nl": "Vervoermiddel",
 		"default": false
 	},
 
-	{ "id": "marca", "group": "marcas", "es": "Marca", "en": "Brand", "default": true },
+	{ "id": "marca", "group": "marcas", "es": "Marca", "en": "Brand", "nl": "Merk", "default": true },
 	{
 		"id": "marca_auto",
 		"group": "marcas",
 		"es": "Marca de auto",
 		"en": "Car brand",
+		"nl": "Automerk",
 		"default": false
 	},
 
-	{ "id": "pelicula", "group": "cultura", "es": "Película", "en": "Movie", "default": false },
-	{ "id": "serie", "group": "cultura", "es": "Serie", "en": "TV show", "default": false },
+	{
+		"id": "pelicula",
+		"group": "cultura",
+		"es": "Película",
+		"en": "Movie",
+		"nl": "Film",
+		"default": false
+	},
+	{
+		"id": "serie",
+		"group": "cultura",
+		"es": "Serie",
+		"en": "TV show",
+		"nl": "Tv-serie",
+		"default": false
+	},
 	{
 		"id": "dibujo_animado",
 		"group": "cultura",
 		"es": "Dibujo animado",
 		"en": "Cartoon",
+		"nl": "Tekenfilm",
 		"default": false
 	},
 	{
@@ -147,6 +269,7 @@
 		"group": "cultura",
 		"es": "Personaje de ficción",
 		"en": "Fictional character",
+		"nl": "Fictief personage",
 		"default": false
 	},
 	{
@@ -154,6 +277,7 @@
 		"group": "cultura",
 		"es": "Superhéroe o villano",
 		"en": "Superhero or villain",
+		"nl": "Superheld of schurk",
 		"default": false
 	},
 	{
@@ -161,6 +285,7 @@
 		"group": "cultura",
 		"es": "Videojuego",
 		"en": "Video game",
+		"nl": "Videogame",
 		"default": false
 	},
 
@@ -169,14 +294,23 @@
 		"group": "trabajo",
 		"es": "Profesión u oficio",
 		"en": "Job",
+		"nl": "Beroep",
 		"default": false
 	},
-	{ "id": "deporte", "group": "trabajo", "es": "Deporte", "en": "Sport", "default": false },
+	{
+		"id": "deporte",
+		"group": "trabajo",
+		"es": "Deporte",
+		"en": "Sport",
+		"nl": "Sport",
+		"default": false
+	},
 	{
 		"id": "instrumento",
 		"group": "trabajo",
 		"es": "Instrumento musical",
 		"en": "Musical instrument",
+		"nl": "Muziekinstrument",
 		"default": false
 	},
 	{
@@ -184,6 +318,7 @@
 		"group": "trabajo",
 		"es": "Parte del cuerpo",
 		"en": "Body part",
+		"nl": "Lichaamsdeel",
 		"default": false
 	},
 
@@ -192,16 +327,39 @@
 		"group": "divertidas",
 		"es": "Adjetivo",
 		"en": "Adjective",
+		"nl": "Bijvoeglijk naamwoord",
 		"default": false
 	},
-	{ "id": "verbo", "group": "divertidas", "es": "Verbo", "en": "Verb", "default": false },
-	{ "id": "idioma", "group": "divertidas", "es": "Idioma", "en": "Language", "default": false },
-	{ "id": "emocion", "group": "divertidas", "es": "Emoción", "en": "Emotion", "default": false },
+	{
+		"id": "verbo",
+		"group": "divertidas",
+		"es": "Verbo",
+		"en": "Verb",
+		"nl": "Werkwoord",
+		"default": false
+	},
+	{
+		"id": "idioma",
+		"group": "divertidas",
+		"es": "Idioma",
+		"en": "Language",
+		"nl": "Taal",
+		"default": false
+	},
+	{
+		"id": "emocion",
+		"group": "divertidas",
+		"es": "Emoción",
+		"en": "Emotion",
+		"nl": "Emotie",
+		"default": false
+	},
 	{
 		"id": "mascota",
 		"group": "divertidas",
 		"es": "Nombre de mascota",
 		"en": "Pet name",
+		"nl": "Naam van een huisdier",
 		"default": false
 	},
 	{
@@ -209,6 +367,7 @@
 		"group": "divertidas",
 		"es": "Excusa para llegar tarde",
 		"en": "Excuse for being late",
+		"nl": "Smoes om te laat te komen",
 		"default": false
 	},
 	{
@@ -216,6 +375,7 @@
 		"group": "divertidas",
 		"es": "Algo que llevás a la playa",
 		"en": "Something you take to the beach",
+		"nl": "Iets wat je meeneemt naar het strand",
 		"default": false
 	},
 	{
@@ -223,6 +383,7 @@
 		"group": "divertidas",
 		"es": "Algo que da miedo",
 		"en": "Something scary",
+		"nl": "Iets engs",
 		"default": false
 	}
 ]

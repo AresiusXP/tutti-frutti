@@ -4,7 +4,10 @@
  * a test fails when they drift) served the way `GET /api/categories?lang=` does.
  */
 import type { Category, CategoryRef, Lang, Listing } from '$lib/protocol';
+import { LANGS } from './letters';
 import raw from './categories.fixture.json';
+
+const isLang = (value: string | null): value is Lang => LANGS.includes(value as Lang);
 
 export const FIXTURE_CATEGORIES: readonly Category[] = raw;
 
@@ -20,7 +23,7 @@ export function listingFor(lang: Lang): Listing {
 		categories: FIXTURE_CATEGORIES.map((c) => ({
 			id: c.id,
 			group: c.group,
-			label: lang === 'en' ? c.en : c.es,
+			label: c[lang],
 			default: c.default
 		}))
 	};
@@ -61,7 +64,7 @@ export function fixtureFetch(options: FixtureFetchOptions = {}) {
 					return;
 				}
 				const lang = url.searchParams.get('lang');
-				if (url.pathname !== '/api/categories' || (lang !== 'es' && lang !== 'en')) {
+				if (url.pathname !== '/api/categories' || !isLang(lang)) {
 					resolve(new Response('{"error":"not_found"}', { status: 404 }));
 					return;
 				}

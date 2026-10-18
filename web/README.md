@@ -176,35 +176,48 @@ src/lib/account/account.testkit.ts  routable fake fetch, fake event targets, mem
   `page.route('**/api/**', …)`) answering `/api/session` `{guest:true, googleEnabled:true, loggedIn:true}`,
   `/api/me` `{id, name, profile}` and `/api/me/stats`; or run the Go server with Google configured
   (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, redirect URI `<PUBLIC_URL>/api/auth/google/callback`).
-- **Messages:** `messages/account/{es,en}.json` (`account_*`, `stats_*`; the REST failures are `account_err_*`).
+- **Messages:** `messages/account/{es,en,nl}.json` (`account_*`, `stats_*`; the REST failures are `account_err_*`).
 
 ## Dev playground
 
-`npm run dev`, then `http://localhost:5173/dev` lists scenarios; `/dev?s=<scenario>&lang=es|en&bare=1`
+`npm run dev`, then `http://localhost:5173/dev` lists scenarios; `/dev?s=<scenario>&lang=es|en|nl&bare=1`
 renders one room screen with a `FakeSession` and **no server** (only in `vite dev`; a production build
 redirects home). Each area registers its scenarios in `src/lib/dev/scenarios.<area>.ts`
 (`export const scenarios: Record<string, () => FakeSession>`), picked up automatically.
+`&lang=` is the **screen** language; the **game** (lobby) language is part of the scenario:
+`play-<name>` (Spanish lobby), `play-en-<name>`, `play-nl-<name>` (Dutch lobby: `play-nl-playing-ij` shows
+the IJ digraph), `review-*` / `summary-*` / `final-*` (Spanish lobby) and the same with an `-en` / `-nl`
+suffix, `lobby-english`, `lobby-dutch`,
+`lobby-dutch-guest`, `lobby-dutch-long` (the longest Dutch category labels).
 
 ## i18n (Paraglide JS)
 
-- Messages live in `messages/es.json` (base locale, Argentine Spanish with voseo:
-  "Creá", "Unite") and `messages/en.json`. Keys are flat `snake_case` and must
-  exist in **both** files with the same `{parameters}` (a test enforces it).
-- **Message areas**: besides the core `messages/{es,en}.json`, every feature owns a folder
+- Languages: **`es`** (base locale and fallback, Argentine Spanish with voseo: "Creá", "Unite"),
+  **`en`** and **`nl`** (Dutch). Messages live in `messages/es.json`, `messages/en.json` and
+  `messages/nl.json`. Keys are flat `snake_case` and must exist in **all three** files with the same
+  `{parameters}` (a test enforces it). The locales are listed in `project.inlang/settings.json`.
+- **Screen language and game language are independent.** The ES/EN/NL switch (Home, invite gate, stats)
+  sets the screen language (`i18n.locale`); the lobby language (`settings.lang`: alphabet, hard letters,
+  category names, answer rules) is chosen by the host in the lobby settings. Creating a room from a Dutch
+  screen starts it as a Dutch lobby (`lang: i18n.locale`), but the host can change it.
+- **Message areas**: besides the core `messages/{es,en,nl}.json`, every feature owns a folder
   (`messages/net/` for the network/Home/gate/closed/error strings, `messages/lobby/`,
   `messages/play/`, `messages/review/`, `messages/account/`) with its own key prefix (`net_`, `err_`, `gate_`, `closed_`,
   `home_` for `net/`). They are listed in `project.inlang/settings.json` (`pathPattern`) and
   merged by Paraglide; a key may exist in ONE area only (`src/lib/messages.test.ts` fails on
-  duplicates). English never contains `¡¿ñáéíóúü` and says only "Stop!".
+  duplicates). English never contains `¡¿ñáéíóúü`; Dutch never contains `¡¿ñ`; neither says "basta"
+  (they say only "Stop!"). The test also fails on a Dutch value that is a copy of the English/Spanish
+  text, unless the key is in its small allowlist (`Offline`, `Host`, `QR`, `Podium`, `Letter {letter}`, ...).
 - Use them as `import { m } from '$lib/paraglide/messages'` → `m.create_game()`.
   Call them inside templates or `$derived(...)` so they update when the language changes.
 - Locale resolution (no URL prefixes, it is a static SPA): `localStorage` (`tf.locale`)
-  → the browser's preferred language (`es*` → `es`, `en*` → `en`) → base locale `es`.
+  → the browser's preferred language (`es*` → `es`, `en*` → `en`, `nl*` → `nl`, i.e. `nl-NL` and
+  `nl-BE` too) → base locale `es`.
   **A first visit follows the browser language; Spanish (Argentina) is the fallback for
-  any other language.** The ES/EN switch overrides it and the choice is remembered. An
+  any other language.** The ES/EN/NL switch overrides it and the choice is remembered. An
   unknown stored value is ignored (falls through to the browser language). Paraglide persists the
   language it resolved on the first visit, so later visits keep it even if the browser language changes
-  (only the ES/EN switch changes it). Switch language with
+  (only the ES/EN/NL switch changes it). Switch language with
   `i18n.set('en')` from `$lib/i18n.svelte` (it persists the choice, keeps `<html lang>` in
   sync and re-renders without a page reload) — not with Paraglide's `setLocale` directly.
 - Compiler options are shared by Vite and the `npm run i18n` script in `paraglide.config.js`;
@@ -220,8 +233,30 @@ The static shell (`src/app.html`, `<title>`/meta, which cannot import `BRAND`) a
 `src/lib/brand.test.ts` scans `src/` and `static/` and fails when any other file contains the
 literal (add a file to its allowlist only with a justification) or when an occurrence differs from `BRAND`.
 
-English screens say **"Stop!"** (`basta_button`, `basta_overlay`, `letter_stop`, no Spanish
-subtitle); Spanish says **¡BASTA!**, "¡Basta para mí, basta para todos!" and "¡STOP!".
+English and Dutch screens say only **"Stop!"** (`basta_button`, `basta_overlay`, `letter_stop`, no
+Spanish subtitle, no "Basta" anywhere); Spanish says **¡BASTA!**, "¡Basta para mí, basta para todos!"
+and "¡STOP!".
+
+### Dutch (`nl`)
+
+- Informal "je/jij", short and friendly like the English. Glossary (shared by every area, keep it
+  consistent): ronde, categorie, letter, kamer / kamercode (room, room code), host, speler, antwoord,
+  nakijken (review phase), punten, uniek / dubbel antwoord, afkeuren (👎), “zelfde antwoord” (merge),
+  ranglijst, podium, “nog een keer” (rematch), verwijderen (kick), statistieken, “Inloggen met Google”,
+  gast, moeilijke letters, tijdslimiet, toeschouwer, delen, kopiëren, “opnieuw verbinden”.
+  The game name is never translated ("Tutti Frutti", `BRAND`).
+- Game rules of a Dutch lobby (mirrored from `server/internal/game/lang.go`, a test parses that file):
+  alphabet A–Z (26 letters, no Ñ), hard letters `Q X Y`, so a game has at most 26 rounds, or 23 without
+  the hard letters. `Ñ`/`ñ` is just `n`.
+- **IJ**: the ligature `ĳ`/`Ĳ` (U+0133/U+0132) is normalized to `ij` in **every** lobby language, in
+  answers (`play/answer.ts`) and category labels (`lobby/labels.ts`), exactly like the server. So `Ĳsland`
+  starts with the letter I and equals `IJsland`; there is no separate letter.
+- The catalog (`GET /api/categories?lang=nl`) returns the Dutch labels (`categories.fixture.json` has the
+  `nl` field of every entry; `lobby/fixtures.test.ts` fails when the fixture drifts from the server file).
+  The custom-category duplicate check compares against the built-in labels of **all three** languages.
+- A Dutch layout check: Dutch words are long (`Bijvoeglijk naamwoord`, `Toeristische attractie`,
+  `Iets wat je meeneemt naar het strand`): chips wrap on two lines, the 3-button game language selector
+  shrinks its text below 380 px, and the ES/EN/NL switch is three 48 px targets (≈184 px wide).
 
 ## UI rules
 
@@ -231,7 +266,7 @@ are in `src/app.css`; the `tall:` variant (viewport height >= 800px) relaxes the
 
 The Home screen is thumb-friendly: logo, nickname, avatar picker (one row of emoji + one row of
 colours), **Create game** and the room-code input with its **Join** button all fit without
-scrolling at 390 × 844 and 360 × 740 (the account slot — Google button, or My stats + Sign out — and the ES/EN switch too); the actions are
+scrolling at 390 × 844 and 360 × 740 (the account slot — Google button, or My stats + Sign out — and the ES/EN/NL switch too); the actions are
 anchored to the bottom. Keep it that way when you touch the layout.
 
 Room codes (`src/lib/roomCode.ts`): alphabet `BCDFGHJKLMNPQRSTVWXZ23456789`, 4 characters, ASCII-only

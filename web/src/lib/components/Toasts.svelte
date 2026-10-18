@@ -16,7 +16,7 @@
 				type="button"
 				aria-label={m.toast_dismiss()}
 				onclick={() => toasts.dismiss(toast.id)}
-				class="flex size-12 items-center justify-center rounded-xl text-xl"
+				class="flex size-12 shrink-0 items-center justify-center rounded-xl text-xl"
 			>
 				<span aria-hidden="true">✕</span>
 			</button>

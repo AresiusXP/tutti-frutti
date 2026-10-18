@@ -9,7 +9,11 @@ export const MAX_ANSWER_LEN = 40;
 
 const COMBINING_TILDE = '\u0303';
 
-/** Letters without a canonical decomposition that the server folds to their plain spelling. */
+/**
+ * Letters without a canonical decomposition that the server folds to their plain spelling.
+ * The Dutch ligature `ĳ`/`Ĳ` (U+0133/U+0132) becomes `ij` in every language, so a typed
+ * `Ĳsland` starts with the letter I and equals `IJsland`.
+ */
 const FOLDED: Record<string, string> = {
 	ø: 'o',
 	đ: 'd',
@@ -20,7 +24,8 @@ const FOLDED: Record<string, string> = {
 	ı: 'i',
 	ß: 'ss',
 	æ: 'ae',
-	œ: 'oe'
+	œ: 'oe',
+	ĳ: 'ij'
 };
 
 const FORMAT_CHARS = /\p{Cf}/gu;
@@ -35,8 +40,8 @@ export function stripFormat(text: string): string {
 /**
  * The canonical form the server compares answers with: format characters
  * removed, trimmed, inner whitespace collapsed, lower-cased, NFD-decomposed and
- * stripped of every combining mark. In Spanish (`lang === 'es'`) `ñ` is kept as
- * its own letter; in every other language it folds to `n`.
+ * stripped of every combining mark, and the ligature `ĳ` spelled `ij`. In Spanish
+ * (`lang === 'es'`) `ñ` is kept as its own letter; in every other language it folds to `n`.
  */
 export function normalizeAnswer(text: string, lang: string): string {
 	const out: string[] = [];

@@ -5,6 +5,12 @@
 	import { MAX_CATEGORIES } from './labels';
 	import { playableLetters } from './letters';
 
+	const langNames = {
+		es: () => m.lobby_lang_es(),
+		en: () => m.lobby_lang_en(),
+		nl: () => m.lobby_lang_nl()
+	} as const;
+
 	/** What everybody but the host sees: the settings as read-only chips. */
 	interface Props {
 		settings: Settings;
@@ -15,7 +21,7 @@
 
 	const letters = $derived(playableLetters(settings.lang, settings.excludeHardLetters).length);
 	const chips = $derived([
-		settings.lang === 'es' ? m.lobby_lang_es() : m.lobby_lang_en(),
+		langNames[settings.lang](),
 		settings.excludeHardLetters
 			? m.lobby_summary_hard_on({ count: letters })
 			: m.lobby_summary_hard_off({ count: letters }),

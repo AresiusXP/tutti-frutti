@@ -5,7 +5,7 @@ export const MIN_CATEGORIES = 3;
 export const MAX_CATEGORIES = 10;
 export const MAX_CUSTOM_LEN = 24;
 
-/** Letters that do not decompose; the server folds them the same way. */
+/** Letters that do not decompose (and the Dutch ligature ĳ, in every language); the server folds them the same way. */
 const FOLDED: Record<string, string> = {
 	ø: 'o',
 	đ: 'd',
@@ -16,7 +16,8 @@ const FOLDED: Record<string, string> = {
 	ı: 'i',
 	ß: 'ss',
 	æ: 'ae',
-	œ: 'oe'
+	œ: 'oe',
+	ĳ: 'ij'
 };
 
 const FORMAT_CHARS = /\p{Cf}/gu;
@@ -40,8 +41,9 @@ export function cleanLabel(text: string): string {
 /**
  * The comparison form of a label. Mirrors `Normalize` in
  * `server/internal/game/normalize.go`: format characters removed, whitespace
- * collapsed, lower-cased, diacritics stripped (NFD, no combining marks). In
- * Spanish lobbies `ñ` stays a letter of its own; elsewhere it folds to `n`.
+ * collapsed, lower-cased, diacritics stripped (NFD, no combining marks), the
+ * ligature `ĳ` spelled `ij` (every language). In Spanish lobbies `ñ` stays a
+ * letter of its own; elsewhere it folds to `n`.
  */
 export function normalizeLabel(text: string, lang: Lang): string {
 	let out = '';
@@ -74,16 +76,16 @@ export function searchKey(text: string): string {
 		.normalize('NFD')
 		.replace(/\p{Mn}/gu, '')
 		.toLowerCase()
-		.replace(/[øđðłħŧıßæœ]/gu, (char) => FOLDED[char] ?? char);
+		.replace(/[øđðłħŧıßæœĳ]/gu, (char) => FOLDED[char] ?? char);
 }
 
-/** Built-in labels of BOTH languages, normalized for `lang`, mapped to the label shown in `lang`. */
+/** Built-in labels of EVERY language, normalized for `lang`, mapped to the label shown in `lang`. */
 export type BuiltinIndex = ReadonlyMap<string, string>;
 
 /**
  * Builds the duplicate-detection index from the catalog listings that are
  * loaded. `listings[lang]` is required (it gives the label shown in the
- * message); the other language is used when available.
+ * message); the other languages are used when available.
  */
 export function builtinIndex(listings: Partial<Record<Lang, Listing>>, lang: Lang): BuiltinIndex {
 	const shown = new Map<string, string>();
@@ -107,7 +109,7 @@ export type CustomCheck =
 
 /**
  * Validates a typed custom category the way the server will (empty, length,
- * duplicate of a built-in label in either language, duplicate of another
+ * duplicate of a built-in label in any language, duplicate of another
  * custom), so the host sees the problem before anything is sent.
  */
 export function checkCustom(

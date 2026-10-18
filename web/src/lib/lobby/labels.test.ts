@@ -43,9 +43,31 @@ describe('normalizeLabel', () => {
 		expect(normalizeLabel('n \u0303', 'es')).toBe('n');
 	});
 
+	it('spells the ligature ĳ as ij in every language', () => {
+		for (const lang of ['es', 'en', 'nl'] as const) {
+			expect(normalizeLabel('Ĳsland', lang), lang).toBe('ijsland');
+			expect(normalizeLabel('ĳsvogel', lang), lang).toBe('ijsvogel');
+			expect(normalizeLabel('Bĳvoeglĳk naamwoord', lang), lang).toBe('bijvoeglijk naamwoord');
+			expect(normalizeLabel('ĲSSEL', lang), lang).toBe('ijssel');
+			expect(normalizeLabel('IJsland', lang), lang).toBe(normalizeLabel('Ĳsland', lang));
+		}
+	});
+
+	it('keeps ñ only in Spanish lobbies, never in Dutch ones', () => {
+		expect(normalizeLabel('Año', 'nl')).toBe('ano');
+		expect(normalizeLabel('Año', 'es')).toBe('año');
+	});
+
 	it('is idempotent', () => {
-		for (const text of ['México', 'Ñandú', 'Øl Łódź', '\u200bMa\u00adrte \u200b x']) {
-			for (const lang of ['es', 'en'] as const) {
+		for (const text of [
+			'México',
+			'Ñandú',
+			'Øl Łódź',
+			'\u200bMa\u00adrte \u200b x',
+			'Ĳsland Bĳ',
+			'Zoë’s Ĳs'
+		]) {
+			for (const lang of ['es', 'en', 'nl'] as const) {
 				const once = normalizeLabel(text, lang);
 				expect(normalizeLabel(once, lang)).toBe(once);
 			}
@@ -57,6 +79,13 @@ describe('searchKey', () => {
 	it('ignores case and accents (ñ matches n)', () => {
 		expect(searchKey('  ÑANDÚ  Río ')).toBe('nandu rio');
 		expect(searchKey('Łódź')).toBe('lodz');
+	});
+
+	it('finds IJ words by typing ij or the ligature', () => {
+		expect(searchKey('Ĳsland')).toBe('ijsland');
+		expect(searchKey('ĲS')).toBe('ijs');
+		expect(searchKey('Bĳvoeglĳk')).toBe('bijvoeglijk');
+		expect(searchKey('Bijvoeglijk').includes(searchKey('ĳ'))).toBe(true);
 	});
 });
 
@@ -72,7 +101,7 @@ describe.skipIf(!existsSync(goTest))('normalizeLabel vs server normalize_test.go
 		) as string;
 	const rows = [
 		...table.matchAll(
-			/^\t\t\{"[^"]*",\s*"((?:[^"\\]|\\.)*)",\s*(?:Lang(ES|EN)|"(\w+)"),\s*"((?:[^"\\]|\\.)*)"\},$/gm
+			/^\t\t\{"[^"]*",\s*"((?:[^"\\]|\\.)*)",\s*(?:Lang(ES|EN|NL)|"(\w+)"),\s*"((?:[^"\\]|\\.)*)"\},$/gm
 		)
 	].map((match) => ({
 		input: goString(match[1]),
@@ -105,7 +134,9 @@ describe('limits mirror the server', () => {
 describe('checkCustom', () => {
 	const es = listingFor('es');
 	const en = listingFor('en');
+	const nl = listingFor('nl');
 	const both = builtinIndex({ es, en }, 'es');
+	const all = builtinIndex({ es, en, nl }, 'es');
 	const onlyEs = builtinIndex({ es }, 'es');
 
 	it('accepts a new label and returns it cleaned', () => {
@@ -156,6 +187,39 @@ describe('checkCustom', () => {
 		});
 		// without the other language loaded only the shown one is known
 		expect(checkCustom('Country', 'es', onlyEs, []).ok).toBe(true);
+	});
+
+	it('rejects the built-in label of every language, shown in the lobby language', () => {
+		const esIndex = builtinIndex({ es, en, nl }, 'es');
+		const enIndex = builtinIndex({ es, en, nl }, 'en');
+		const nlIndex = builtinIndex({ es, en, nl }, 'nl');
+		const dup = (text: string, lang: Lang, index: typeof esIndex) => {
+			const check = checkCustom(text, lang, index, []);
+			return check.ok ? null : check.error === 'duplicate' ? check.existing : check.error;
+		};
+		// every spelling of one category is a duplicate in every lobby language
+		for (const spelling of [
+			'Adjetivo',
+			'Adjective',
+			'Bijvoeglijk naamwoord',
+			'bijvoeglijk NAAMWOORD'
+		]) {
+			expect(dup(spelling, 'es', esIndex), spelling).toBe('Adjetivo');
+			expect(dup(spelling, 'en', enIndex), spelling).toBe('Adjective');
+			expect(dup(spelling, 'nl', nlIndex), spelling).toBe('Bijvoeglijk naamwoord');
+		}
+		// without the Dutch catalog loaded the Dutch label is still unknown
+		expect(checkCustom('Naam', 'es', both, []).ok).toBe(true);
+		expect(dup('Naam', 'es', esIndex)).toBe('Nombre');
+	});
+
+	it('knows the IJ ligature spelling of a Dutch built-in label', () => {
+		expect(checkCustom('Bĳvoeglĳk naamwoord', 'nl', builtinIndex({ nl }, 'nl'), [])).toEqual({
+			ok: false,
+			error: 'duplicate',
+			existing: 'Bijvoeglijk naamwoord'
+		});
+		expect(all.has('bijvoeglijk naamwoord')).toBe(true);
 	});
 
 	it('rejects a duplicate of another custom and reports that one', () => {

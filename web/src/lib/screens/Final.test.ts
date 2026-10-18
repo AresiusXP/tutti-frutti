@@ -169,3 +169,25 @@ describe('Final in English', () => {
 		expect(document.body.textContent).not.toMatch(/[¡¿ñáéíóúü]/i);
 	});
 });
+
+describe('Final in Dutch', () => {
+	it('contains no Spanish text and uses the glossary', async () => {
+		i18n.set('nl');
+		open({ lang: 'nl', finalTotals: { p1: 105, p2: 105, p3: 80, p4: 75 } });
+		expect(screen.getByText('Gelijkspel tussen Ana en Beto!')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Nog een keer' })).toBeTruthy();
+		expect(screen.getByRole('list', { name: 'Podium' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: /Overzicht per ronde/ }));
+		expect(screen.getByRole('heading', { name: 'Ronde 3 · Letter F' })).toBeTruthy();
+		expect(document.body.textContent).not.toMatch(/[¡¿ñ]/i);
+	});
+
+	it('a single winner and a waiting guest', () => {
+		i18n.set('nl');
+		open({ lang: 'nl', youId: 'p3' });
+		expect(screen.getByText('Beto wint!')).toBeTruthy();
+		expect(screen.getByText('Wachten tot de host nog een keer wil spelen…')).toBeTruthy();
+		expect(screen.getByText('Plaats 1')).toBeTruthy();
+		expect(document.body.textContent).not.toMatch(/[¡¿ñ]/i);
+	});
+});

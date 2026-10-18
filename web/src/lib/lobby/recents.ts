@@ -14,6 +14,7 @@ function browserStorage(): StorageLike | null {
 	}
 }
 
+// Language-neutral comparison of the remembered list (ñ folds to n, ĳ to ij, case and accents ignored).
 const key = (label: string) => normalizeLabel(label, 'en');
 
 /** Reads the list (newest first). Corrupted or blocked storage gives `[]`; it never throws. */

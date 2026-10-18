@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { FIXTURE_CATEGORIES, fixtureFetch, labelsFor, listingFor } from './fixtures';
+import { LANGS } from './letters';
 
 const server = new URL('../../../../server/internal/catalog/categories.json', import.meta.url);
 
@@ -23,6 +24,36 @@ describe('catalog fixture', () => {
 			'trabajo',
 			'divertidas'
 		]);
+	});
+
+	it('has a label in every lobby language for every category', () => {
+		for (const category of FIXTURE_CATEGORIES) {
+			for (const lang of LANGS) {
+				expect(category[lang], `${category.id}.${lang}`).toMatch(/\S/);
+			}
+		}
+		// every category has its own label in each language
+		for (const lang of LANGS) {
+			const labels = FIXTURE_CATEGORIES.map((c) => c[lang].toLowerCase());
+			expect(new Set(labels).size, lang).toBe(labels.length);
+		}
+	});
+
+	it('serves the Dutch catalog', () => {
+		const nl = listingFor('nl');
+		expect(nl.lang).toBe('nl');
+		expect(nl.categories).toHaveLength(50);
+		expect(nl.categories[0]).toEqual({
+			id: 'nombre',
+			group: 'personas',
+			label: 'Naam',
+			default: true
+		});
+		expect(nl.categories.find((c) => c.id === 'adjetivo')?.label).toBe('Bijvoeglijk naamwoord');
+		expect(nl.categories.find((c) => c.id === 'lugar_turistico')?.label).toBe(
+			'Toeristische attractie'
+		);
+		expect(labelsFor('nl', [{ id: 'pais' }, { custom: 'IJsberen' }])).toEqual(['Land', 'IJsberen']);
 	});
 
 	it('serves labels in the requested language', () => {
@@ -53,6 +84,8 @@ describe('fixtureFetch', () => {
 		expect(res.ok).toBe(true);
 		expect(((await res.json()) as { lang: string }).lang).toBe('en');
 		expect(fetcher.calls()).toBe(1);
+		const dutch = await fetcher('/api/categories?lang=nl');
+		expect(((await dutch.json()) as { lang: string }).lang).toBe('nl');
 		expect((await fetcher('/api/categories?lang=fr')).status).toBe(404);
 		expect((await fetcher('/api/other?lang=es')).status).toBe(404);
 	});

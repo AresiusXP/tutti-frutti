@@ -231,3 +231,30 @@ describe('Summary in English', () => {
 		expect(document.body.textContent).not.toMatch(/[¡¿ñáéíóúü]/i);
 	});
 });
+
+describe('Summary in Dutch', () => {
+	it('contains no Spanish text', async () => {
+		i18n.set('nl');
+		open({ lang: 'nl', rounds: 3 });
+		expect(screen.getByRole('heading', { level: 1 }).textContent?.trim()).toBe(
+			'Ronde 3 · Letter F'
+		);
+		expect(screen.getByText('Laatste ronde')).toBeTruthy();
+		await fireEvent.click(within(row('p3')).getByRole('button'));
+		expect(screen.getByRole('button', { name: 'Spel beëindigen' })).toBeTruthy();
+		expect(document.body.textContent).not.toMatch(/[¡¿ñ]/i);
+	});
+
+	it('guest sees the waiting message in Dutch', () => {
+		i18n.set('nl');
+		open({ lang: 'nl', youId: 'p2' });
+		expect(screen.getByText('Wachten op de host…')).toBeTruthy();
+		expect(screen.getByRole('list', { name: 'Ranglijst' })).toBeTruthy();
+	});
+
+	it('names the host action in Dutch', () => {
+		i18n.set('nl');
+		open({ lang: 'nl' });
+		expect(screen.getByRole('button', { name: 'Volgende ronde' })).toBeTruthy();
+	});
+});

@@ -30,7 +30,7 @@ const phases: Record<Phase, true> = {
 	round_summary: true,
 	final: true
 };
-const langs: Record<Lang, true> = { es: true, en: true };
+const langs: Record<Lang, true> = { es: true, en: true, nl: true };
 const statuses: Record<Status, true> = {
 	empty: true,
 	wrong_letter: true,
@@ -111,8 +111,8 @@ const lobbyState = {
 } satisfies State;
 
 describe('protocol constants', () => {
-	it('is protocol version 1', () => {
-		expect(proto.Version).toBe(1);
+	it('is protocol version 2 (Dutch lobbies)', () => {
+		expect(proto.Version).toBe(2);
 	});
 
 	it('has the WebSocket close codes', () => {
@@ -244,7 +244,7 @@ describe('generated unions', () => {
 	});
 
 	it('Lang and Status cover the engine values', () => {
-		expect(Object.keys(langs)).toEqual([proto.LangES, proto.LangEN]);
+		expect(Object.keys(langs)).toEqual([proto.LangES, proto.LangEN, proto.LangNL]);
 		expect(Object.keys(statuses)).toEqual([
 			proto.StatusEmpty,
 			proto.StatusWrongLetter,

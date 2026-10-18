@@ -45,6 +45,31 @@ export const scenarios: Record<string, Scenario> = {
 	'lobby-english': scenario(() => ({
 		settings: { lang: 'en', rounds: 0, timeLimitSeconds: 120 }
 	})),
+	'lobby-dutch': scenario(() => ({
+		settings: { lang: 'nl', rounds: 0, timeLimitSeconds: 120 }
+	})),
+	'lobby-dutch-guest': scenario(() => ({
+		you: 'p2',
+		settings: { lang: 'nl', timeLimitSeconds: 90 }
+	})),
+	// the ten longest Dutch labels (e.g. "Iets wat je meeneemt naar het strand")
+	'lobby-dutch-long': scenario(() => ({
+		settings: {
+			lang: 'nl',
+			categories: ids(
+				'algo_playa',
+				'excusa_tarde',
+				'adjetivo',
+				'lugar_turistico',
+				'mascota',
+				'ropa_accesorio',
+				'util_escolar',
+				'superheroe_villano',
+				'algo_heladera',
+				'provincia_estado'
+			)
+		}
+	})),
 	'lobby-many-categories': scenario(() => ({ settings: { categories: TEN, rounds: 8 } })),
 	'lobby-min-categories': scenario(() => ({
 		settings: { categories: ids('nombre', 'pais', 'animal') }

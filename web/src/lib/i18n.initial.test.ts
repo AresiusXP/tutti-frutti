@@ -43,16 +43,41 @@ describe('initial locale (strategy: localStorage -> preferredLanguage -> baseLoc
 		}
 	});
 
+	it('follows a Dutch browser (any region) on a fresh profile', async () => {
+		for (const lang of ['nl', 'nl-NL', 'nl-BE']) {
+			localStorage.clear();
+			setBrowserLanguages(lang);
+			const { i18n, m } = await freshPageLoad();
+			expect(i18n.locale, lang).toBe('nl');
+			expect(m.basta_button()).toBe('Stop!');
+			expect(m.create_game()).toBe('Maak een spel');
+		}
+	});
+
 	it('uses the first supported language of the browser preference list', async () => {
 		setBrowserLanguages('fr-FR', 'en-GB', 'es');
 		const { i18n } = await freshPageLoad();
 		expect(i18n.locale).toBe('en');
+
+		for (const [list, expected] of [
+			[['de', 'nl-BE', 'en'], 'nl'],
+			[['nl-NL', 'es-AR'], 'nl'],
+			[['es-AR', 'nl'], 'es'],
+			[['en-GB', 'nl'], 'en']
+		] as const) {
+			localStorage.clear();
+			setBrowserLanguages(...list);
+			expect((await freshPageLoad()).i18n.locale, list.join(',')).toBe(expected);
+		}
 	});
 
 	it('falls back to Spanish when the browser language is not supported', async () => {
-		setBrowserLanguages('fr-FR', 'de');
-		const { i18n } = await freshPageLoad();
-		expect(i18n.locale).toBe('es');
+		for (const list of [['fr-FR', 'de'], ['de-DE'], ['af'], ['pt-BR', 'it'], ['nb-NO']]) {
+			localStorage.clear();
+			setBrowserLanguages(...list);
+			const { i18n } = await freshPageLoad();
+			expect(i18n.locale, list.join(',')).toBe('es');
+		}
 	});
 
 	it('a stored choice beats the browser language', async () => {
@@ -63,6 +88,14 @@ describe('initial locale (strategy: localStorage -> preferredLanguage -> baseLoc
 		setBrowserLanguages('en-US');
 		localStorage.setItem(KEY, 'es');
 		expect((await freshPageLoad()).i18n.locale).toBe('es');
+
+		setBrowserLanguages('es-AR');
+		localStorage.setItem(KEY, 'nl');
+		expect((await freshPageLoad()).i18n.locale).toBe('nl');
+
+		setBrowserLanguages('nl-NL');
+		localStorage.setItem(KEY, 'en');
+		expect((await freshPageLoad()).i18n.locale).toBe('en');
 	});
 
 	it('ignores an unsupported stored value and follows the browser language', async () => {
@@ -71,6 +104,7 @@ describe('initial locale (strategy: localStorage -> preferredLanguage -> baseLoc
 			// Each case starts from a clean profile: the first resolution persists its result.
 			for (const [browser, expected] of [
 				['en-US', 'en'],
+				['nl-BE', 'nl'],
 				['fr-FR', 'es']
 			] as const) {
 				localStorage.clear();

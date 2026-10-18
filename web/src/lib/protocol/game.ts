@@ -411,10 +411,11 @@ export interface Game {
  */
 export const LangES = "es";
 export const LangEN = "en";
+export const LangNL = "nl";
 /**
  * Supported lobby languages.
  */
-export type Lang = typeof LangES | typeof LangEN;
+export type Lang = typeof LangES | typeof LangEN | typeof LangNL;
 /**
  * LetterTickDuration is how long each letter of the silent alphabet lasts.
  */

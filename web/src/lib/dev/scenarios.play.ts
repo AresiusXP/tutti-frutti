@@ -5,14 +5,15 @@ import type { Scenario } from './scenarios';
 
 /**
  * Scenarios of the Letter and Playing screens (`/dev?s=play-...`). Every
- * scenario exists twice: `play-<name>` (Spanish lobby) and `play-en-<name>`
- * (English lobby: English category labels, ñ folds to n). The UI language is
- * independent: add `&lang=en`.
+ * scenario exists three times: `play-<name>` (Spanish lobby), `play-en-<name>`
+ * (English lobby: English category labels, ñ folds to n) and `play-nl-<name>`
+ * (Dutch lobby: the catalog's Dutch labels, no Ñ). The UI language is
+ * independent: add `&lang=en` or `&lang=nl`.
  *
  * Clocks are frozen so screenshots are stable; the `live-*` scenarios use the
  * real clock to watch the countdowns run.
  */
-type Lang = 'es' | 'en';
+type Lang = 'es' | 'en' | 'nl';
 
 const NOW = Date.parse('2026-05-01T12:00:00Z');
 const iso = (offsetMs: number) => new Date(NOW + offsetMs).toISOString();
@@ -30,7 +31,8 @@ const LABELS: Record<Lang, string[]> = {
 		'Deporte',
 		'Fruta'
 	],
-	en: ['Name', 'Country', 'Animal', 'Food', 'Color', 'Brand', 'City', 'Job', 'Sport', 'Fruit']
+	en: ['Name', 'Country', 'Animal', 'Food', 'Color', 'Brand', 'City', 'Job', 'Sport', 'Fruit'],
+	nl: ['Naam', 'Land', 'Dier', 'Eten', 'Kleur', 'Merk', 'Stad', 'Beroep', 'Sport', 'Fruit']
 };
 const IDS = [
 	'nombre',
@@ -59,8 +61,41 @@ const GOOD: Record<Lang, string[]> = {
 		'Fútbol',
 		'Frutilla'
 	],
-	en: ['Fred', 'France', 'Fox', 'Fries', 'Fuchsia', 'Ford', 'Florence', 'Farmer', 'Football', 'Fig']
+	en: [
+		'Fred',
+		'France',
+		'Fox',
+		'Fries',
+		'Fuchsia',
+		'Ford',
+		'Florence',
+		'Farmer',
+		'Football',
+		'Fig'
+	],
+	nl: [
+		'Femke',
+		'Frankrijk',
+		'Flamingo',
+		'Friet',
+		'Fuchsia',
+		'Ford',
+		'Firenze',
+		'Fotograaf',
+		'Fietsen',
+		'Framboos'
+	]
 };
+
+/** An answer that does not start with F: [country, colour] per lobby language. */
+const WRONG_LETTER: Record<Lang, [string, string]> = {
+	es: ['Brasil', 'Azul'],
+	en: ['Brazil', 'Blue'],
+	nl: ['Brazilië', 'Blauw']
+};
+
+/** Dutch answers for the letter I: the digraph IJ, also typed as the ligature Ĳ (equal for the server). */
+const IJ = ['Iris', 'Ĳsland', 'IJsbeer', 'IJs', 'Indigo', 'Ikea'];
 
 const AVATARS = [
 	{ emoji: '🍌', color: 'banana' },
@@ -190,10 +225,10 @@ const defs: Record<string, Def> = {
 			phase: 'playing',
 			mine: [
 				GOOD[lang][0],
-				lang === 'es' ? 'Brasil' : 'Brazil',
+				WRONG_LETTER[lang][0],
 				GOOD[lang][2],
 				GOOD[lang][3],
-				'Azul',
+				WRONG_LETTER[lang][1],
 				GOOD[lang][5]
 			]
 		}),
@@ -204,6 +239,7 @@ const defs: Record<string, Def> = {
 			mine: ['Ñandú', 'Ñapa', 'Ñu', 'Nube', 'Niño', 'Nike'],
 			round: { letter: 'Ñ' }
 		}),
+	'playing-ij': (lang) => build({ lang, phase: 'playing', mine: IJ, round: { letter: 'I' } }),
 	'playing-with-timer': (lang) =>
 		build({
 			lang,
@@ -333,4 +369,5 @@ export const scenarios: Record<string, Scenario> = {};
 for (const [name, def] of Object.entries(defs)) {
 	scenarios[`play-${name}`] = () => expose(def('es'));
 	scenarios[`play-en-${name}`] = () => expose(def('en'));
+	scenarios[`play-nl-${name}`] = () => expose(def('nl'));
 }
