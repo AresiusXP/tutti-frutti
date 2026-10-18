@@ -54,3 +54,10 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Dev playground must not ship in production bundles
+        run: |
+          if grep -rlE "__tfSession|scenarios\.(play|lobby|review)" build/_app; then
+            echo "::error::dev playground code leaked into the production build (see src/routes/dev/+page.ts)"
+            exit 1
+          fi
