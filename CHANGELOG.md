@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.4.0...v0.5.0) (2026-10-18)
+
+
+### Features
+
+* **server:** add Dutch language support and bump protocol version ([7ab7c57](https://github.com/AresiusXP/tutti-frutti/commit/7ab7c5792d90ef14dce698fe94e60ef5dce61d8b))
+* **web:** add Dutch language support across lobby and gameplay ([2508112](https://github.com/AresiusXP/tutti-frutti/commit/2508112ac7636877fe6bf6df7f65308659c7af20))
+
+
+### Documentation
+
+* document Dutch language support and protocol v2 ([ad4f73e](https://github.com/AresiusXP/tutti-frutti/commit/ad4f73e4067000ff5e6f0b10ace168289e2d03f8))
+
 ## [0.4.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.3.0...v0.4.0) (2026-10-18)
 
 
