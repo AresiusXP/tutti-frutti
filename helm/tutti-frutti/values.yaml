@@ -1,0 +1,132 @@
+# Default values for the Tutti Frutti chart (web + server + ingress).
+# Both images default to the chart's appVersion, so one chart version always
+# deploys one matching server/web pair (they share the WebSocket protocol).
+
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullSecrets: []
+
+# Applied to both pods. ndots=1 avoids search-domain lookups for external
+# names (Google OIDC endpoints).
+dnsConfig:
+  options:
+    - name: ndots
+      value: "1"
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Hardening applied to both containers. The pod-level user is set per component.
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# ---------------------------------------------
+# Server (Go: REST /api, WebSocket /ws)
+# ---------------------------------------------
+# Always exactly one replica with strategy Recreate: authoritative game state
+# lives in memory, so there is intentionally no replicaCount value.
+server:
+  image:
+    repository: ghcr.io/aresiusxp/tutti-frutti-server
+    # Empty = .Chart.AppVersion
+    tag: ""
+    pullPolicy: IfNotPresent
+  logLevel: info
+  # Empty = https://<ingress.host> (http:// when ingress.tls.enabled=false).
+  publicUrl: ""
+  # Extra env entries (list of EnvVar objects).
+  extraEnv: []
+  # Existing Secret, not created by this chart:
+  #   kubectl create secret generic tutti-frutti-secrets \
+  #     --from-literal=database-url='postgres://user:pass@host:5432/tuttifrutti?sslmode=disable' \
+  #     --from-literal=session-secret="$(openssl rand -base64 32)" \
+  #     --from-literal=google-client-id='<id>' \
+  #     --from-literal=google-client-secret='<secret>'
+  secrets:
+    existingSecret: tutti-frutti-secrets
+    # Phase 0 placeholder deploys start without the Secret. Set to false once
+    # the server really needs it (database, sessions, Google login).
+    optional: true
+    keys:
+      databaseUrl: database-url
+      sessionSecret: session-secret
+      googleClientId: google-client-id
+      googleClientSecret: google-client-secret
+  service:
+    type: ClusterIP
+    port: 8080
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# ---------------------------------------------
+# Web (static SvelteKit build on nginx-unprivileged)
+# ---------------------------------------------
+web:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/aresiusxp/tutti-frutti-web
+    # Empty = .Chart.AppVersion
+    tag: ""
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 128Mi
+
+# ---------------------------------------------
+# Ingress (Traefik + cert-manager + external-dns/Pi-hole)
+# ---------------------------------------------
+# Only /api and /ws go to the server and everything else to web.
+# /metrics, /healthz and /readyz are deliberately NOT exposed.
+ingress:
+  enabled: true
+  className: traefik
+  host: tuttifrutti.aresius.xyz
+  # external-dns needs BOTH the annotation and the label to register the record.
+  annotations:
+    kubernetes.io/tls-acme: "true"
+    cert-manager.io/cluster-issuer: letsencrypt
+    external-dns.aresius.xyz: pihole
+    ingress.kubernetes.io/force-hsts: "true"
+  labels:
+    external-dns.aresius.xyz: pihole
+  tls:
+    enabled: true
+    # Empty = <host>-tls
+    secretName: tuttifrutti.aresius.xyz-tls
+
+# ---------------------------------------------
+# Prometheus Operator ServiceMonitor (scrapes the server /metrics)
+# ---------------------------------------------
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  labels:
+    release: kube-prometheus-stack

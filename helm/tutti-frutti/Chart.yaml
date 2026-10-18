@@ -1,0 +1,11 @@
+apiVersion: v2
+name: tutti-frutti
+description: Tutti Frutti real-time multiplayer word game (web + server)
+type: application
+home: https://tuttifrutti.aresius.xyz
+sources:
+  - https://github.com/AresiusXP/tutti-frutti
+# version and appVersion are bumped by release-please (see release-please-config.json).
+# Keep the marker comments on the same line as the values.
+version: 0.0.0 # x-release-please-version
+appVersion: "0.0.0" # x-release-please-version

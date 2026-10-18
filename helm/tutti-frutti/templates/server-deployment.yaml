@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tutti-frutti.componentFullname" (dict "component" "server" "context" .) }}
+  labels:
+    {{- include "tutti-frutti.componentLabels" (dict "component" "server" "context" .) | nindent 4 }}
+spec:
+  # Fixed at ONE replica on purpose (not a value): the authoritative game state
+  # lives in this pod's memory, so a second replica would split rooms. Recreate
+  # guarantees the old pod has stopped (and flushed its snapshot) before the new
+  # one starts; clients simply reconnect.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "tutti-frutti.selectorLabels" (dict "component" "server" "context" .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tutti-frutti.componentLabels" (dict "component" "server" "context" .) | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.server.podSecurityContext | nindent 8 }}
+      containers:
+        - name: server
+          image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.server.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8080"
+            - name: LOG_LEVEL
+              value: {{ .Values.server.logLevel | quote }}
+            - name: PUBLIC_URL
+              value: {{ include "tutti-frutti.publicUrl" . | quote }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.server.secrets.existingSecret }}
+                  key: {{ .Values.server.secrets.keys.databaseUrl }}
+                  optional: {{ .Values.server.secrets.optional }}
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.server.secrets.existingSecret }}
+                  key: {{ .Values.server.secrets.keys.sessionSecret }}
+                  optional: {{ .Values.server.secrets.optional }}
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.server.secrets.existingSecret }}
+                  key: {{ .Values.server.secrets.keys.googleClientId }}
+                  optional: {{ .Values.server.secrets.optional }}
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.server.secrets.existingSecret }}
+                  key: {{ .Values.server.secrets.keys.googleClientSecret }}
+                  optional: {{ .Values.server.secrets.optional }}
+            {{- with .Values.server.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

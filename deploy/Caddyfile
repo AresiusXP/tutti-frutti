@@ -1,0 +1,37 @@
+{
+	admin off
+	auto_https off
+}
+
+# Mimics the Traefik ingress of the cluster (see helm/tutti-frutti/templates/ingress.yaml):
+# /api and /ws go to the Go server, everything else to the static web app.
+# WebSocket upgrades are proxied transparently by reverse_proxy.
+:8000 {
+	log
+
+	@server path /api /api/* /ws /ws/*
+	handle @server {
+		reverse_proxy server:8080
+	}
+
+	handle {
+		reverse_proxy web:8080
+	}
+}
+
+# Internal-only health endpoints used by the compose healthcheck of `edge`, so that
+# `docker compose up --wait` only returns once both upstreams answer.
+# Not published to the host.
+:8081 {
+	handle /web {
+		rewrite * /healthz
+		reverse_proxy web:8080
+	}
+
+	handle /server {
+		rewrite * /readyz
+		reverse_proxy server:8080
+	}
+
+	respond 404
+}

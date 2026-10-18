@@ -1,0 +1,21 @@
+Tutti Frutti {{ .Chart.AppVersion }} deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+{{- if .Values.ingress.enabled }}
+
+URL: {{ include "tutti-frutti.publicUrl" . }}
+  /api, /ws -> {{ include "tutti-frutti.componentFullname" (dict "component" "server" "context" .) }}
+  /         -> {{ include "tutti-frutti.componentFullname" (dict "component" "web" "context" .) }}
+(/metrics, /healthz and /readyz are not exposed through the ingress.)
+{{- else }}
+
+Ingress is disabled. Reach the app inside the cluster, e.g.:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "tutti-frutti.componentFullname" (dict "component" "web" "context" .) }} 8080:{{ .Values.web.service.port }}
+{{- end }}
+
+The server runs as a single replica (Recreate strategy) because game state is
+kept in memory.
+{{- if .Values.server.secrets.optional }}
+
+NOTE: the credentials in Secret "{{ .Values.server.secrets.existingSecret }}" are marked optional, so the
+server starts without them. Create the Secret (see the chart README) and set
+server.secrets.optional=false before enabling the database or Google login.
+{{- end }}
