@@ -360,7 +360,10 @@ the persistence contract is `server/internal/store`.
 1. Client calls `POST /api/rooms {name, avatar, lang?}` (creates the room; the
    caller is the host seat, still disconnected) or learns a code from a friend.
    `GET /api/rooms/{code}` → `{code, phase, players, maxPlayers, lang, joinable}`
-   or 404 `room_not_found`.
+   or 404 `room_not_found`. While the server drains (deploy/reboot) an unknown
+   room answers **503 `server_busy` + `Retry-After: 2`** instead of 404: the room
+   is restored from its snapshot by the next pod, so clients must retry, never
+   give up. The same holds for the WebSocket (`server_busy` + close 1012).
 2. Client opens `wss://host/ws` (cookie authenticates). The **first frame must be
    `join`** (`protocol.JoinRequest`, `v: 1`). The server looks the room up,
    applies `game.Join` and then the trusted `Game.SetConnected(now, id, true)`.

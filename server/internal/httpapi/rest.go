@@ -128,6 +128,15 @@ func (s *Server) handleRoomInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	info, found := s.rooms.Info(code)
 	if !found {
+		// While the server drains (deploy / node reboot) rooms vanish from
+		// memory but are restored from their snapshot by the next pod, so
+		// "not found" would be a lie that makes clients give up. Tell them to
+		// retry instead.
+		if d, ok := s.rooms.(interface{ ShuttingDown() bool }); ok && d.ShuttingDown() {
+			w.Header().Set("Retry-After", "2")
+			writeError(w, http.StatusServiceUnavailable, "server_busy")
+			return
+		}
 		writeError(w, http.StatusNotFound, "room_not_found")
 		return
 	}

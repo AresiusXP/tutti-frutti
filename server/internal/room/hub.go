@@ -424,6 +424,16 @@ func (h *Hub) Info(code string) (Info, bool) {
 	return info, true
 }
 
+// ShuttingDown reports whether Shutdown has started. While it is true the hub
+// no longer knows its rooms (they are being flushed to the store and closed),
+// so a missing room does not mean the room does not exist: it will be back
+// after the restart. The HTTP layer uses it to answer 503 instead of 404.
+func (h *Hub) ShuttingDown() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.shuttingDown
+}
+
 // Connect implements Rooms.
 func (h *Hub) Connect(code string, c Client) (Session, error) {
 	h.mu.Lock()

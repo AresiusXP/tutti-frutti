@@ -700,6 +700,25 @@ func TestPersistedRoundTrip(t *testing.T) {
 
 // ---- shutdown ----
 
+func TestShuttingDownReportsDrain(t *testing.T) {
+	e := newEnv(t)
+	code := e.create("h1", "Hugo")
+	if e.hub.ShuttingDown() {
+		t.Fatal("ShuttingDown before Shutdown")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := e.hub.Shutdown(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !e.hub.ShuttingDown() {
+		t.Error("ShuttingDown must report true once Shutdown ran")
+	}
+	if _, ok := e.hub.Info(code); ok {
+		t.Error("a drained hub does not know its rooms any more (the HTTP layer maps this to 503, not 404)")
+	}
+}
+
 func TestShutdown(t *testing.T) {
 	l := newLobby3(t)
 	e := l.e

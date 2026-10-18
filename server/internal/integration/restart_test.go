@@ -217,8 +217,13 @@ func TestShutdownRefusesNewWork(t *testing.T) {
 	if r.status != http.StatusServiceUnavailable || r.errCode(t) != protocol.ErrServerBusy {
 		t.Fatalf("POST /api/rooms while draining = %d %s", r.status, r.body)
 	}
-	if _, ok := s.roomInfo(tb.code); ok {
-		t.Fatal("a drained room is still served")
+	// A draining server has forgotten its rooms, but they live on in the
+	// snapshot store: the lookup must say "retry" (503), never "no such room"
+	// (404), or clients would give up on a game that is restored a moment later.
+	if r := s.do(http.MethodGet, "/api/rooms/"+tb.code, nil); r.status != http.StatusServiceUnavailable ||
+		r.errCode(t) != protocol.ErrServerBusy || r.header.Get("Retry-After") == "" {
+		t.Fatalf("GET /api/rooms/%s while draining = %d %s (Retry-After %q), want 503 server_busy",
+			tb.code, r.status, r.body, r.header.Get("Retry-After"))
 	}
 	c := s.connect(late)
 	c.send(game.CmdJoin, c.joinRequest(tb.code))

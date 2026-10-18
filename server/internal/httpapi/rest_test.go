@@ -424,6 +424,32 @@ func TestCreateRoomErrors(t *testing.T) {
 	}
 }
 
+// drainingRooms is a room.Rooms that is shutting down: it has forgotten its
+// rooms (they live in the snapshot store and come back after the restart).
+type drainingRooms struct{ *fakeRooms }
+
+func (drainingRooms) ShuttingDown() bool { return true }
+
+// While the server drains, an unknown room must read as "try again", never as
+// "does not exist": the room is restored by the next pod and a 404 would make
+// clients give up on a game that is still alive.
+func TestRoomInfoWhileDraining(t *testing.T) {
+	e := newRESTEnv(t, func(o *Options) {
+		o.Rooms = drainingRooms{&fakeRooms{}}
+	})
+	rec := e.do(http.MethodGet, "/api/rooms/KT7P", "")
+	if rec.Code != http.StatusServiceUnavailable || errorCode(t, rec) != "server_busy" {
+		t.Fatalf("= %d %q, want 503 server_busy", rec.Code, rec.Body.String())
+	}
+	if ra := rec.Header().Get("Retry-After"); ra != "2" {
+		t.Errorf("Retry-After = %q, want 2", ra)
+	}
+	// A malformed code is still a plain 404: it can never exist.
+	if rec := e.do(http.MethodGet, "/api/rooms/nope", ""); rec.Code != http.StatusNotFound {
+		t.Errorf("malformed code while draining = %d, want 404", rec.Code)
+	}
+}
+
 func TestRoomInfo(t *testing.T) {
 	tests := []struct {
 		name       string
