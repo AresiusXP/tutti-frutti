@@ -24,6 +24,11 @@ export interface PlayerOptions {
 	reducedMotion?: boolean;
 	/** Another screen than the project's phone (390x844), e.g. a small 360x740 one. */
 	viewport?: { width: number; height: number };
+	/**
+	 * `'block'` keeps the service worker out: `page.route` cannot see the requests a controlled page makes
+	 * through it, so a test that fakes `/api/*` (a signed-in account) needs this.
+	 */
+	serviceWorkers?: 'allow' | 'block';
 }
 
 /** One player = one browser context (own cookies/storage, so own guest id) with one tab. */

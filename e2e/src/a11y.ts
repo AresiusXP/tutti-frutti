@@ -5,7 +5,8 @@ import type { Player } from './player';
 /**
  * Findings that are reported but not fixed yet: each is a TODO for the web app, with why it is
  * tolerated here. Matched per node (rule + the element's selector), so a NEW offender on the same
- * screen still fails. Keep the list short; delete an entry the day its fix lands.
+ * screen still fails. Keep the list short (it is empty today: leave it that way); delete an entry the
+ * day its fix lands.
  */
 interface Known {
 	rule: string;
@@ -13,31 +14,45 @@ interface Known {
 	why: string;
 }
 
-export const KNOWN_VIOLATIONS: Known[] = [
-	{
-		rule: 'label-content-name-mismatch',
-		target: /^\.min-h-20$/,
-		why: 'TODO(web, lobby RoomHeader): the code button shows "KT7P" but is named "Copiar el código K T 7 P" (spelled out for screen readers); WCAG 2.5.3 wants the visible text inside the name, voice control users cannot say "KT7P". Fix: name it "KT7P. Copiar el código" or set aria-label to code + action.'
-	},
-	{
-		rule: 'label-content-name-mismatch',
-		target:
-			/^button\[aria-label="(No time limit|Sin límite de tiempo|Geen tijdslimiet|\d+ (seconds|segundos|seconden))"\]$/,
-		why: 'TODO(web, lobby Segmented): the time-limit buttons show "60 s" / "Libre" (Dutch: "Uit") but are named "60 segundos" / "Sin límite de tiempo" (Dutch: "60 seconden" / "Geen tijdslimiet"; WCAG 2.5.3). Fix: put the visible text in the name ("60 s", "Libre — sin límite de tiempo") or drop the aria-label.'
-	},
-	{
-		rule: 'label-content-name-mismatch',
-		target: /^\.mt-2\.gap-2 > (button|\.rounded-xl)/,
-		why: 'TODO(web, review AnswerCard): the reject button shows "Rechazar 0/2" but is named "Rechazar la respuesta de Beto: 0 de 2 votos" (WCAG 2.5.3: "0/2" is not in the name). Fix: write the tally the same way in both ("0/2 votos") or add the visible tally verbatim to the name.'
-	}
-];
+export const KNOWN_VIOLATIONS: Known[] = [];
 
-/** Axe on the player's current screen: no `serious` or `critical` violation outside KNOWN_VIOLATIONS. */
+/**
+ * Rules that fail the check whatever their impact. Axe rates both as `moderate`, but each is a
+ * WCAG-level promise the app keeps on every screen:
+ *  - `page-has-heading-one`: every screen has one `h1` (a visually hidden one where the design shows none);
+ *  - `label-content-name-mismatch` (WCAG 2.5.3, label in name): a control's accessible name contains the
+ *    text it shows, so that someone who says "60 s" or "Rechazar 0/2" to a voice-control tool reaches it.
+ * Every other `moderate` / `minor` finding is only reported.
+ */
+export const ALWAYS_BLOCKING = ['page-has-heading-one', 'label-content-name-mismatch'];
+
+/**
+ * Axe's `page-has-heading-one` only asks for at least one `h1`; the design promises exactly one
+ * (a second one muddies the heading outline a screen reader walks). Counted in the accessibility tree,
+ * so a visually hidden `h1` counts and a `display: none` / `aria-hidden` one does not.
+ */
+async function expectOneHeadingOne(player: Player, screen: string): Promise<void> {
+	const titles = await player.page.getByRole('heading', { level: 1 }).allTextContents();
+	expect(
+		titles.map((t) => t.trim()),
+		`exactly one h1 on ${player.name}'s ${screen} screen (${player.locale})`
+	).toHaveLength(1);
+}
+
+const isBlocking = (violation: { id: string; impact?: string | null }) =>
+	violation.impact === 'serious' ||
+	violation.impact === 'critical' ||
+	ALWAYS_BLOCKING.includes(violation.id);
+
+/**
+ * The player's current screen has exactly one `h1`, and axe finds no `serious` or `critical`
+ * violation and none of the ALWAYS_BLOCKING rules outside KNOWN_VIOLATIONS.
+ */
 export async function expectAccessible(player: Player, screen: string): Promise<void> {
 	const results = await new AxeBuilder({ page: player.page }).analyze();
-	const serious: string[] = [];
+	const blocking: string[] = [];
 	for (const violation of results.violations) {
-		if (violation.impact !== 'serious' && violation.impact !== 'critical') {
+		if (!isBlocking(violation)) {
 			// not a failure; visible in the HTML report (and in the console with E2E_A11Y_VERBOSE=1)
 			const note = `${violation.id} [${violation.impact}] on ${player.name}'s ${screen}: ${violation.nodes.length} node(s)`;
 			test.info().annotations.push({ type: 'a11y-minor', description: note });
@@ -51,7 +66,7 @@ export async function expectAccessible(player: Player, screen: string): Promise<
 				)
 		);
 		if (unknown.length === 0) continue;
-		serious.push(
+		blocking.push(
 			`${violation.id} [${violation.impact}] ${violation.help}: ${unknown
 				.slice(0, 4)
 				.map((n) => n.target.join(' '))
@@ -59,7 +74,9 @@ export async function expectAccessible(player: Player, screen: string): Promise<
 		);
 	}
 	expect(
-		serious,
-		`serious/critical accessibility violations on ${player.name}'s ${screen} screen (${player.locale})`
+		blocking,
+		`accessibility violations on ${player.name}'s ${screen} screen (${player.locale})`
 	).toEqual([]);
+	// after axe, so a screen without any h1 is reported by the named rule first
+	await expectOneHeadingOne(player, screen);
 }

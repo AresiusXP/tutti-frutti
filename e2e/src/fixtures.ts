@@ -70,7 +70,8 @@ export class App {
 			timezoneId: 'America/Argentina/Buenos_Aires',
 			permissions: [],
 			...(options.viewport ? { viewport: options.viewport } : {}),
-			...(options.reducedMotion ? { reducedMotion: 'reduce' as const } : {})
+			...(options.reducedMotion ? { reducedMotion: 'reduce' as const } : {}),
+			...(options.serviceWorkers ? { serviceWorkers: options.serviceWorkers } : {})
 		});
 		this.#contexts.push(context);
 		this.guard.attach(context, name);

@@ -10,13 +10,67 @@ export class LobbyPage extends PageObject {
 		return this.page.getByRole('main', { name: this.t('lobby_screen_label'), exact: true });
 	}
 
+	/** The big copyable code: its name starts with the visible code ("KT7P: tocá para copiar"). */
+	codeButton(code: string): Locator {
+		return this.button('lobby_copy_code', { code });
+	}
+
 	async expectVisible(code?: string): Promise<void> {
 		await expect(this.main).toBeVisible();
-		if (code) {
-			await expect(this.button('lobby_copy_code', { code: Array.from(code).join(' ') })).toHaveText(
-				code
-			);
-		}
+		if (code) await expect(this.codeButton(code)).toHaveText(code);
+	}
+
+	/** The "Show the QR code" button next to Share. */
+	get qrButton(): Locator {
+		return this.button('lobby_qr_open');
+	}
+
+	get qrDialog(): Locator {
+		return this.page.getByRole('dialog', { name: this.t('lobby_qr_title'), exact: true });
+	}
+
+	/** The QR sheet with the picture drawn (it is generated after the sheet opens). */
+	async expectQrDrawn(code: string): Promise<void> {
+		await expect(
+			this.qrDialog.getByRole('img', { name: this.t('lobby_qr_alt', { code }), exact: true })
+		).toBeVisible();
+	}
+
+	async closeQr(): Promise<void> {
+		// the sheet has a ✕ in its header and a Close button in its footer, both named "Close": use the footer's
+		await this.qrDialog
+			.getByRole('button', { name: this.t('lobby_close'), exact: true })
+			.last()
+			.click();
+		await expect(this.qrDialog).toBeHidden();
+	}
+
+	get leaveDialog(): Locator {
+		return this.page.getByRole('dialog', { name: this.t('lobby_leave_title'), exact: true });
+	}
+
+	/** "Salir": opens the confirmation sheet (`leave()` goes on to confirm). */
+	async openLeave(): Promise<void> {
+		await this.button('lobby_leave').click();
+		await expect(this.leaveDialog).toBeVisible();
+	}
+
+	async stay(): Promise<void> {
+		await this.leaveDialog
+			.getByRole('button', { name: this.t('lobby_leave_stay'), exact: true })
+			.click();
+		await expect(this.leaveDialog).toBeHidden();
+	}
+
+	/** Host only: the ✕ of a player's row, which turns the row into "Yes, remove X / Cancel". */
+	async askKick(name: string): Promise<void> {
+		await this.button('lobby_kick', { name }).click();
+		await expect(this.button('lobby_kick_confirm', { name })).toBeVisible();
+	}
+
+	async cancelKick(name: string): Promise<void> {
+		await this.button('lobby_cancel').click();
+		await expect(this.button('lobby_kick_confirm', { name })).toHaveCount(0);
 	}
 
 	// ---- players ----------------------------------------------------------------------------
@@ -140,10 +194,9 @@ export class LobbyPage extends PageObject {
 			name: this.t('lobby_time_label'),
 			exact: true
 		});
+		// named by what it shows ("Libre", "60 s"): a different spoken name breaks WCAG 2.5.3
 		const name =
-			seconds === 0
-				? this.t('lobby_time_off_label')
-				: this.t('lobby_time_secs_label', { n: seconds });
+			seconds === 0 ? this.t('lobby_time_off') : this.t('lobby_time_secs', { n: seconds });
 		return group.getByRole('button', { name, exact: true });
 	}
 
@@ -210,6 +263,16 @@ export class CategoryPicker extends PageObject {
 	async open(): Promise<void> {
 		await this.button('lobby_cats_edit').click();
 		await expect(this.dialog).toBeVisible();
+	}
+
+	/** The catalog has been fetched: no skeleton rows are left. */
+	async expectLoaded(): Promise<void> {
+		await expect(this.dialog.getByText(this.t('lobby_cats_loading'), { exact: true })).toHaveCount(
+			0
+		);
+		await expect(
+			this.dialog.getByLabel(this.t('lobby_search_label'), { exact: true })
+		).toBeVisible();
 	}
 
 	async done(): Promise<void> {

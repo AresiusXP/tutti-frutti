@@ -1,4 +1,4 @@
-import { expectAccessible } from '../src/a11y';
+import { expectAccessible, KNOWN_VIOLATIONS } from '../src/a11y';
 import { answersLeaving, askToStop, openRound } from '../src/flows';
 import { expectUnobscured } from '../src/layout';
 import { expectDutchOnly, expectEnglishOnly } from '../src/no-spanish';
@@ -110,6 +110,90 @@ test.describe('the safety nets', () => {
 		await expect(expectAccessible(ana, 'home with a nameless button')).rejects.toThrow(
 			/button-name/
 		);
+	});
+
+	test('the accessibility check also fails on the two moderate rules it enforces, and only on those', async ({
+		app
+	}) => {
+		const ana = await app.player('Ana');
+		await ana.home.open();
+		await expectAccessible(ana, 'home');
+
+		// label in name (WCAG 2.5.3): a button that shows "60 s" but is named "60 seconds"
+		await ana.page.evaluate(() =>
+			document.body.insertAdjacentHTML(
+				'beforeend',
+				'<button type="button" id="mismatch" aria-label="60 seconds">60 s</button>'
+			)
+		);
+		await expect(expectAccessible(ana, 'home with a mismatched name')).rejects.toThrow(
+			/label-content-name-mismatch/
+		);
+		await ana.page.evaluate(() => document.getElementById('mismatch')?.remove());
+
+		// another moderate finding (a skipped heading level) is reported, not a failure
+		await ana.page.evaluate(() =>
+			document.body.insertAdjacentHTML('beforeend', '<h4 id="skipped">Skipped levels</h4>')
+		);
+		await expectAccessible(ana, 'home with a skipped heading level');
+		expect(
+			test
+				.info()
+				.annotations.filter(
+					(a) => a.type === 'a11y-minor' && /heading-order/.test(a.description ?? '')
+				),
+			'the skipped level is reported'
+		).not.toHaveLength(0);
+		await ana.page.evaluate(() => document.getElementById('skipped')?.remove());
+
+		// a screen with two h1s: axe is content with one or more, the design promises exactly one
+		await ana.page.evaluate(() =>
+			document.body.insertAdjacentHTML('beforeend', '<h1 id="second">A second title</h1>')
+		);
+		await expect(expectAccessible(ana, 'home with two h1s')).rejects.toThrow(/exactly one h1/);
+		// an h1 nobody can perceive (display: none) does not count as a second one
+		await ana.page.evaluate(() => {
+			const second = document.getElementById('second');
+			if (second) second.style.display = 'none';
+		});
+		await expectAccessible(ana, 'home with a hidden second h1');
+		await ana.page.evaluate(() => document.getElementById('second')?.remove());
+
+		// a screen without an h1
+		await ana.page.evaluate(() => document.querySelectorAll('h1').forEach((h) => h.remove()));
+		await expect(expectAccessible(ana, 'home without an h1')).rejects.toThrow(
+			/page-has-heading-one/
+		);
+	});
+
+	test('an allowance in KNOWN_VIOLATIONS silences exactly the element it names, nothing else', async ({
+		app
+	}) => {
+		const ana = await app.player('Ana');
+		await ana.home.open();
+		await ana.page.evaluate(() =>
+			document.body.insertAdjacentHTML(
+				'beforeend',
+				'<button type="button" id="tolerated"></button><button type="button" id="other"></button>'
+			)
+		);
+		expect(KNOWN_VIOLATIONS, 'the list starts empty').toEqual([]);
+		KNOWN_VIOLATIONS.push({
+			rule: 'button-name',
+			target: /^#tolerated$/,
+			why: 'safety-net test: this one is allowed'
+		});
+		try {
+			// the other nameless button still fails, and the message names it, not the tolerated one
+			const failure = expectAccessible(ana, 'home with two nameless buttons');
+			await expect(failure).rejects.toThrow(/button-name/);
+			await expect(failure).rejects.toThrow(/#other/);
+			await expect(failure).rejects.not.toThrow(/#tolerated/);
+			await ana.page.evaluate(() => document.getElementById('other')?.remove());
+			await expectAccessible(ana, 'home with only the tolerated button');
+		} finally {
+			KNOWN_VIOLATIONS.length = 0;
+		}
 	});
 
 	test('the vote-to-stop checks fail when the vote, the prompt, the dialog or the frame is absent', async ({

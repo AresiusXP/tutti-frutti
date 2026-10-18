@@ -77,9 +77,32 @@ export class ReviewPage extends PageObject {
 		await expect(this.badge(name)).toHaveCount(0);
 	}
 
+	/** "Rechazar 0/2: respuesta de Beto": starts with the words and the tally the button shows. */
 	rejectButton(name: string, tally?: { votes: number; needed: number }): Locator {
+		const label = tally ? `${this.t('review_reject')} ${tally.votes}/${tally.needed}` : undefined;
 		return this.card(name).getByRole('button', {
-			name: msgPattern(this.player.locale, 'review_reject_aria', { name, ...tally })
+			name: msgPattern(this.player.locale, 'review_reject_aria', {
+				name,
+				...(label === undefined ? {} : { label })
+			})
+		});
+	}
+
+	/** "≈ Son iguales": starts proposing that two answers are the same. */
+	get sameToggle(): Locator {
+		return this.page.getByRole('button', { name: this.t('review_same'), exact: true });
+	}
+
+	/** "Cancel" in the banner of a "same" proposal being set up. */
+	get sameCancel(): Locator {
+		return this.button('review_same_cancel');
+	}
+
+	/** The pick button of one card while a "same" proposal is being set up. */
+	pickButton(name: string): Locator {
+		return this.card(name).getByRole('button', {
+			name: this.t('review_same_pick_aria', { name }),
+			exact: true
 		});
 	}
 
@@ -87,6 +110,14 @@ export class ReviewPage extends PageObject {
 	async reject(name: string): Promise<void> {
 		await this.rejectButton(name).click();
 		await expect(this.rejectButton(name)).toHaveAttribute('aria-pressed', 'true');
+	}
+
+	/** The yes / no buttons of a "same" proposal card ("Sí, Ana y Beto son iguales"): `a` and `b` in the order they were picked. */
+	voteSame(yes: boolean, a: string, b: string): Locator {
+		return this.page.getByRole('button', {
+			name: this.t(yes ? 'review_vote_yes_aria' : 'review_vote_no_aria', { a, b }),
+			exact: true
+		});
 	}
 
 	get rejectedChip(): Locator {
