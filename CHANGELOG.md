@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.5.0...v0.6.0) (2026-10-18)
+
+
+### Features
+
+* **server:** add vote-to-stop round flow ([e162f4e](https://github.com/AresiusXP/tutti-frutti/commit/e162f4e0747983a93e68d190615b16772c578a51))
+* **web:** add vote-to-stop flow to the web client ([beee683](https://github.com/AresiusXP/tutti-frutti/commit/beee6835c963359258f5f267010e3493d307c8e9))
+
+
+### Documentation
+
+* document vote-to-stop gameplay and e2e coverage ([f0c47f4](https://github.com/AresiusXP/tutti-frutti/commit/f0c47f43c6bc112fc9c797e6bab798b1a1175693))
+
 ## [0.5.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.4.0...v0.5.0) (2026-10-18)
 
 
