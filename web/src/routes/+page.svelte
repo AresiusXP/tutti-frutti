@@ -6,6 +6,7 @@
 	import { account, accountErrorMessage } from '$lib/account';
 	import AccountChip from '$lib/account/AccountChip.svelte';
 	import GoogleButton from '$lib/account/GoogleButton.svelte';
+	import PrivacyLink from '$lib/components/PrivacyLink.svelte';
 	import { ApiError, api, type RoomInfo } from '$lib/api';
 	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
 	import AvatarPicker from '$lib/components/AvatarPicker.svelte';
@@ -233,5 +234,6 @@
 		{:else if account.googleEnabled}
 			<GoogleButton returnTo="/" />
 		{/if}
+		<PrivacyLink class="-mt-2" />
 	</section>
 </main>

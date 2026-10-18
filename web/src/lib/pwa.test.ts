@@ -102,7 +102,7 @@ describe('service worker policy', () => {
 
 	it('never intercepts the backend namespace', () => {
 		expect(config).toMatch(
-			/navigateFallbackDenylist:\s*\[\/\^\\\/\(\?:api\|ws\|healthz\|readyz\|metrics\)/
+			/navigateFallbackDenylist:\s*\[\s*\/\^\\\/\(\?:api\|ws\|healthz\|readyz\|metrics\)/
 		);
 		expect(config).toMatch(/handler:\s*'NetworkOnly'/);
 	});
@@ -126,6 +126,12 @@ describe('service worker policy', () => {
 			).toEqual([]);
 			expect(sw).toMatch(/denylist:\[\/\^\\\/\(\?:api\|ws\|healthz\|readyz\|metrics\)/);
 			expect(sw).toContain('NetworkOnly');
+		});
+
+		it('leaves the static privacy policy to the network: not precached, not an SPA fallback', () => {
+			const urls = [...sw.matchAll(/\{url:"([^"]+)"/g)].map((m) => m[1]);
+			expect(urls.filter((u) => /^privacy/.test(u))).toEqual([]);
+			expect(sw).toMatch(/denylist:\[[^\]]*\/\^\\\/privacy\(\?:\\\/\|\\\.html\)\?\$\//);
 		});
 	});
 });

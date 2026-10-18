@@ -33,10 +33,22 @@ export default defineConfig({
 							cleanupOutdatedCaches: true,
 							// The store screenshots are only fetched by the install dialog: keep them
 							// out of the precache (every client would download them for nothing).
-							globIgnores: ['**/screenshots/**', '**/node_modules/**/*', 'sw.js', 'workbox-*.js'],
+							globIgnores: [
+								'**/screenshots/**',
+								'**/node_modules/**/*',
+								'sw.js',
+								'workbox-*.js',
+								// the privacy policy is a static page outside the app, always fetched fresh
+								'**/privacy.html',
+								'**/privacy.css'
+							],
 							// Backend routes are served by the Go server: never answer them
 							// with index.html nor from a cache.
-							navigateFallbackDenylist: [/^\/(?:api|ws|healthz|readyz|metrics)(?:\/|$)/],
+							navigateFallbackDenylist: [
+								/^\/(?:api|ws|healthz|readyz|metrics)(?:\/|$)/,
+								// a real page of its own, not an SPA route: let the network answer it
+								/^\/privacy(?:\/|\.html)?$/
+							],
 							runtimeCaching: [
 								{
 									// must be self-contained: workbox serialises it into sw.js

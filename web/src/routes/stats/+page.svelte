@@ -7,6 +7,7 @@
 	import GoogleButton from '$lib/account/GoogleButton.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import LanguageSwitch from '$lib/components/LanguageSwitch.svelte';
+	import PrivacyLink from '$lib/components/PrivacyLink.svelte';
 	import Screen from '$lib/components/Screen.svelte';
 	import { BRAND } from '$lib/brand';
 	import { i18n } from '$lib/i18n.svelte';
@@ -216,6 +217,7 @@
 				>
 					{m.stats_delete()}
 				</button>
+				<PrivacyLink />
 			</section>
 		{/if}
 

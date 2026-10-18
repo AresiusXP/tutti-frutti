@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, viewport-fit=cover"
+		/>
+		<title>Privacy Policy – Tutti Frutti</title>
+		<meta
+			name="description"
+			content="Privacy Policy of Tutti Frutti (tuttifrutti.aresius.xyz): what the game stores, why, for how long, and how to delete it."
+		/>
+		<meta name="theme-color" content="#1a1033" />
+		<link rel="icon" href="/favicon.ico" sizes="48x48" />
+		<link rel="icon" href="/logo.svg" type="image/svg+xml" />
+		<link rel="stylesheet" href="/privacy.css" />
+	</head>
+	<body>
+		<div class="page">
+			<nav class="bar" aria-label="Privacy Policy">
+				<a class="back" href="/" rel="external">
+					<img src="/logo-mark.svg" alt="" width="32" height="32" />
+					<span>Tutti Frutti</span>
+				</a>
+				<div class="langs">
+					<a href="#en" hreflang="en" lang="en">EN</a>
+					<a href="#es" hreflang="es" lang="es">ES</a>
+					<a href="#nl" hreflang="nl" lang="nl">NL</a>
+				</div>
+			</nav>
+
+			<main>
+				<!-- ======================================================================= ENGLISH -->
+				<section class="doc" id="en" lang="en">
+					<h1>Privacy Policy</h1>
+					<p class="meta">
+						Last updated: 18 October 2026 · Applies to
+						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>
+					</p>
+
+					<div class="summary">
+						<h2>In short</h2>
+						<ul>
+							<li>
+								You can play without an account. We only keep a nickname, an emoji avatar and your answers,
+								and only while the game room exists.
+							</li>
+							<li>
+								Signing in with Google is optional. It gives us your Google display name and a
+								Google account ID so we can save your profile and your game statistics. We do not
+								receive your email address.
+							</li>
+							<li>
+								No advertising, no analytics, no tracking, no third-party scripts or fonts, and we never
+								sell or share your data.
+							</li>
+							<li>
+								You can delete your account and everything saved with it at any time, inside the app.
+							</li>
+						</ul>
+					</div>
+
+					<h2>1. Who is responsible</h2>
+					<p>
+						Tutti Frutti is a free hobby project, run by an individual (GitHub:
+						<a href="https://github.com/AresiusXP">AresiusXP</a>) on a private server. The person who
+						runs it is responsible for the personal data described here. You can reach them at
+						<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>.
+					</p>
+
+					<h2>2. What we collect and why</h2>
+
+					<h3>When you play as a guest</h3>
+					<ul>
+						<li>
+							<strong>Nickname and avatar</strong> (an emoji and a colour) that you choose, so other
+							players can recognise you. Please do not use your real name if you prefer not to.
+						</li>
+						<li>
+							<strong>Your answers, scores and votes</strong> in the current game, so the game can be
+							played and scored.
+						</li>
+						<li>
+							<strong>A random guest ID</strong> in a cookie, so you can get your seat back if your
+							connection drops or you reload the page. It is not linked to your identity.
+						</li>
+					</ul>
+					<p>
+						Other players in your room can see your nickname, your avatar, and your answers once a round has
+						been locked.
+					</p>
+
+					<h3>When you sign in with Google (optional)</h3>
+					<p>
+						We ask Google for the <code>openid</code> and <code>profile</code> permissions only. From
+						Google we receive:
+					</p>
+					<ul>
+						<li>an opaque, stable <strong>Google account ID</strong> (so we recognise you next time), and</li>
+						<li>
+							your <strong>Google display name</strong>, which is shown only to you (for example "Signed in
+							as …"), never to other players.
+						</li>
+					</ul>
+					<p>
+						We do <strong>not</strong> receive or store your email address, your profile picture, your
+						contacts or anything else from your Google account, and we never see your Google password.
+					</p>
+					<p>We then store, linked to that ID:</p>
+					<ul>
+						<li>your saved nickname and avatar (if you saved one),</li>
+						<li>when your account was created and when you last signed in,</li>
+						<li>
+							your game statistics: games played, wins, total points, best round and number of unique
+							answers, plus one small record per finished game (date, won or not, points).
+						</li>
+					</ul>
+					<p>
+						This is used only to run the game and to show you your own statistics. Tutti Frutti's use and
+						transfer of information received from Google APIs adheres to the
+						<a
+							href="https://developers.google.com/terms/api-services-user-data-policy"
+							rel="noopener noreferrer"
+							>Google API Services User Data Policy</a
+						>, including the Limited Use requirements.
+					</p>
+
+					<h3>Technical data</h3>
+					<p>
+						Like any web server, ours handles your IP address and browser details to answer your requests.
+						The application logs only the method, path, status code and duration of each request, never
+						nicknames or answers. The web entry point of the server may also keep standard access logs
+						(address, requested URL, browser, time) for about 7 days to keep the service secure and
+						working. The server also publishes anonymous counters (number of rooms, connections, …) that
+						contain no personal data.
+					</p>
+
+					<h2>3. Cookies and browser storage</h2>
+					<p>
+						We use only what the game needs to work. There are no advertising or analytics cookies, so there
+						is no cookie banner to accept.
+					</p>
+					<dl class="cookies">
+						<div>
+							<dt><code>tf_guest</code></dt>
+							<dd>
+								Cookie. Random guest ID used to reclaim your seat in a room. Kept for up to 1 year.
+								HttpOnly, Secure, SameSite=Lax.
+							</dd>
+						</div>
+						<div>
+							<dt><code>tf_session</code></dt>
+							<dd>
+								Cookie, only if you sign in. Proves that you are signed in. Expires after 30 days or when you
+								sign out. HttpOnly, Secure, SameSite=Lax.
+							</dd>
+						</div>
+						<div>
+							<dt><code>tf_oauth</code></dt>
+							<dd>
+								Cookie, only while signing in. Protects the sign-in against forgery. Expires after 10 minutes
+								or when the sign-in ends.
+							</dd>
+						</div>
+						<div>
+							<dt>Local storage</dt>
+							<dd>
+								On your device only (never sent to us): your nickname, avatar, language, and the custom
+								categories you used recently. The installed app also keeps a cache of its own files so it
+								opens fast and offline.
+							</dd>
+						</div>
+					</dl>
+					<p>You can delete all of this at any time in your browser settings.</p>
+
+					<h2>4. How long we keep it</h2>
+					<ul>
+						<li>
+							<strong>Game rooms</strong> (players, answers, scores) live in the server's memory and are
+							saved to its database so a game survives a server restart. A room is deleted when it closes
+							(for example when everybody has left for 30 minutes), and anything older than 6 hours is
+							removed by an automatic hourly cleanup.
+						</li>
+						<li>
+							<strong>Account data</strong> is kept until you delete your account.
+						</li>
+						<li><strong>Server access logs</strong> are kept for about 7 days.</li>
+					</ul>
+
+					<h2>5. Who we share it with</h2>
+					<p>
+						Nobody. We do not sell, rent or share personal data, and we use no advertising or analytics
+						services. The only third party involved is <strong>Google</strong>, and only if you choose to
+						sign in: your browser is sent to Google to sign in, and Google tells us your account ID and display
+						name. Google's own
+						<a href="https://policies.google.com/privacy" rel="noopener noreferrer">privacy policy</a>
+						applies to that step. Everything else is served from our own server, without external fonts,
+						scripts or images.
+					</p>
+
+					<h2>6. Your choices and rights</h2>
+					<ul>
+						<li>
+							<strong>Delete your account:</strong> sign in, open <em>My stats</em> and choose
+							<em>Delete my account</em>. Your profile, statistics and game records are erased immediately
+							and permanently.
+						</li>
+						<li>
+							<strong>Sign out</strong> at any time from the home screen. You can also remove the app's
+							access in your
+							<a href="https://myaccount.google.com/permissions" rel="noopener noreferrer"
+								>Google Account permissions</a
+							>.
+						</li>
+						<li>
+							<strong>Guests</strong> have nothing to delete: room data disappears by itself (section 4) and
+							you can clear the cookies and storage of this site in your browser.
+						</li>
+						<li>
+							Depending on where you live (for example in the EU/EEA under the GDPR) you have the right to
+							access, correct, delete and receive a copy of your data, to object to its use, and to complain
+							to your data protection authority. Write to
+							<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a> and we will answer within 30 days.
+						</li>
+					</ul>
+					<p>
+						We use your data because it is needed to provide the game you asked to play, and, for Google sign-in,
+						because you chose to use it.
+					</p>
+
+					<h2>7. Security</h2>
+					<p>
+						Connections are encrypted (HTTPS). Cookies are signed, HttpOnly and Secure. Account data is
+						stored in a database that is not reachable from the internet. No system is perfectly secure, but
+						we keep what we store to a minimum for exactly that reason.
+					</p>
+
+					<h2>8. Children</h2>
+					<p>
+						Tutti Frutti is not directed at children under 13 (or under 16 where the law sets a higher age).
+						We do not knowingly collect their personal data. If you think a child has signed in, write to us and
+						we will delete the account.
+					</p>
+
+					<h2>9. Changes</h2>
+					<p>
+						If this policy changes, the date at the top changes too. Significant changes will also be announced
+						in the app.
+					</p>
+
+					<h2>10. Contact</h2>
+					<p>
+						Questions or requests about your data:
+						<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>.
+					</p>
+				</section>
+
+				<!-- ======================================================================= ESPAÑOL -->
+				<section class="doc" id="es" lang="es">
+					<h1>Política de privacidad</h1>
+					<p class="meta">
+						Última actualización: 18 de octubre de 2026 · Rige para
+						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>
+					</p>
+
+					<div class="summary">
+						<h2>En pocas palabras</h2>
+						<ul>
+							<li>
+								Podés jugar sin cuenta. Solo guardamos un apodo, un avatar con emoji y tus respuestas, y solo
+								mientras exista la sala.
+							</li>
+							<li>
+								Iniciar sesión con Google es opcional. Nos da tu nombre en Google y un ID de cuenta de Google
+								para guardar tu perfil y tus estadísticas. No recibimos tu correo electrónico.
+							</li>
+							<li>
+								Sin publicidad, sin analítica, sin rastreo, sin scripts ni fuentes de terceros, y nunca
+								vendemos ni compartimos tus datos.
+							</li>
+							<li>
+								Podés eliminar tu cuenta y todo lo guardado con ella cuando quieras, desde la app.
+							</li>
+						</ul>
+					</div>
+
+					<h2>1. Quién es responsable</h2>
+					<p>
+						Tutti Frutti es un proyecto gratuito hecho por hobby, a cargo de una persona (GitHub:
+						<a href="https://github.com/AresiusXP">AresiusXP</a>) en un servidor propio. Esa persona es la
+						responsable de los datos personales que se describen acá. Podés escribirle a
+						<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>.
+					</p>
+
+					<h2>2. Qué datos recolectamos y para qué</h2>
+
+					<h3>Si jugás como invitado</h3>
+					<ul>
+						<li>
+							<strong>Apodo y avatar</strong> (un emoji y un color) que elegís vos, para que los demás te
+							reconozcan. Si preferís, no uses tu nombre real.
+						</li>
+						<li>
+							<strong>Tus respuestas, puntajes y votos</strong> de la partida en curso, para poder jugarla y
+							puntuarla.
+						</li>
+						<li>
+							<strong>Un ID de invitado aleatorio</strong> en una cookie, para que puedas recuperar tu lugar
+							si se corta la conexión o recargás la página. No está vinculado a tu identidad.
+						</li>
+					</ul>
+					<p>
+						Los demás jugadores de tu sala ven tu apodo, tu avatar y tus respuestas una vez que se cerró la
+						ronda.
+					</p>
+
+					<h3>Si iniciás sesión con Google (opcional)</h3>
+					<p>
+						Solo le pedimos a Google los permisos <code>openid</code> y <code>profile</code>. De Google
+						recibimos:
+					</p>
+					<ul>
+						<li>
+							un <strong>ID de cuenta de Google</strong> estable y opaco (para reconocerte la próxima vez), y
+						</li>
+						<li>
+							tu <strong>nombre visible en Google</strong>, que solo se te muestra a vos (por ejemplo "Sesión
+							iniciada como …") y nunca a otros jugadores.
+						</li>
+					</ul>
+					<p>
+						<strong>No</strong> recibimos ni guardamos tu correo electrónico, tu foto de perfil, tus
+						contactos ni nada más de tu cuenta de Google, y nunca vemos tu contraseña de Google.
+					</p>
+					<p>Luego guardamos, asociado a ese ID:</p>
+					<ul>
+						<li>tu apodo y avatar guardados (si guardaste alguno),</li>
+						<li>cuándo se creó tu cuenta y cuándo iniciaste sesión por última vez,</li>
+						<li>
+							tus estadísticas de juego: partidas jugadas, victorias, puntos totales, mejor ronda y cantidad
+							de respuestas únicas, más un pequeño registro por cada partida terminada (fecha, si ganaste o
+							no, puntos).
+						</li>
+					</ul>
+					<p>
+						Esto se usa solo para hacer funcionar el juego y mostrarte tus propias estadísticas. El uso y la
+						transferencia que hace Tutti Frutti de la información recibida de las API de Google cumple con la
+						<a
+							href="https://developers.google.com/terms/api-services-user-data-policy"
+							rel="noopener noreferrer"
+							>Política de datos de usuario de los servicios de API de Google</a
+						>, incluidos los requisitos de uso limitado.
+					</p>
+
+					<h3>Datos técnicos</h3>
+					<p>
+						Como cualquier servidor web, el nuestro procesa tu dirección IP y datos de tu navegador para
+						responder tus pedidos. La aplicación registra solo el método, la ruta, el código de estado y la
+						duración de cada pedido, nunca apodos ni respuestas. La puerta de entrada web del servidor también
+						puede guardar registros de acceso estándar (dirección, URL pedida, navegador, hora) durante unos 7
+						días, para mantener el servicio seguro y funcionando. Además, el servidor publica contadores
+						anónimos (cantidad de salas, conexiones, …) que no contienen datos personales.
+					</p>
+
+					<h2>3. Cookies y almacenamiento del navegador</h2>
+					<p>
+						Usamos solo lo que el juego necesita para funcionar. No hay cookies de publicidad ni de analítica,
+						así que no hay ningún cartel de cookies para aceptar.
+					</p>
+					<dl class="cookies">
+						<div>
+							<dt><code>tf_guest</code></dt>
+							<dd>
+								Cookie. ID de invitado aleatorio para recuperar tu lugar en una sala. Dura hasta 1 año.
+								HttpOnly, Secure, SameSite=Lax.
+							</dd>
+						</div>
+						<div>
+							<dt><code>tf_session</code></dt>
+							<dd>
+								Cookie, solo si iniciás sesión. Demuestra que iniciaste sesión. Vence a los 30 días o cuando
+								cerrás sesión. HttpOnly, Secure, SameSite=Lax.
+							</dd>
+						</div>
+						<div>
+							<dt><code>tf_oauth</code></dt>
+							<dd>
+								Cookie, solo mientras iniciás sesión. Protege el inicio de sesión contra falsificaciones. Vence
+								a los 10 minutos o cuando termina el inicio de sesión.
+							</dd>
+						</div>
+						<div>
+							<dt>Almacenamiento local</dt>
+							<dd>
+								Solo en tu dispositivo (nunca se nos envía): tu apodo, avatar, idioma y las categorías propias
+								que usaste hace poco. La app instalada también guarda una copia de sus propios archivos para
+								abrir rápido y sin conexión.
+							</dd>
+						</div>
+					</dl>
+					<p>Podés borrar todo esto cuando quieras desde los ajustes de tu navegador.</p>
+
+					<h2>4. Cuánto tiempo lo guardamos</h2>
+					<ul>
+						<li>
+							<strong>Las salas</strong> (jugadores, respuestas, puntajes) viven en la memoria del servidor y
+							se guardan en su base de datos para que una partida sobreviva a un reinicio. Una sala se borra
+							cuando se cierra (por ejemplo, cuando todos se fueron hace 30 minutos), y todo lo que tenga más de
+							6 horas lo elimina una limpieza automática cada hora.
+						</li>
+						<li>
+							<strong>Los datos de la cuenta</strong> se guardan hasta que eliminás tu cuenta.
+						</li>
+						<li>
+							<strong>Los registros de acceso del servidor</strong> se guardan unos 7 días.
+						</li>
+					</ul>
+
+					<h2>5. Con quién los compartimos</h2>
+					<p>
+						Con nadie. No vendemos, alquilamos ni compartimos datos personales, y no usamos servicios de
+						publicidad ni de analítica. El único tercero involucrado es <strong>Google</strong>, y solo si
+						elegís iniciar sesión: tu navegador va a Google para iniciar sesión y Google nos informa tu ID de
+						cuenta y tu nombre visible. En ese paso rige la
+						<a href="https://policies.google.com/privacy" rel="noopener noreferrer"
+							>política de privacidad de Google</a
+						>. Todo lo demás se sirve desde nuestro propio servidor, sin fuentes, scripts ni imágenes externas.
+					</p>
+
+					<h2>6. Tus opciones y derechos</h2>
+					<ul>
+						<li>
+							<strong>Eliminar tu cuenta:</strong> iniciá sesión, abrí <em>Mis estadísticas</em> y elegí
+							<em>Eliminar mi cuenta</em>. Tu perfil, tus estadísticas y los registros de tus partidas se borran
+							al instante y de forma definitiva.
+						</li>
+						<li>
+							<strong>Cerrá sesión</strong> cuando quieras desde la pantalla de inicio. También podés quitarle
+							el acceso a la app en los
+							<a href="https://myaccount.google.com/permissions" rel="noopener noreferrer"
+								>permisos de tu cuenta de Google</a
+							>.
+						</li>
+						<li>
+							<strong>Los invitados</strong> no tienen nada que eliminar: los datos de la sala desaparecen
+							solos (sección 4) y podés borrar las cookies y el almacenamiento de este sitio en tu navegador.
+						</li>
+						<li>
+							Según dónde vivas (por ejemplo, en la UE/EEE por el RGPD) tenés derecho a acceder a tus datos,
+							corregirlos, eliminarlos y recibir una copia, a oponerte a su uso y a reclamar ante tu autoridad
+							de protección de datos. Escribí a
+							<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a> y te respondemos dentro de los 30 días.
+						</li>
+					</ul>
+					<p>
+						Usamos tus datos porque hacen falta para darte el juego que querés jugar y, en el caso del inicio
+						de sesión con Google, porque elegiste usarlo.
+					</p>
+
+					<h2>7. Seguridad</h2>
+					<p>
+						Las conexiones van cifradas (HTTPS). Las cookies están firmadas y son HttpOnly y Secure. Los datos
+						de la cuenta se guardan en una base de datos a la que no se puede acceder desde internet. Ningún
+						sistema es perfectamente seguro, y por eso mismo guardamos lo mínimo.
+					</p>
+
+					<h2>8. Menores</h2>
+					<p>
+						Tutti Frutti no está dirigido a menores de 13 años (o de 16 donde la ley fije una edad mayor). No
+						recolectamos a sabiendas datos personales de menores. Si creés que un menor inició sesión,
+						escribinos y eliminamos la cuenta.
+					</p>
+
+					<h2>9. Cambios</h2>
+					<p>
+						Si esta política cambia, cambia también la fecha de arriba. Los cambios importantes además se
+						avisan en la app.
+					</p>
+
+					<h2>10. Contacto</h2>
+					<p>
+						Consultas o pedidos sobre tus datos:
+						<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>.
+					</p>
+				</section>
+
+				<!-- ======================================================================= NEDERLANDS -->
+				<section class="doc" id="nl" lang="nl">
+					<h1>Privacybeleid</h1>
+					<p class="meta">
+						Laatst bijgewerkt: 18 oktober 2026 · Geldt voor
+						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>
+					</p>
+
+					<div class="summary">
+						<h2>Kort samengevat</h2>
+						<ul>
+							<li>
+								Je kunt spelen zonder account. We bewaren alleen een bijnaam, een emoji-avatar en je
+								antwoorden, en alleen zolang de kamer bestaat.
+							</li>
+							<li>
+								Inloggen met Google is optioneel. Dan krijgen we je Google-weergavenaam en een Google-account-ID,
+								zodat we je profiel en je spelstatistieken kunnen bewaren. Je e-mailadres krijgen we niet.
+							</li>
+							<li>
+								Geen advertenties, geen analyse, geen tracking, geen scripts of lettertypen van derden, en we
+								verkopen of delen je gegevens nooit.
+							</li>
+							<li>
+								Je kunt je account en alles wat daarbij is opgeslagen op elk moment verwijderen, in de app.
+							</li>
+						</ul>
+					</div>
+
+					<h2>1. Wie is verantwoordelijk</h2>
+					<p>
+						Tutti Frutti is een gratis hobbyproject, beheerd door een particulier (GitHub:
+						<a href="https://github.com/AresiusXP">AresiusXP</a>) op een eigen server. Die persoon is
+						verantwoordelijk voor de persoonsgegevens die hier worden beschreven. Je bereikt de beheerder via
+						<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>.
+					</p>
+
+					<h2>2. Wat we verzamelen en waarom</h2>
+
+					<h3>Als je als gast speelt</h3>
+					<ul>
+						<li>
+							<strong>Bijnaam en avatar</strong> (een emoji en een kleur) die je zelf kiest, zodat andere spelers
+							je herkennen. Je hoeft je echte naam niet te gebruiken.
+						</li>
+						<li>
+							<strong>Je antwoorden, scores en stemmen</strong> in het huidige spel, zodat het spel gespeeld
+							en geteld kan worden.
+						</li>
+						<li>
+							<strong>Een willekeurig gast-ID</strong> in een cookie, zodat je je plek terugkrijgt als je
+							verbinding wegvalt of je de pagina herlaadt. Het is niet aan je identiteit gekoppeld.
+						</li>
+					</ul>
+					<p>
+						Andere spelers in je kamer zien je bijnaam, je avatar en je antwoorden zodra een ronde is
+						afgesloten.
+					</p>
+
+					<h3>Als je inlogt met Google (optioneel)</h3>
+					<p>
+						We vragen Google alleen om de rechten <code>openid</code> en <code>profile</code>. Van Google
+						krijgen we:
+					</p>
+					<ul>
+						<li>
+							een vast, ondoorzichtig <strong>Google-account-ID</strong> (zodat we je de volgende keer
+							herkennen), en
+						</li>
+						<li>
+							je <strong>Google-weergavenaam</strong>, die alleen aan jou wordt getoond (bijvoorbeeld "Ingelogd
+							als …") en nooit aan andere spelers.
+						</li>
+					</ul>
+					<p>
+						We ontvangen of bewaren <strong>geen</strong> e-mailadres, profielfoto, contacten of andere
+						gegevens van je Google-account, en we zien nooit je Google-wachtwoord.
+					</p>
+					<p>Gekoppeld aan dat ID bewaren we vervolgens:</p>
+					<ul>
+						<li>je opgeslagen bijnaam en avatar (als je die hebt opgeslagen),</li>
+						<li>wanneer je account is aangemaakt en wanneer je voor het laatst bent ingelogd,</li>
+						<li>
+							je spelstatistieken: gespeelde spellen, overwinningen, totaal aantal punten, beste ronde en
+							aantal unieke antwoorden, plus een klein gegeven per afgerond spel (datum, gewonnen of niet,
+							punten).
+						</li>
+					</ul>
+					<p>
+						Dit gebruiken we alleen om het spel te laten werken en om je eigen statistieken te tonen. Het
+						gebruik en de overdracht door Tutti Frutti van informatie die via Google-API's is ontvangen, voldoet
+						aan het
+						<a
+							href="https://developers.google.com/terms/api-services-user-data-policy"
+							rel="noopener noreferrer"
+							>Google API Services User Data Policy</a
+						>, inclusief de eisen voor beperkt gebruik.
+					</p>
+
+					<h3>Technische gegevens</h3>
+					<p>
+						Zoals elke webserver verwerkt de onze je IP-adres en browsergegevens om je verzoeken te
+						beantwoorden. De applicatie logt alleen de methode, het pad, de statuscode en de duur van elk
+						verzoek, nooit bijnamen of antwoorden. De webingang van de server kan daarnaast standaard
+						toegangslogs bewaren (adres, opgevraagde URL, browser, tijd), ongeveer 7 dagen, om de dienst veilig
+						en werkend te houden. De server publiceert ook anonieme tellers (aantal kamers, verbindingen, …)
+						zonder persoonsgegevens.
+					</p>
+
+					<h2>3. Cookies en opslag in je browser</h2>
+					<p>
+						We gebruiken alleen wat het spel nodig heeft om te werken. Er zijn geen advertentie- of
+						analysecookies, dus er is geen cookiebanner om te accepteren.
+					</p>
+					<dl class="cookies">
+						<div>
+							<dt><code>tf_guest</code></dt>
+							<dd>
+								Cookie. Willekeurig gast-ID om je plek in een kamer terug te krijgen. Maximaal 1 jaar bewaard.
+								HttpOnly, Secure, SameSite=Lax.
+							</dd>
+						</div>
+						<div>
+							<dt><code>tf_session</code></dt>
+							<dd>
+								Cookie, alleen als je inlogt. Bewijst dat je bent ingelogd. Verloopt na 30 dagen of als je
+								uitlogt. HttpOnly, Secure, SameSite=Lax.
+							</dd>
+						</div>
+						<div>
+							<dt><code>tf_oauth</code></dt>
+							<dd>
+								Cookie, alleen tijdens het inloggen. Beschermt het inloggen tegen vervalsing. Verloopt na 10
+								minuten of zodra het inloggen klaar is.
+							</dd>
+						</div>
+						<div>
+							<dt>Lokale opslag</dt>
+							<dd>
+								Alleen op je apparaat (nooit naar ons gestuurd): je bijnaam, avatar, taal en de eigen
+								categorieën die je onlangs gebruikte. De geïnstalleerde app bewaart ook een cache van haar eigen
+								bestanden, zodat ze snel en offline opent.
+							</dd>
+						</div>
+					</dl>
+					<p>Dit alles kun je op elk moment verwijderen in de instellingen van je browser.</p>
+
+					<h2>4. Hoe lang we het bewaren</h2>
+					<ul>
+						<li>
+							<strong>Spelkamers</strong> (spelers, antwoorden, scores) staan in het geheugen van de server en
+							worden in de database opgeslagen, zodat een spel een herstart overleeft. Een kamer wordt
+							verwijderd zodra hij sluit (bijvoorbeeld als iedereen 30 minuten weg is), en alles wat ouder is
+							dan 6 uur wordt door een automatische opruiming elk uur verwijderd.
+						</li>
+						<li>
+							<strong>Accountgegevens</strong> blijven bewaard tot je je account verwijdert.
+						</li>
+						<li>
+							<strong>Toegangslogs van de server</strong> worden ongeveer 7 dagen bewaard.
+						</li>
+					</ul>
+
+					<h2>5. Met wie we het delen</h2>
+					<p>
+						Met niemand. We verkopen, verhuren of delen geen persoonsgegevens en gebruiken geen advertentie- of
+						analysediensten. De enige derde partij is <strong>Google</strong>, en alleen als je kiest om in te
+						loggen: je browser gaat naar Google om in te loggen en Google geeft ons je account-ID en
+						weergavenaam. Voor die stap geldt de
+						<a href="https://policies.google.com/privacy" rel="noopener noreferrer"
+							>privacyverklaring van Google</a
+						>. Al het andere komt van onze eigen server, zonder externe lettertypen, scripts of afbeeldingen.
+					</p>
+
+					<h2>6. Jouw keuzes en rechten</h2>
+					<ul>
+						<li>
+							<strong>Je account verwijderen:</strong> log in, open <em>Mijn statistieken</em> en kies
+							<em>Mijn account verwijderen</em>. Je profiel, statistieken en spelgegevens worden direct en
+							definitief gewist.
+						</li>
+						<li>
+							<strong>Uitloggen</strong> kan op elk moment vanaf het beginscherm. Je kunt de toegang van de app
+							ook intrekken bij de
+							<a href="https://myaccount.google.com/permissions" rel="noopener noreferrer"
+								>machtigingen van je Google-account</a
+							>.
+						</li>
+						<li>
+							<strong>Gasten</strong> hebben niets te verwijderen: kamergegevens verdwijnen vanzelf
+							(paragraaf 4) en je kunt de cookies en opslag van deze site in je browser wissen.
+						</li>
+						<li>
+							Afhankelijk van waar je woont (bijvoorbeeld in de EU/EER onder de AVG) heb je recht op inzage,
+							correctie, verwijdering en een kopie van je gegevens, het recht om bezwaar te maken en het recht
+							om een klacht in te dienen bij je toezichthouder. Schrijf naar
+							<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>; we antwoorden binnen 30 dagen.
+						</li>
+					</ul>
+					<p>
+						We gebruiken je gegevens omdat ze nodig zijn om het spel te bieden dat je wilt spelen en, bij
+						inloggen met Google, omdat je ervoor hebt gekozen.
+					</p>
+
+					<h2>7. Beveiliging</h2>
+					<p>
+						Verbindingen zijn versleuteld (HTTPS). Cookies zijn ondertekend, HttpOnly en Secure.
+						Accountgegevens staan in een database die niet vanaf internet bereikbaar is. Geen enkel systeem is
+						volledig veilig, en juist daarom bewaren we zo weinig mogelijk.
+					</p>
+
+					<h2>8. Kinderen</h2>
+					<p>
+						Tutti Frutti is niet bedoeld voor kinderen onder 13 jaar (of onder 16 waar de wet een hogere leeftijd
+						voorschrijft). We verzamelen niet bewust hun persoonsgegevens. Denk je dat een kind is ingelogd,
+						schrijf ons dan en we verwijderen het account.
+					</p>
+
+					<h2>9. Wijzigingen</h2>
+					<p>
+						Als dit beleid verandert, verandert ook de datum bovenaan. Belangrijke wijzigingen kondigen we
+						ook in de app aan.
+					</p>
+
+					<h2>10. Contact</h2>
+					<p>
+						Vragen of verzoeken over je gegevens:
+						<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>.
+					</p>
+				</section>
+			</main>
+		</div>
+	</body>
+</html>
