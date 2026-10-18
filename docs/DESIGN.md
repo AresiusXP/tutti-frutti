@@ -73,6 +73,9 @@ Reuse the existing CloudPirates Postgres in the cluster with a dedicated
 database + user. Tables: `users`, `user_stats`, `user_games`, `room_snapshots`. Migrations
 (goose) are embedded in the server binary and run at startup (safe with one
 replica). The category catalog is an embedded JSON file, not a table.
+Production runs Postgres 18; `docker-compose.yml` and the CI service container of
+`ci-server` use the same major (the data volume is mounted on `/var/lib/postgresql`,
+where the 18+ images keep `<major>/docker`).
 
 ## 3. Game rules (as implemented)
 
@@ -373,8 +376,14 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 7. **Round summary** — round points, totals, **Next round** (host).
 8. **Final** — podium, stats, **Rematch**, **Home**.
 
-Accessibility: touch targets ≥ 48 px, high contrast, `aria-live` for Basta and
-letter reveal.
+Accessibility: touch targets ≥ 48 px, high contrast (4.5:1 for text, after opacity), `aria-live` for Basta and
+letter reveal. Every screen has **exactly one `h1`** (visually hidden where the design shows none: the playing
+and letter screens, "Conectando…"), a control that shows text is **named by that text** (WCAG 2.5.3: a name
+that differs from the visible words, such as "60 segundos" for a button reading "60 s", is not allowed; a
+longer name must start with the visible text, as the lobby code button `KT7P: tocá para copiar` and the
+reject button `Rechazar 0/2: respuesta de Beto` do) and every form field has a stable `id`/`name` and
+`autocomplete="off"` (`nickname` is a valid token, but Chrome reports it as wrong). The e2e suite enforces all
+of this on every screen in es, en and nl (see "End-to-end tests").
 
 The room route also has non-phase screens: an invite **gate** (`/KT7P` in a fresh tab: room check,
 nickname, avatar, Join), a "Conectando…" screen, a "Reconectando…" banner over the last screen and
@@ -451,6 +460,14 @@ docs/                  this file
   Chart image tags default to `.Chart.AppVersion`.
 * **Delivery**: in-cluster Renovate bumps the chart version in
   `argocd-apps/bootstrap/values.yaml` (branch automerge for this chart); ArgoCD syncs.
+* **Dependencies**: Renovate (`renovate.json`) opens the update PRs; every PR must
+  carry its lockfile (`npm ci` has to pass). The build toolchain is Node 24 (CI,
+  `web/Dockerfile`), Go 1.27 (`server/go.mod` is what `setup-go` reads; the
+  `server/Dockerfile` image matches) and Postgres 18 (= production, bumped by hand).
+  Majors that cannot work yet are disabled in `packageRules` with the blocker and
+  the condition to retry in their `description`: SvelteKit 3 / adapter-static 4 /
+  vite-plugin-pwa 2 (wait for `@vite-pwa/sveltekit` for Kit 3), TypeScript 7 (wait
+  for `typescript-eslint` and `svelte-check`).
 * GitHub flow, squash merges, conventional commits.
 
 ## 9. Phases
@@ -598,10 +615,9 @@ the persistence contract is `server/internal/store`.
   *global* bucket; the numbers are sized for that (a group of friends and a
   reconnect storm after a deploy never hit them). Switching the Service to
   `Local` would make them truly per-client.
-* Metrics (Prometheus): `tuttifrutti_rooms` (gauge), `tuttifrutti_connections`
-  (gauge), `tuttifrutti_commands_total{type,result}`, `tuttifrutti_rounds_total`,
-  `tuttifrutti_basta_total`, `tuttifrutti_stop_votes_total{result}`,
-  `tuttifrutti_snapshot_errors_total`, `tuttifrutti_ws_closes_total{code}`.
+* Metrics (Prometheus): the full list, with types, labels and what each one feeds, is the
+  metrics table of "Observability (Phase 5)". Every label value comes from a fixed set in
+  the code, never from client input (a test per package and the integration tests assert it).
 
 ### Persistence schema (goose, embedded, run at startup)
 
@@ -723,7 +739,7 @@ Code: `lib/account/` (store, REST client, types, `GoogleButton`, `AccountChip`, 
 
 Three optional chart resources, all off by default: `serviceMonitor.enabled` (scrape),
 `dashboard.enabled` (Grafana dashboard ConfigMap, uid `tutti-frutti`) and
-`prometheusRule.enabled` (12 alerts). The homelab enables all three in
+`prometheusRule.enabled` (14 alerts). The homelab enables all three in
 `argocd-apps/values/tutti-frutti.yaml`. Facts about that install that the defaults
 encode: Prometheus selects every ServiceMonitor (`serviceMonitorSelector: {}`) but only
 rules labelled `release: kube-prometheus-stack`; the Grafana sidecar imports ConfigMaps
@@ -732,58 +748,101 @@ annotation); **Alertmanager is disabled**, so alerts are visible (Prometheus Ale
 Grafana Alerting) but nothing notifies until a receiver is added.
 
 **Metrics** (server `/metrics`, scraped every 30 s; `job` = server Service name,
-`namespace` = release namespace). Labels are bounded: unknown values collapse into
-`unknown` / `other`.
+`namespace` = release namespace). Labels are bounded: every value comes from a fixed set in
+the code (unknown values collapse into `unknown` / `other`), never from client input, and the
+fixed-label counters exist from the first scrape. Each metric feeds a dashboard panel or an
+alert; a test (`dashboards/test_generate.py`) fails when this table, the Go sources, the
+dashboard and the alerts disagree.
 
-| Metric                                      | Type      | Labels                                                                  | Meaning                                                         |
-| ------------------------------------------- | --------- | ----------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `tuttifrutti_rooms`                         | gauge     |                                                                         | Live rooms in memory (cap `MAX_ROOMS`, chart `server.maxRooms`) |
-| `tuttifrutti_connections`                   | gauge     |                                                                         | Clients attached to a room (joined)                             |
-| `tuttifrutti_ws_connections_open`           | gauge     |                                                                         | All live sockets, joined or not (cap 2000 → `503 server_busy`)  |
-| `tuttifrutti_commands_total`                | counter   | `type` (18 commands, `unknown`), `result` (`ok` or the error code)      | Client frames handled by a room                                 |
-| `tuttifrutti_rounds_total`                  | counter   |                                                                         | Rounds started                                                  |
-| `tuttifrutti_basta_total`                   | counter   |                                                                         | Basta calls (rounds that end by time-up have no counter)        |
-| `tuttifrutti_stop_votes_total`              | counter   | `result`: `asked`, `passed`, `declined`, `timeout`, `ended`             | Votes to stop: opened (or passed at once), then how each ended  |
-| `tuttifrutti_snapshot_errors_total`         | counter   |                                                                         | Failed room snapshot writes / deletions (each retry counts)     |
-| `tuttifrutti_stats_recorded_total`          | counter   | `result`: `ok`, `error` (failed attempt, retried), `dropped` (given up) | Finished games handed to the stats store                        |
-| `tuttifrutti_logins_total`                  | counter   | `result`: `ok`, `failed`, `cancelled`                                   | Google logins that reached the callback                         |
-| `tuttifrutti_ws_closes_total`               | counter   | `code` (1000, 1001, 1006, 1008, 1009, 1011, 1012, 4001–4005, `other`)   | Why connections ended                                           |
-| `tuttifrutti_ws_frames_total`               | counter   | `dir` (`in`/`out`), `type`                                              | WebSocket frames                                                |
-| `tuttifrutti_http_requests_total`           | counter   | `route` (mux pattern, `unmatched`), `method`, `code`                    | HTTP requests incl. probes and `GET /ws` (101)                  |
-| `tuttifrutti_http_request_duration_seconds` | histogram | `route`, `method`                                                       | Latency; WebSocket upgrades excluded                            |
-| `go_*`, `process_*`                         |           |                                                                         | Go runtime and process (goroutines, heap, GC, CPU, fds)         |
+| Metric                                                | Type      | Labels                                                                  | Meaning                                                                                                                                    |
+| ----------------------------------------------------- | --------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tuttifrutti_rooms`                                   | gauge     |                                                                         | Live rooms in memory (cap `MAX_ROOMS`, chart `server.maxRooms`)                                                                            |
+| `tuttifrutti_connections`                             | gauge     |                                                                         | Clients attached to a room (joined)                                                                                                        |
+| `tuttifrutti_ws_connections_open`                     | gauge     |                                                                         | All live sockets, joined or not (cap 2000 → `503 server_busy`)                                                                             |
+| `tuttifrutti_commands_total`                          | counter   | `type` (18 commands, `unknown`), `result` (`ok` or the error code)      | Client frames handled by a room                                                                                                            |
+| `tuttifrutti_games_started_total`                     | counter   |                                                                         | Games started by a host (event `game_started`; a rematch needs a new start and counts again)                                               |
+| `tuttifrutti_games_finished_total`                    | counter   | `reason`: `completed`, `letters_exhausted`, `ended_by_host`             | Games that reached the final phase (event `game_over`), told from the state: every configured round played; no letter left; or ended early |
+| `tuttifrutti_rounds_total`                            | counter   |                                                                         | Rounds started (a round that was played to the end is also in `basta_total` or `time_ups_total`)                                           |
+| `tuttifrutti_basta_total`                             | counter   |                                                                         | Basta calls (a passed vote to stop counts too)                                                                                             |
+| `tuttifrutti_time_ups_total`                          | counter   |                                                                         | Rounds that ended because the time limit expired (event `time_up`)                                                                         |
+| `tuttifrutti_letter_auto_stops_total`                 | counter   |                                                                         | Letters the server picked because the chooser did not tap within 10 s                                                                      |
+| `tuttifrutti_stop_votes_total`                        | counter   | `result`: `asked`, `passed`, `declined`, `timeout`, `ended`             | Votes to stop: opened (or passed at once), then how each ended                                                                             |
+| `tuttifrutti_snapshot_saves_total`                    | counter   | `result`: `ok`, `error`                                                 | Room snapshot save attempts: a failed write is retried and every attempt counts; an encoding failure is an `error`                         |
+| `tuttifrutti_snapshot_save_duration_seconds`          | histogram |                                                                         | One snapshot write to the store, successful or not (buckets 1 ms … 5 s; the saver gives up after 10 s)                                     |
+| `tuttifrutti_snapshot_last_success_timestamp_seconds` | gauge     |                                                                         | Unix time of the last successful snapshot write; 0 until the first one of the process                                                      |
+| `tuttifrutti_snapshot_save_queue`                     | gauge     |                                                                         | Rooms whose newest snapshot waits for the store, is being written or waits for a retry (one per room, latest wins)                         |
+| `tuttifrutti_snapshot_errors_total`                   | counter   |                                                                         | Failed snapshot writes, deletions and janitor sweeps (each retry counts); the writes are also in `snapshot_saves_total{result="error"}`    |
+| `tuttifrutti_snapshots_deleted_total`                 | counter   | `source`: `janitor`, `room_closed`                                      | Snapshots deleted: stale rows swept by the hourly janitor (should stay ~0), or by the room that closed                                     |
+| `tuttifrutti_rooms_restored_total`                    | counter   |                                                                         | Rooms rebuilt from their snapshots at startup (it only moves while the process starts)                                                     |
+| `tuttifrutti_restore_duration_seconds`                | gauge     |                                                                         | How long the startup restore took (loading the snapshots and starting the rooms); 0 until it ran                                           |
+| `tuttifrutti_restore_errors_total`                    | counter   |                                                                         | Saved rooms the restore could not bring back: unusable snapshots (logged and deleted) and snapshots beyond `MAX_ROOMS` (left in the store) |
+| `tuttifrutti_stats_recorded_total`                    | counter   | `result`: `ok`, `error` (failed attempt, retried), `dropped` (given up) | Finished games handed to the stats store                                                                                                   |
+| `tuttifrutti_stats_queue_depth`                       | gauge     |                                                                         | Finished games queued in the stats recorder (the one being written is not counted)                                                         |
+| `tuttifrutti_stats_outbox_pending`                    | gauge     |                                                                         | Finished games the rooms keep in their outbox (and snapshot) until the store confirms them                                                 |
+| `tuttifrutti_logins_total`                            | counter   | `result`: `ok`, `failed`, `cancelled`                                   | Google logins that reached the callback                                                                                                    |
+| `tuttifrutti_ws_closes_total`                         | counter   | `code` (1000, 1001, 1006, 1008, 1009, 1011, 1012, 4001–4005, `other`)   | Why connections ended                                                                                                                      |
+| `tuttifrutti_ws_send_drops_total`                     | counter   |                                                                         | Slow clients closed (1008) because their send queue was full (once per connection; the client reconnects)                                  |
+| `tuttifrutti_ws_frames_total`                         | counter   | `dir` (`in`/`out`), `type`                                              | WebSocket frames                                                                                                                           |
+| `tuttifrutti_http_requests_total`                     | counter   | `route` (mux pattern, `unmatched`), `method`, `code`                    | HTTP requests incl. probes and `GET /ws` (101)                                                                                             |
+| `tuttifrutti_http_request_duration_seconds`           | histogram | `route`, `method`                                                       | Latency; WebSocket upgrades excluded                                                                                                       |
+| `go_*`, `process_*`                                   |           |                                                                         | Go runtime and process (goroutines, heap, GC, CPU, fds)                                                                                    |
 
 The dashboard and alerts also read kube-state-metrics (`kube_pod_status_ready`,
 `kube_pod_container_status_restarts_total`, `kube_pod_container_resource_{limits,requests}`)
 and cAdvisor (`container_memory_working_set_bytes`), selected by pod name (`<server>-.+`).
+The web image (nginx-unprivileged) exports nothing.
 
-`tuttifrutti_stop_votes_total` has no panel or alert yet (the dashboard is generated from
-`helm/`); a passed vote also counts in `tuttifrutti_basta_total`, so "rounds ended by Basta"
-includes them.
+How to read them:
 
-**Not instrumented yet** (so no panel or alert exists for them; proposal for a server
-change, names are suggestions): `tuttifrutti_games_started_total` / `_games_finished_total`
-(engine events `game_started`, `game_over`; the dashboard shows `start_game` commands
-instead), `tuttifrutti_time_ups_total` (event `time_up`) and a letter-phase auto-stop
-counter, `tuttifrutti_snapshot_saves_total{result}` + `tuttifrutti_snapshot_save_duration_seconds`
-+ `tuttifrutti_snapshot_last_success_timestamp_seconds` (needed for a SnapshotStale alert:
-  "no successful save while rooms are active"), restore count/duration at startup,
-  saver backlog gauge, janitor deletions, and a send-queue-overflow counter (today only
-  visible inside close code 1008). The web image (nginx-unprivileged) exports nothing.
+* **A round** is started (`rounds_total`) and then ends by a Basta call, a passed vote to stop
+  (both in `basta_total`) or the time limit (`time_ups_total`); so rounds played to the end =
+  `basta_total + time_ups_total`, and the share ended by Basta is `basta / (basta + time_ups)`.
+  A round that was abandoned (everybody left, idle room) is in none of the latter.
+* **A game** is `games_started_total`, then at most one `games_finished_total`. `completed` =
+  `Rounds > 0` and every round was played, whatever the host pressed on the last summary
+  (the web client sends `end_game` there); `letters_exhausted` = no letter left to play;
+  `ended_by_host` = the host ended it with rounds and letters left. A game that is
+  abandoned or lost is in `started` only.
+* **Letter auto-stop** = the engine picked the letter at the chooser's 10 s deadline (also when
+  a late tap noticed it); a tap by the chooser is not counted.
+* **Snapshots.** Saves are asynchronous and latest-wins per room, so `snapshot_save_queue` is
+  the number of rooms with something to write (0 whenever the store keeps up).
+  `snapshot_last_success_timestamp_seconds` only moves on a successful write; it is 0 in a
+  fresh process until the first save, which is why the stale alert (and the "time since last
+  save" panels) count from `max(last success, process start)`. A playing room saves every 5 s,
+  any other live room at least every 90 minutes (`SnapshotMaxAge / 4`), so a long gap with
+  nothing waiting is normal on a quiet server.
+* **Restore** runs once, in `Hub.Start`, before the server listens, so the three restore
+  metrics are set by the first scrape and never change afterwards (a counter that only moves
+  at startup cannot drive an `increase()` alert: the panels read it directly).
+* **Stats backlog.** `stats_queue_depth` is the recorder's queue, `stats_outbox_pending` the
+  rooms' outboxes (a game leaves the outbox when the store confirms it, and a closed room's
+  records belong to the recorder). Both are 0 when the database answers.
 
 **Dashboard** (`helm/tutti-frutti/dashboards/tutti-frutti.json`, generated; 6 h, refresh 30 s,
 variables `DS_PROMETHEUS`, `namespace`, `job`; every panel has a description saying what it
 means and what to check; a purple annotation marks every server (re)start):
 
-| Row                      | Panels                                                                                                                                                                                                |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Overview                 | Server up, uptime, rooms, connected players, open sockets (orange 1500 / red 1900), rooms created/min, games started (1 h), container restarts (24 h); rooms/players/sockets over time                |
-| Gameplay                 | Rounds and Basta in range, share of rounds ended by Basta, rejected-command share; rounds vs Basta per min; commands by type; rejected commands by result; rejected-command ratio (total and by type) |
-| Connections              | Upgrades by status, close codes (readable legend), reconnect churn, 429s by route, frames in/out, policy closes (1008)                                                                                |
-| Persistence              | Snapshot errors (stat and rate), pod readiness, `/readyz` responses (503 = DB ping failing), container restarts, uptime                                                                               |
-| Accounts                 | Logins by result, stats recorded by result (empty until used)                                                                                                                                         |
-| HTTP API                 | Requests by route and by status code, 5xx ratio, latency p50/p95/p99, p95 by route                                                                                                                    |
-| Go runtime and container | Goroutines vs expected, memory (heap, RSS, working set, limit), CPU, GC, allocation rate, file descriptors                                                                                            |
+| Row                      | Panels                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview                 | Server up, uptime, rooms, connected players, open sockets (orange 1500 / red 1900), rooms created/min, games started (1 h), container restarts (24 h); rooms/players/sockets over time                                                                                                                                                                                                  |
+| Gameplay                 | Games finished in range (by reason), rounds, Basta calls, time-ups, share of rounds ended by Basta, letter auto-stops, rejected-command share; rounds started vs Basta vs time-ups per min; games started and finished per hour; letter auto-stops per min; commands by type; rejected commands by result; rejected-command ratio (total and by type); votes to stop by result          |
+| Connections              | Upgrades by status, close codes (readable legend), reconnect churn, 429s by route, frames in/out, policy closes (1008) next to slow-client drops (send queue full)                                                                                                                                                                                                                      |
+| Persistence              | Snapshot errors (stat and rate), time since last successful save (stat and over time), rooms restored / restore duration / restore errors at the last start, snapshots deleted (stat and per hour, by source), snapshot saves by result, save error ratio, save latency p50/p95/p99, save queue, pod readiness, `/readyz` responses (503 = DB ping failing), container restarts, uptime |
+| Accounts                 | Logins by result, stats recorded by result (empty until used), stats backlog (recorder queue and room outboxes)                                                                                                                                                                                                                                                                         |
+| HTTP API                 | Requests by route and by status code, 5xx ratio, latency p50/p95/p99, p95 by route                                                                                                                                                                                                                                                                                                      |
+| Go runtime and container | Goroutines vs expected, memory (heap, RSS, working set, limit), CPU, GC, allocation rate, file descriptors                                                                                                                                                                                                                                                                              |
+
+Before the server exported the real counters, some panels approximated them. They now read the
+exact metric (the JSON and its panel descriptions say so): *Games started (1 h)* counted accepted
+`start_game` commands and now reads `games_started_total`; *Rounds ended by Basta* divided Basta
+calls by rounds started (which also counts rounds still running or abandoned) and is now
+`basta / (basta + time_ups)`; *Rounds started, Basta calls and time-ups* had no time-up line;
+*Policy closes* could not tell a slow client from the other causes of close code 1008 and now
+draws `ws_send_drops_total` next to it. New: games finished by reason, time-ups, letter
+auto-stops, the snapshot save rate / error ratio / latency / queue / time since the last
+successful save, restore count / duration / errors, deletions by source, the stats backlog and
+the votes to stop (`stop_votes_total` had no panel).
 
 **Alerts** (group → alert, severity, `for`; every alert carries `summary`, `description`,
 `runbook` with the `kubectl` commands to run, and `runbook_url` to this section). The
@@ -791,33 +850,65 @@ server is one replica that restarts with a ~10 s gap on every deploy: during the
 in the cluster (8 pods, i.e. 7 replacements) the only scrape gaps visible at 30 s resolution
 were two of 30 s, hence the long `for` on availability alerts.
 
-| Alert                                 | Sev.     | Fires when                                                                                            | `for`                        | First thing to do                                                                                     |
-| ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `TuttiFruttiServerDown`               | critical | `max(up) == 0` or the target is absent                                                                | 5m                           | `kubectl -n <ns> get pods,events`; `logs deploy/<server> --previous`                                  |
-| `TuttiFruttiServerRestartLoop`        | warning  | ≥ 3 container restarts in 30 min (deploys do not count)                                               | 5m                           | `describe pod` (Last State: OOMKilled?), previous logs                                                |
-| `TuttiFruttiServerNotReady`           | critical | pod NotReady (`/readyz` fails: **Postgres ping**, or shutdown); also the "database unreachable" alert | 5m (startup budget is 150 s) | logs `readiness check failed`; check the shared Postgres and the `database-url` Secret key            |
-| `TuttiFruttiSnapshotFailures`         | warning  | snapshot errors in every 5 min window for 10 min (a short DB blip does not alert)                     | 10m                          | logs `snapshot`; Postgres disk / connections                                                          |
-| `TuttiFruttiRateLimitSaturation`      | warning  | > 6 requests/min answered 429 (global buckets: real players refused)                                  | 5m                           | dashboard Connections row; one abusive client?                                                        |
-| `TuttiFruttiWebSocketUpgradesFailing` | warning  | > 50 % of upgrades (≥ 3/min) not 101                                                                  | 10m                          | status code on the dashboard (401 cookie, 403 Origin → `server.publicUrl`/`allowedOrigins`, 429, 503) |
-| `TuttiFruttiHighErrorRate`            | warning  | > 5 % 5xx of user traffic (probes excluded, ≥ 1.2 req/min)                                            | 10m                          | logs `"status":5`                                                                                     |
-| `TuttiFruttiGoroutineLeak`            | warning  | `go_goroutines` > 100 + 4 × open sockets + 3 × rooms (healthy: ~2 per socket and room + ~15)          | 30m                          | goroutine panel; restart and open an issue                                                            |
-| `TuttiFruttiMemoryHigh`               | warning  | working set > 85 % of the container limit                                                             | 15m                          | memory panel; raise the limit or lower `server.maxRooms`                                              |
-| `TuttiFruttiMemoryGrowth`             | warning  | linear trend of 6 h would exceed the limit within 4 h (pods older than 6 h only)                      | 30m                          | memory panel vs rooms; restart at a quiet hour                                                        |
-| `TuttiFruttiStatsRecordingFailing`    | warning  | stats write errors in every 5 min window for 10 min                                                   | 10m                          | logs `game statistics`; Postgres                                                                      |
-| `TuttiFruttiStatsDropped`             | warning  | any finished game given up in 10 min (stats of that game lost)                                        | 0m                           | same; fix the database                                                                                |
+| Alert                                 | Sev.     | Fires when                                                                                                                                                                                     | `for`                        | First thing to do                                                                                                                                        |
+| ------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TuttiFruttiServerDown`               | critical | `max(up) == 0` or the target is absent                                                                                                                                                         | 5m                           | `kubectl -n <ns> get pods,events`; `logs deploy/<server> --previous`                                                                                     |
+| `TuttiFruttiServerRestartLoop`        | warning  | ≥ 3 container restarts in 30 min (deploys do not count)                                                                                                                                        | 5m                           | `describe pod` (Last State: OOMKilled?), previous logs                                                                                                   |
+| `TuttiFruttiServerNotReady`           | critical | pod NotReady (`/readyz` fails: **Postgres ping**, or shutdown); also the "database unreachable" alert                                                                                          | 5m (startup budget is 150 s) | logs `readiness check failed`; check the shared Postgres and the `database-url` Secret key                                                               |
+| `TuttiFruttiSnapshotFailures`         | warning  | any snapshot error (write, deletion or janitor sweep) in every 5 min window for 10 min (a short DB blip does not alert); the broad signal                                                      | 10m                          | logs `snapshot`; Postgres disk / connections                                                                                                             |
+| `TuttiFruttiSnapshotSaveFailing`      | warning  | > 50 % of the snapshot write attempts of 10 min failed (at least 6 attempts): the saved state of the rooms is going stale                                                                      | 10m                          | dashboard Persistence row (saves by result, latency); logs `saving room snapshot failed`; Postgres disk full / read-only                                 |
+| `TuttiFruttiSnapshotStale`            | warning  | rooms exist and nothing was saved for 15 min while snapshots are waiting (`snapshot_save_queue > 0`), or for 2 h whatever the queue; counted from the later of the last save and the pod start | 5m                           | dashboard Persistence row (time since last save, save queue); logs `snapshot`; Postgres; nothing waiting for 2 h = stuck refresh timers: restart the pod |
+| `TuttiFruttiRateLimitSaturation`      | warning  | > 6 requests/min answered 429 (global buckets: real players refused)                                                                                                                           | 5m                           | dashboard Connections row; one abusive client?                                                                                                           |
+| `TuttiFruttiWebSocketUpgradesFailing` | warning  | > 50 % of upgrades (≥ 3/min) not 101                                                                                                                                                           | 10m                          | status code on the dashboard (401 cookie, 403 Origin → `server.publicUrl`/`allowedOrigins`, 429, 503)                                                    |
+| `TuttiFruttiHighErrorRate`            | warning  | > 5 % 5xx of user traffic (probes excluded, ≥ 1.2 req/min)                                                                                                                                     | 10m                          | logs `"status":5`                                                                                                                                        |
+| `TuttiFruttiGoroutineLeak`            | warning  | `go_goroutines` > 100 + 4 × open sockets + 3 × rooms (healthy: ~2 per socket and room + ~15)                                                                                                   | 30m                          | goroutine panel; restart and open an issue                                                                                                               |
+| `TuttiFruttiMemoryHigh`               | warning  | working set > 85 % of the container limit                                                                                                                                                      | 15m                          | memory panel; raise the limit or lower `server.maxRooms`                                                                                                 |
+| `TuttiFruttiMemoryGrowth`             | warning  | linear trend of 6 h would exceed the limit within 4 h (pods older than 6 h only)                                                                                                               | 30m                          | memory panel vs rooms; restart at a quiet hour                                                                                                           |
+| `TuttiFruttiStatsRecordingFailing`    | warning  | stats write errors in every 5 min window for 10 min                                                                                                                                            | 10m                          | logs `game statistics`; Postgres                                                                                                                         |
+| `TuttiFruttiStatsDropped`             | warning  | any finished game given up in 10 min (stats of that game lost)                                                                                                                                 | 0m                           | same; fix the database                                                                                                                                   |
+
+**Runbook: the three snapshot alerts.** They watch different things and usually fire together
+when Postgres misbehaves, with `TuttiFruttiServerNotReady` (critical) when it is unreachable:
+
+* `SnapshotFailures` is the sensitive one: any failed write, deletion or janitor sweep, every
+  5 minutes for 10. A deletion that keeps failing keeps the room code reserved and the row in
+  the store.
+* `SnapshotSaveFailing` says that the *write path* is mostly failing (more than half of the
+  attempts, so a few failures among many good writes never fire it).
+* `SnapshotStale` says that *nothing at all* got through: it needs rooms to exist, and either
+  snapshots waiting for 15 minutes (the saver retries forever with a 10 s backoff cap) or
+  2 hours without any save (idle rooms refresh every 90 minutes, so this means the refresh itself
+  is stuck). It counts from the later of the last save and the start of the pod, because the
+  timestamp is 0 until the first save: a deploy does not fire it, and a store that is down since
+  the start does, 15 minutes after it (plus the `for`).
+
+In all three: `kubectl -n <ns> logs deploy/<server> --tail=200 | grep -i snapshot`, the dashboard
+Persistence row (saves by result, latency, queue, time since last save), then the shared Postgres
+(disk full, read-only, connection limit, restart) and the `database-url` Secret key. Rooms keep
+running from memory meanwhile: the risk is a restart before the store is back, which restores old
+rooms or none. After the fix the queue drains by itself (the savers retry) and the alerts
+resolve; there is nothing to replay.
 
 **Extending.** Dashboard: edit `dashboards/generate.py` (helpers `stat`, `timeseries`,
 `state_timeline`; the layout engine places panels left to right on the 24-column grid),
-run it, commit the JSON. Before committing, run every new expression against a live
-Prometheus (`/api/v1/query_range`) and make sure it returns data or an intentionally
+run it, commit the JSON. `dashboards/test_generate.py` (part of the CI check) fails when a
+panel or an alert reads a `tuttifrutti_*` series the Go code does not register, when a
+registered metric feeds neither a panel nor an alert, and when the metrics and alerts tables
+above drift from the code: a new metric needs its table row and a panel or alert in the same
+change. Before committing, run every new expression against a live Prometheus
+(`/api/v1/query_range`) and make sure it returns data or an intentionally
 empty result; use `$__rate_interval`, set units and thresholds, and guard divisions with
-`/ (x > 0)`. Alerts: add the rule to `templates/prometheusrule.yaml` (Helm-escape
+`/ (x > 0)`. The JSON is written with a one-space indent on purpose: `kubectl apply` stores the
+ConfigMap twice (the object and the last-applied annotation, capped at 256 KiB) and the test
+keeps it well under that. Alerts: add the rule to `templates/prometheusrule.yaml` (Helm-escape
 Prometheus templates as ``{{`{{ $value }}`}}``), add a firing and a not-firing case to
-`tests/alerts_test.yaml`, and run `helm/tutti-frutti/ci/check-observability.sh`
-(`PROMTOOL=<path>`). The script is the CI check (`.github/workflows/ci-helm.yml` should
-install promtool and run it, in addition to `helm lint --strict` and `kubeconform -strict
--ignore-missing-schemas -kubernetes-version 1.30.0` with `--set serviceMonitor.enabled=true
---set dashboard.enabled=true --set prometheusRule.enabled=true`).
+`tests/alerts_test.yaml` (the snapshot alerts also test a deploy restart, where the timestamp
+gauge of the new pod starts at 0), and run `helm/tutti-frutti/ci/check-observability.sh`
+(`PROMTOOL=<path>`; without a local promtool: a wrapper around
+`docker run --entrypoint promtool prom/prometheus:v<version>`). The script is the CI check
+(`.github/workflows/ci-helm.yml` installs promtool and runs it, in addition to
+`helm lint --strict` and `kubeconform -strict -ignore-missing-schemas -kubernetes-version 1.30.0`
+with `--set serviceMonitor.enabled=true --set dashboard.enabled=true --set prometheusRule.enabled=true`).
 
 ### Security headers and PWA (Phase 5)
 
@@ -947,8 +1038,20 @@ worth 5 each; `Ysland` is not an I) in a round whose letter is aimed at I by tim
 (5) hard letters and language: letter list, rounds limit (26/23 in Dutch), several rounds never reveal a hard letter. (6) reload, network
 loss and server restart mid-round keep room, round, seats and answers. (7) unknown room, full lobby of 10 (WebSocket
 bots), kicked player, mid-round joiner, second tab "replaced", finished game. (8) service worker, offline shell,
-manifest. (9) axe on every main screen in all three languages: no `serious`/`critical` violation; findings still open are
-listed per element in `e2e/src/a11y.ts` with the reason and a TODO for the web app. (11) first-visit language from the
+manifest. (9) axe on every screen of the game in all three languages (Home, the invite gate and its "no such room" state,
+the lobby as host and as guest with a time limit chosen, its QR / confirm-removal / leave sheets, the category picker and
+its custom field, the letter screen as chooser, waiting and late joiner, playing with the clock running, as a watcher and
+with an empty and a wrong-letter field, the review before and after a "same" proposal and a rejected answer, as host,
+guest and spectator, the summary, the final, the vote to stop, the closed screens, the offline banner and the account
+screens): **no `serious`/`critical` violation, and none of the two moderate rules `page-has-heading-one` (at least one `h1`)
+and `label-content-name-mismatch` (a control's name contains the text it shows, WCAG 2.5.3), and exactly one `h1` in the
+accessibility tree** (axe alone accepts several; the check counts after axe, so a screen without any `h1` is still named
+by the axe rule); every other moderate finding is only reported. The allow-list `KNOWN_VIOLATIONS` in `e2e/src/a11y.ts` is **empty**: the mechanism
+stays (per element, with a reason), and a safety-net test proves that a violation of either kind fails, that an
+allowance silences exactly what it names, that the two moderate rules block and that a second `h1` fails (a `display: none`
+one does not count). Not reachable in a browser run: the
+0.9 s Basta overlay and the reconnecting pill (covered, with every other playground state, by the jsdom sweep
+`web/src/lib/a11y.test.ts`). (11) first-visit language from the
 browser (`nl-NL`/`nl-BE` → Dutch, `en-GB` → English, `es-ES`/`fr-FR` → Spanish); a choice in the switch beats the
 browser and survives a reload. (12) the vote to stop: with a category empty the button stays enabled and opens the
 confirmation (`alertdialog`, focus on "keep playing", Escape sends nothing); the asker's banner and the voters'
