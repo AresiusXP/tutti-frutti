@@ -8,7 +8,8 @@ UX and SDLC. If code and design diverge, update the design in the same change.
 
 * The game's name is **"Tutti Frutti"** in every language. It is a fixed
   constant, never a translation key.
-* English screens say **"Stop!"** for the Basta call; Spanish says **¡BASTA!**.
+* English and Dutch screens say just **"Stop!"** for the Basta call (no Spanish
+  word or character); Spanish says **¡BASTA!**.
 * Server is authoritative. Clients only send intents.
 * The game engine (`server/internal/game`) is **pure**: no I/O, no goroutines,
   no `time.Now()` (time is passed in), no global randomness (injected source).
@@ -52,6 +53,8 @@ docker compose up --build
 * One version for the whole repo (`vX.Y.Z`), stored in `helm/tutti-frutti/Chart.yaml`.
 * Go: stdlib first, `log/slog`, table-driven tests, `-race` clean.
 * Web: Svelte 5 (runes), TypeScript strict, Tailwind, Paraglide messages in
-  `web/messages/{es,en}.json`. Touch targets ≥ 48 px.
+  `web/messages/{es,en,nl}.json` plus one folder per area
+  (`web/messages/<area>/{es,en,nl}.json`); every key exists in all three languages.
+  Touch targets ≥ 48 px.
 * YAML: 2 spaces, no tabs, one trailing newline.
 * Never commit secrets. Never delete the `values/` entries of other apps.

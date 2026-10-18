@@ -12,7 +12,7 @@ Argentine game *Tutti Frutti* / *Basta*. Hosted on the homelab at
 
 | Area | Decision |
 |---|---|
-| Client | SvelteKit (adapter-static) + Tailwind + Paraglide i18n, installable PWA. UI languages: Spanish (Argentina) and English; a first visit follows the browser language (Spanish for any other), the ES/EN switch is remembered |
+| Client | SvelteKit (adapter-static) + Tailwind + Paraglide i18n, installable PWA. UI languages: Spanish (Argentina), English and Dutch; a first visit follows the browser language (Spanish for any other), the ES/EN/NL switch is remembered |
 | Server | Go, WebSockets, **single replica**, authoritative game state in memory, snapshots to Postgres on every phase change (and every ~5 s while playing) |
 | Identity | Nickname + avatar (emoji + colour) for guests. Optional Google login (OIDC) adds profile + lifetime stats |
 | Lobbies | Private, 4-char code, invite link, QR. Max 10 players |
@@ -29,7 +29,9 @@ Argentine game *Tutti Frutti* / *Basta*. Hosted on the homelab at
   "¡Basta para mí, basta para todos!".
 * English screens: the call button and the overlay just say **"Stop!"**.
   (No Spanish subtitle.)
-* The chooser's letter-stopping button is "¡STOP!" (es) / "Stop!" (en).
+* Dutch screens: the same as English, just **"Stop!"**. No Spanish word or
+  character (`¡ ¿ ñ`, "basta") may appear on an English or Dutch screen.
+* The chooser's letter-stopping button is "¡STOP!" (es) / "Stop!" (en, nl).
 
 ## 2. Architecture
 
@@ -81,13 +83,14 @@ replica). The category catalog is an embedded JSON file, not a table.
 |---|---|---|
 | Rounds | 1 … number of available letters, or unlimited | 5 |
 | Categories | from catalog + custom; **3–10 total** | the 6 "Clásicas" |
-| Lobby language | `es` / `en` — sets alphabet, hard-letter list, category labels | `es` |
+| Lobby language | `es` / `en` / `nl` — sets alphabet, hard-letter list, category labels | `es` |
 | Exclude hard letters | on/off | on |
 | Time limit | off, 60, 90, 120, 180 s | off |
 
-* Alphabets: `es` = A–Z with **Ñ** after N (27 letters); `en` = A–Z (26).
-* Hard letters: `es` = **K Ñ Q W X Y Z**; `en` = **Q U V X Y Z**. Kept in a data
-  file / table that is easy to edit.
+* Alphabets: `es` = A–Z with **Ñ** after N (27 letters); `en` and `nl` = A–Z (26).
+* Hard letters: `es` = **K Ñ Q W X Y Z**; `en` = **Q U V X Y Z**; `nl` =
+  **Q X Y**. Kept in a data file / table that is easy to edit. With the hard
+  letters skipped a game has at most 20 (es), 20 (en) or 23 (nl) rounds.
 * A player's *screen* language is independent from the *lobby* language.
   Category labels always render in the **lobby** language.
 * Settings can only change in `LOBBY` (and again after a rematch).
@@ -125,7 +128,10 @@ replica). The category catalog is an embedded JSON file, not a table.
 Lowercase, trim, collapse internal whitespace, strip diacritics
 (`México` == `mexico`). In **Spanish** lobbies `ñ` stays a distinct letter
 (it is not folded into `n`), and the starting-letter check treats `ñ` as its own
-letter. Two normalized answers within a category are "the same".
+letter. In English and Dutch lobbies `ñ` folds into `n`. The Dutch ligature
+**`ĳ`/`Ĳ`** (U+0133/U+0132, one character) normalizes to `ij` in every language,
+so `Ĳsland` equals `IJsland` and starts with the letter **I**. Two normalized
+answers within a category are "the same".
 
 Text a player types is cleaned before it is stored: invisible **format
 characters** (zero width space, soft hyphen, bidi marks, …) and **control
@@ -179,25 +185,25 @@ Round total = sum over categories; added to the player's running total.
 
 * `server/internal/catalog/categories.json`, embedded; served at
   `GET /api/categories?lang=`.
-* Each entry: `id` (stable short key), `group`, `es`, `en`, `default` (bool).
+* Each entry: `id` (stable short key), `group`, `es`, `en`, `nl`, `default` (bool).
   Saved room state stores only ids (+ custom labels).
 * **Exactly 50 entries**, **exactly 6 `default`** ("Clásicas": Nombre, Animal,
   País, Color, Comida, Marca).
 * **Custom categories**: per-game only; stored in room state, copied on rematch,
   never added to the catalog. ≤ 24 chars, non-empty, no duplicates after
-  normalization (also vs. built-in labels in both languages). Total 3–10.
+  normalization (also vs. built-in labels in all three languages). Total 3–10.
 
-| Group | Categories (ES / EN) |
+| Group | Categories (ES / EN / NL) |
 |---|---|
-| personas (6) | Nombre / Name ★ · Apellido / Last name · Famoso/a / Celebrity · Personaje histórico / Historical figure · Futbolista / Football player · Cantante o banda / Singer or band |
-| lugares (8) | País / Country ★ · Ciudad / City · Capital / Capital city · Provincia o estado / Province or state · Río, lago o mar / River, lake or sea · Lugar turístico / Tourist attraction · Nacionalidad / Nationality · Club de fútbol / Football club |
-| naturaleza (4) | Animal / Animal ★ · Ave / Bird · Animal marino / Sea creature · Flor o planta / Flower or plant |
-| comida (5) | Comida / Food ★ · Fruta o verdura / Fruit or vegetable · Postre / Dessert · Bebida / Drink · Algo que hay en la heladera / Something in the fridge |
-| cosas (7) | Cosa / Thing · Color / Color ★ · Ropa o accesorio / Clothing or accessory · Mueble / Furniture · Útil escolar / School supply · Juguete / Toy · Medio de transporte / Vehicle |
-| marcas (2) | Marca / Brand ★ · Marca de auto / Car brand |
-| cultura (6) | Película / Movie · Serie / TV show · Dibujo animado / Cartoon · Personaje de ficción / Fictional character · Superhéroe o villano / Superhero or villain · Videojuego / Video game |
-| trabajo (4) | Profesión u oficio / Job · Deporte / Sport · Instrumento musical / Musical instrument · Parte del cuerpo / Body part |
-| divertidas (8) | Adjetivo / Adjective · Verbo / Verb · Idioma / Language · Emoción / Emotion · Nombre de mascota / Pet name · Excusa para llegar tarde / Excuse for being late · Algo que llevás a la playa / Something you take to the beach · Algo que da miedo / Something scary |
+| personas (6) | Nombre / Name / Naam ★ · Apellido / Last name / Achternaam · Famoso/a / Celebrity / Bekende persoon · Personaje histórico / Historical figure / Historisch figuur · Futbolista / Football player / Voetballer · Cantante o banda / Singer or band / Zanger of band |
+| lugares (8) | País / Country / Land ★ · Ciudad / City / Stad · Capital / Capital city / Hoofdstad · Provincia o estado / Province or state / Provincie of staat · Río, lago o mar / River, lake or sea / Rivier, meer of zee · Lugar turístico / Tourist attraction / Toeristische attractie · Nacionalidad / Nationality / Nationaliteit · Club de fútbol / Football club / Voetbalclub |
+| naturaleza (4) | Animal / Animal / Dier ★ · Ave / Bird / Vogel · Animal marino / Sea creature / Zeedier · Flor o planta / Flower or plant / Bloem of plant |
+| comida (5) | Comida / Food / Eten ★ · Fruta o verdura / Fruit or vegetable / Fruit of groente · Postre / Dessert / Nagerecht · Bebida / Drink / Drank · Algo que hay en la heladera / Something in the fridge / Iets in de koelkast |
+| cosas (7) | Cosa / Thing / Ding · Color / Color / Kleur ★ · Ropa o accesorio / Clothing or accessory / Kleding of accessoire · Mueble / Furniture / Meubelstuk · Útil escolar / School supply / Schoolbenodigdheid · Juguete / Toy / Speelgoed · Medio de transporte / Vehicle / Vervoermiddel |
+| marcas (2) | Marca / Brand / Merk ★ · Marca de auto / Car brand / Automerk |
+| cultura (6) | Película / Movie / Film · Serie / TV show / Tv-serie · Dibujo animado / Cartoon / Tekenfilm · Personaje de ficción / Fictional character / Fictief personage · Superhéroe o villano / Superhero or villain / Superheld of schurk · Videojuego / Video game / Videogame |
+| trabajo (4) | Profesión u oficio / Job / Beroep · Deporte / Sport / Sport · Instrumento musical / Musical instrument / Muziekinstrument · Parte del cuerpo / Body part / Lichaamsdeel |
+| divertidas (8) | Adjetivo / Adjective / Bijvoeglijk naamwoord · Verbo / Verb / Werkwoord · Idioma / Language / Taal · Emoción / Emotion / Emotie · Nombre de mascota / Pet name / Naam van een huisdier · Excusa para llegar tarde / Excuse for being late / Smoes om te laat te komen · Algo que llevás a la playa / Something you take to the beach / Iets wat je meeneemt naar het strand · Algo que da miedo / Something scary / Iets engs |
 
 ★ = default.
 
@@ -265,7 +271,7 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 ## 6. UX (one main action per screen, thumb-reachable bottom buttons)
 
 1. **Home** — logo, nickname, avatar (emoji + colour), **Create game**, **Join**
-   (4-box code input), links: Google login, ES/EN.
+   (4-box code input), links: Google login, ES/EN/NL.
 2. **Lobby** — huge code, **Share** (Web Share API), **QR**, player list with 👑,
    settings card (host editable), category picker (search, groups, "Clásicas"
    and "Sorprendeme" presets, reorderable selection, custom category input,
@@ -386,8 +392,8 @@ the persistence contract is `server/internal/store`.
    is restored from its snapshot by the next pod, so clients must retry, never
    give up. The same holds for the WebSocket (`server_busy` + close 1012).
 2. Client opens `wss://host/ws` (cookie authenticates). The **first frame must be
-   `join`** (`protocol.JoinRequest`, `v: 1`). The server looks the room up,
-   applies `game.Join` and then the trusted `Game.SetConnected(now, id, true)`.
+   `join`** (`protocol.JoinRequest`, `v` = the protocol version, 2 since Dutch).
+   The server looks the room up, applies `game.Join` and then the trusted `Game.SetConnected(now, id, true)`.
 3. After every accepted command the room broadcasts `state` (a per-viewer
    `game.View`) to all connected clients, preceded by `event` frames for the
    engine events produced by that command or tick.
@@ -569,7 +575,7 @@ Code: `lib/account/` (store, REST client, types, `GoogleButton`, `AccountChip`, 
 * **Home:** the old "coming soon" link is one slot above the fold, in four states: reserved blank while `loading`
   (`h-12`, so nothing jumps), the secondary "Iniciar sesión con Google" button (`googleEnabled && !loggedIn`), a
   two-button row *Mis estadísticas* (→ `/stats`) | *Cerrar sesión* (`loggedIn`), or nothing (`!googleEnabled`: no dead
-  link). The signed-in identity is a chip (avatar + Google name) on the left of the ES/EN row, which is empty
+  link). The signed-in identity is a chip (avatar + Google name) on the left of the ES/EN/NL row, which is empty
   otherwise, so the layout is identical at 390×844 and 360×740. `?login=failed|cancelled` ⇒ a translated toast, then the
   parameter is removed with `replaceState` (from `afterNavigate`, so the router is ready; other params and the hash stay).
   The "G" is a stroked SVG path: no external image, font or Google artwork.
@@ -804,18 +810,22 @@ which must run against the server's own clock; the shortest allowed limit is 60 
 (`*.restart.spec.ts`: restarts the server container, so it runs alone after the other two via project dependencies).
 Two workers, one retry in CI, trace on failure, no video, HTML + list reporters.
 
-**Specs.** (1/2) the reference 3-player game in Spanish and English: create, join by code and by lowercase invite link,
+**Specs.** (1/2/10) the reference 3-player game in Spanish, English and Dutch: create, join by code and by lowercase invite link,
 settings visible to guests, chooser order, Basta overlay (`¡Basta para mí, basta para todos!` / exactly `Stop!`),
 review with two rejections, totals equal to a hand-computed table, finish-early confirmation, last-round summary,
-podium, rematch, leave, second game from zero; in English no Spanish character or word on any screen.
+podium, rematch, leave, second game from zero; in English and Dutch no Spanish character or word on any screen.
+The Dutch game also proves the `ĳ`/`ij` rule end to end (`Ĳsland` = `IJsland`, answers shown as typed, one shared answer
+worth 5 each; `Ysland` is not an I) in a round whose letter is aimed at I by timing the chooser's tap.
 (3) custom categories (2 built-in + 1 custom, duplicates by case/accents/built-in names refused). (4) time limit.
-(5) hard letters and language: letter list, rounds limit, several rounds never reveal a hard letter. (6) reload, network
+(5) hard letters and language: letter list, rounds limit (26/23 in Dutch), several rounds never reveal a hard letter. (6) reload, network
 loss and server restart mid-round keep room, round, seats and answers. (7) unknown room, full lobby of 10 (WebSocket
 bots), kicked player, mid-round joiner, second tab "replaced", finished game. (8) service worker, offline shell,
-manifest. (9) axe on every main screen in both languages: no `serious`/`critical` violation; findings still open are
-listed per element in `e2e/src/a11y.ts` with the reason and a TODO for the web app.
+manifest. (9) axe on every main screen in all three languages: no `serious`/`critical` violation; findings still open are
+listed per element in `e2e/src/a11y.ts` with the reason and a TODO for the web app. (11) first-visit language from the
+browser (`nl-NL`/`nl-BE` → Dutch, `en-GB` → English, `es-ES`/`fr-FR` → Spanish); a choice in the switch beats the
+browser and survives a reload.
 
-**Rules of the suite.** (A spec of its own checks that the guard, the English-only check and the accessibility check really fail when they should; the main assertions were also mutation-checked against deliberately broken servers and messages.) Labels come from the app's real `web/messages/**` (never retyped, so they cannot drift); the
+**Rules of the suite.** (A spec of its own checks that the guard, the no-Spanish check (English and Dutch) and the accessibility check really fail when they should; the main assertions were also mutation-checked against deliberately broken servers and messages.) Labels come from the app's real `web/messages/**` (never retyped, so they cannot drift); the
 exact Basta words and the game rules (alphabets, hard letters, points) are written out in the tests, so drift from this
 document fails a test. Selectors are roles and labels. No fixed sleeps: auto-waiting assertions and `expect.poll`
 (short-lived UI such as the 0.9 s Basta overlay is recorded with a `MutationObserver`, not raced). A global guard
@@ -827,7 +837,7 @@ server restart) is allowed per test with a stated reason. `context.setOffline` l
 **Rate limits.** The per-IP buckets act as one global bucket in compose and in the cluster (room creation 30/min,
 burst 10; lookups and WebSocket upgrades 300/min, burst 60 each) and `TRUST_FORWARDED_FOR` is off in compose, so
 the suite stays under them by construction: each worker mirrors its share of the creation bucket and waits before
-overdrawing it (about 20 rooms per run).
+overdrawing it (about 25 rooms per run).
 
 **CI** (`.github/workflows/e2e.yml`): `workflow_dispatch` and pull requests touching `server/**`, `web/**`, `e2e/**`,
 `docker-compose.yml`, `deploy/**` or the workflow; lint of the suite, npm and Playwright-browser caches, server and
@@ -1061,6 +1071,15 @@ of clearing it.
   the time; before such a rollback check
   `tuttifrutti_stats_recorded_total{result="error"}` and the server log. The
   stats tables themselves are untouched (the migration is additive).
+* **Rolling back past the Dutch release (v0.5.0)** is *not* free: an older
+  server only knows the languages `es` and `en`, so it cannot restore a room
+  saved with `lang: "nl"` and deletes that snapshot at start-up (the same rule
+  that protects against any unreadable snapshot). Rooms saved in Spanish or
+  English are unaffected. Before such a rollback, wait until no Dutch game is in
+  progress (there is no per-language metric by design, so ask the players), and
+  expect any Dutch room that is still open to be gone afterwards. Clients also
+  send protocol version 2, which the older server refuses, so every open tab is
+  asked to reload anyway.
 * Stats are best effort. A finished game is lost without a `dropped` count only
   when the stats store keeps failing **and** its room closes for good before the
   record is delivered; the `error` counter and the log still show it.
