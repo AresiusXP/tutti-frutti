@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.0.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.7.0...v1.0.0) (2026-10-18)
+
+
+### Features
+
+* **helm:** add snapshot persistence monitoring ([a4d3c60](https://github.com/AresiusXP/tutti-frutti/commit/a4d3c6039f78678207902bc58f4a5861323b78f8))
+* **server:** add authoritative observability metrics ([62c51ef](https://github.com/AresiusXP/tutti-frutti/commit/62c51ef27f49fc51ba98dfe92e8ab2cb43173ab8))
+
+
+### Bug Fixes
+
+* **web:** close accessibility gaps across game screens ([ea41eed](https://github.com/AresiusXP/tutti-frutti/commit/ea41eed95ec221f3c2efec48c2bfcf7c0f2925af))
+
+
+### Documentation
+
+* document observability, accessibility, and toolchain updates ([d67c2a3](https://github.com/AresiusXP/tutti-frutti/commit/d67c2a3beb8c5c6c3381922da1992d98caac21fa))
+
+
+### Miscellaneous Chores
+
+* release 1.0.0 ([e6057a7](https://github.com/AresiusXP/tutti-frutti/commit/e6057a74fbdc1edd56bc054af50f54b6f3e22f89))
+
 ## [0.7.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.6.0...v0.7.0) (2026-10-18)
 
 
