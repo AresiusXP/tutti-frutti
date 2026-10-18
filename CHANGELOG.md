@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.6.0...v0.7.0) (2026-10-18)
+
+
+### Features
+
+* **web:** add localized privacy policy page ([d9bfc5d](https://github.com/AresiusXP/tutti-frutti/commit/d9bfc5deac8bbc690378f4893dd7ffcdc9f8f923))
+
+
+### Documentation
+
+* document privacy policy page and e2e coverage ([d67322d](https://github.com/AresiusXP/tutti-frutti/commit/d67322d2ff05f8c7f8b4deb7c59ab2d5a286456f))
+
 ## [0.6.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.5.0...v0.6.0) (2026-10-18)
 
 
