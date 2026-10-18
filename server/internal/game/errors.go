@@ -51,29 +51,29 @@ var errorCodes = []struct {
 	err  error
 	code string
 }{
-	{ErrNotHost, "not_host"},
-	{ErrWrongPhase, "wrong_phase"},
-	{ErrNotYourTurn, "not_your_turn"},
-	{ErrLobbyFull, "lobby_full"},
-	{ErrInvalidSettings, "invalid_settings"},
-	{ErrBastaNotAllowed, "basta_not_allowed"},
-	{ErrUnknownPlayer, "unknown_player"},
-	{ErrNotParticipant, "not_participant"},
-	{ErrNotEnoughPlayers, "not_enough_players"},
-	{ErrKicked, "kicked"},
-	{ErrCannotKickSelf, "cannot_kick_self"},
-	{ErrInvalidName, "invalid_name"},
-	{ErrInvalidAvatar, "invalid_avatar"},
-	{ErrInvalidCategory, "invalid_category"},
-	{ErrAnswerTooLong, "answer_too_long"},
-	{ErrSelfVote, "self_vote"},
-	{ErrEmptyAnswer, "empty_answer"},
-	{ErrAlreadySame, "already_same"},
-	{ErrProposalExists, "proposal_exists"},
-	{ErrInvalidMerge, "invalid_merge"},
-	{ErrUnknownProposal, "unknown_proposal"},
-	{ErrUnknownCommand, "unknown_command"},
-	{ErrBadPayload, "bad_payload"},
+	{ErrNotHost, CodeNotHost},
+	{ErrWrongPhase, CodeWrongPhase},
+	{ErrNotYourTurn, CodeNotYourTurn},
+	{ErrLobbyFull, CodeLobbyFull},
+	{ErrInvalidSettings, CodeInvalidSettings},
+	{ErrBastaNotAllowed, CodeBastaNotAllowed},
+	{ErrUnknownPlayer, CodeUnknownPlayer},
+	{ErrNotParticipant, CodeNotParticipant},
+	{ErrNotEnoughPlayers, CodeNotEnoughPlayers},
+	{ErrKicked, CodeKicked},
+	{ErrCannotKickSelf, CodeCannotKickSelf},
+	{ErrInvalidName, CodeInvalidName},
+	{ErrInvalidAvatar, CodeInvalidAvatar},
+	{ErrInvalidCategory, CodeInvalidCategory},
+	{ErrAnswerTooLong, CodeAnswerTooLong},
+	{ErrSelfVote, CodeSelfVote},
+	{ErrEmptyAnswer, CodeEmptyAnswer},
+	{ErrAlreadySame, CodeAlreadySame},
+	{ErrProposalExists, CodeProposalExists},
+	{ErrInvalidMerge, CodeInvalidMerge},
+	{ErrUnknownProposal, CodeUnknownProposal},
+	{ErrUnknownCommand, CodeUnknownCommand},
+	{ErrBadPayload, CodeBadPayload},
 }
 
 // ErrorCode returns the stable snake_case code for an engine error, or
@@ -84,5 +84,5 @@ func ErrorCode(err error) string {
 			return e.code
 		}
 	}
-	return "internal"
+	return CodeInternal
 }

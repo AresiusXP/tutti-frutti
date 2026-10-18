@@ -1,0 +1,40 @@
+// Package store persists room snapshots so that active games survive a
+// server restart. The payload is opaque to the store: the room layer owns the
+// JSON schema. Implementations: Memory (tests, local dev without a database)
+// and Postgres.
+//
+// # Implementations
+//
+// [Memory] keeps snapshots in a mutex-guarded map. Nothing survives a restart;
+// it backs unit tests and local runs with an empty DATABASE_URL.
+//
+// [Postgres] persists them in the room_snapshots table (code, state jsonb,
+// updated_at timestamptz) through a pgx connection pool. NewPostgres applies
+// the embedded goose migrations (migrations/*.sql) at startup, serialised across
+// concurrent starters by a Postgres session advisory lock, and never writes the
+// database URL or password into logs or errors. Migration logs go to the
+// *slog.Logger given with [WithLogger]; without it the store is silent.
+//
+// # Behaviour shared by all implementations
+//
+// Both implementations validate Save identically: the code must be non-empty
+// text and the state valid JSON without NUL characters (what jsonb can hold);
+// otherwise Save fails with an error wrapping [ErrInvalidSnapshot]. Snapshots
+// are stored and returned as copies, UpdatedAt is normalised to UTC with
+// microsecond precision (the resolution of timestamptz) and LoadAll sorts by
+// Code in byte order. Postgres stores State as jsonb, so the returned document is
+// semantically equal to the saved one but may be re-formatted (whitespace, key
+// order). Every method returns the context error when ctx is already done.
+//
+// # Testing
+//
+// The tests in this package run a common contract suite against Memory always
+// and against Postgres only when TEST_DATABASE_URL is set. Those tests TRUNCATE
+// room_snapshots and drop the schema, so point them at a throwaway database,
+// for example:
+//
+//	docker run -d --rm --name tf-store-test -e POSTGRES_USER=tutti \
+//	  -e POSTGRES_PASSWORD=tutti -e POSTGRES_DB=tutti -p 127.0.0.1:55432:5432 postgres:17-alpine
+//	TEST_DATABASE_URL='postgres://tutti:tutti@127.0.0.1:55432/tutti?sslmode=disable' \
+//	  go test -race -cover ./internal/store/...
+package store

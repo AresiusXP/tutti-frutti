@@ -61,7 +61,9 @@ type RoundView struct {
 
 // ProposalView is a merge proposal with its live tally.
 type ProposalView struct {
-	MergeProposal
+	// MergeProposal is flattened into the JSON object (`tstype` makes the
+	// generated TypeScript interface extend it instead of nesting it).
+	MergeProposal `tstype:",extends"`
 	// Yes counts the yes votes of connected participants.
 	Yes int `json:"yes"`
 	// Passed is true while the proposal has a majority.
