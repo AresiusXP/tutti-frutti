@@ -269,6 +269,11 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 Accessibility: touch targets ≥ 48 px, high contrast, `aria-live` for Basta and
 letter reveal.
 
+The room route also has non-phase screens: an invite **gate** (`/KT7P` in a fresh tab: room check,
+nickname, avatar, Join), a "Conectando…" screen, a "Reconectando…" banner over the last screen and
+a **closed** screen per reason (room gone, kicked, replaced by another tab, new version, join
+refused). See "Web client architecture" in 9a.
+
 ## 7. Repository layout
 
 ```
@@ -468,6 +473,54 @@ CREATE INDEX room_snapshots_updated_at_idx ON room_snapshots (updated_at);
 `users` / `user_stats` arrive with Phase 4. `DATABASE_URL` empty → in-memory
 store with a warning (games do not survive restarts); `/readyz` also pings the
 store when it is a database.
+
+### Web client architecture (Phase 3)
+
+File layout (`web/src`, details in `web/README.md`):
+
+```
+lib/game/session.ts        RoomSession: the contract between screens and the network
+lib/game/client.svelte.ts  WsRoomSession (+ backoff.ts, transport.ts, roomMark.ts)
+lib/game/fake.svelte.ts    FakeSession for tests and the /dev playground
+lib/api.ts                 REST client, typed ApiError
+lib/protocol/*             generated wire types (tygo), never hand-edited
+lib/screens/*              one screen per phase, picked by RoomScreen.svelte
+lib/components/            JoinGate, ConnectingScreen, ConnectionBanner, ClosedScreen, ...
+routes/+page.svelte        Home (create / join)
+routes/[code=roomcode]/    the room: gate -> connecting -> phase screens -> closed
+```
+
+Screens only see a `RoomSession` (`status`, `closedReason`, `view`, derived `players`/`me`/`isHost`/
+`isChooser`/`isParticipant`, `events`, `lastError`, `serverNow()` and one method per command). Commands
+never throw; a rejection arrives as `lastError`. Deadlines are always compared with `serverNow()`
+(`Date.now() + offset`, offset from `State.serverTime` using the lowest round-trip sample).
+
+**Session states:** `connecting` (before the first `state`) → `connected` → `reconnecting` (socket lost,
+last `view` kept) → `connected` …, or `closed` with a reason: `room_gone`, `kicked`, `left`,
+`replaced`, `unsupported_version`, `join_rejected` (+ `joinError`). A closed session never reconnects.
+
+**Reconnect policy** (every attempt: `GET /api/session` once, preflight `GET /api/rooms/{code}`, open
+`/ws`, `join` first):
+
+* **Never give up on 502 / 503 / 504 / network errors / 429**: the server is a single replica, every
+  deploy leaves a gap of a few seconds (Traefik answers `503 no available server`; Go answers `503
+  server_busy` + `Retry-After` for unknown rooms while draining). Exponential backoff with full
+  jitter, 500 ms → cap 5 s, starting at ~1 s after a 503 / close 1012 / `server_restarting`; reset after
+  a join that held for 3 s; `Retry-After` is honoured up to 10 s.
+* **Final outcomes:** preflight 404 or close `4004` / `room_not_found` / `room_closed` → `room_gone`;
+  `4001` / `replaced` → `replaced` (the UI can take the seat back with a new session); `4002` /
+  `kicked` → `kicked`; `4003` / `unsupported_version` → reload the app; `4005` / `leave()` → `left`;
+  a refused join (anything but `server_busy`, `rate_limited`, `internal`) → `join_rejected`.
+  Every other close code (1006, 1001, 1012, 1008, 1009, 1000, unknown) reconnects.
+* **Liveness:** `ping` every 20 s; no frame for 45 s drops the socket; `online` and a tab becoming
+  visible reconnect immediately (and probe a seemingly live socket with a ping).
+* **Answers** are coalesced to ≤ 1 `set_answer` per category per 100 ms, kept (latest text) while
+  offline and flushed after the next join unless stale; `basta` flushes first and is never delayed.
+
+**Room route:** a tab that chose the room (`sessionStorage['tf.room.<CODE>']`, set by Home and the gate)
+connects at once; any other visit (invite link in a fresh tab) sees the gate (room preflight, nickname,
+avatar, Join). Errors become toasts (`err_<code>` messages for every engine/protocol code); closed
+sessions get a screen per reason, always with a Home button.
 
 ## 10. Assumptions / open tunables
 
