@@ -468,6 +468,7 @@
 		label={m.play_screen_label({ n: round.number, letter })}
 		footer={participant && phase === 'playing' ? footerStack : undefined}
 	>
+		<h1 class="sr-only">{m.play_screen_label({ n: round.number, letter })}</h1>
 		<PlayHeader
 			{letter}
 			round={roundLabel(view)}

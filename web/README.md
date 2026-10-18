@@ -35,7 +35,16 @@ generated Paraglide module is not committed.
 npx vitest run src/lib/game          # network layer: fake WebSocket, fake fetch, fake timers
 npx vitest run src/lib/components "src/routes"   # gate, banner, closed screens, Home, room route
 npx vitest run src/lib/screens/StopVote.test.ts  # vote to stop: button matrix, sheet, banner, prompt, toasts, es/en/nl
+npx vitest run src/lib/a11y.test.ts              # every playground scenario in es/en/nl: one h1, names, form fields
 ```
+
+`src/lib/a11y.test.ts` renders **every dev-playground scenario** (every phase and state the playground can
+stage) in each screen language and applies three jsdom stand-ins for axe rules (`src/lib/a11y.testkit.ts`):
+exactly one `h1` (`page-has-heading-one`), no control whose `aria-label` hides the text it shows
+(`label-content-name-mismatch`) and well-formed form fields. The e2e suite runs the real axe on the
+real app and **fails** on those two rules too; this is the fast early warning. A new screen needs a
+scenario (see "Dev playground") to be covered. A scenario that stages a sheet by itself (`devTap`) must have
+its tap target on screen; the sweep flushes the click and checks the staged state, not the screen behind it.
 
 The network tests (`src/lib/game/*.test.ts`, helpers in `net.testkit.ts`) script a `FakeSocket`, a
 routable `fetch` and `vi.useFakeTimers()` with a deterministic jitter; they cover every close code,
@@ -316,6 +325,33 @@ Mobile-first; every interactive element is at least 48 × 48 px (`min-h-12`/`min
 text contrast is at least 4.5:1. Design tokens (fruit palette on a dark "grape night" surface)
 are in `src/app.css`; the `tall:` variant (viewport height >= 800px) relaxes the compact layout.
 
+### Accessibility rules (enforced by tests)
+
+- **One `h1` per screen**, always. Where the design shows no title (Playing, Letter for everybody but the
+  chooser, the "Conectando…" screen) it is a visually hidden `<h1 class="sr-only">` with the screen's
+  name; Home and the gate have the wordmark, Review/Summary/Final/closed/stats a visible one. Sections
+  inside a screen use `h2`/`h3`.
+- **Label in name (WCAG 2.5.3).** A control that shows text is named by it, or by a name that
+  _contains it as whole words_; never by a different spoken label. A voice-control user says what they
+  see ("click 60 s", "click Rechazar 0/2"). In practice: leave `aria-label` off controls with visible
+  text (the time-limit buttons: the group's own label "Tiempo por ronda" gives the context); when the
+  accessible name must say more, start it with the visible text (the lobby code button is
+  `KT7P: tocá para copiar`, the letters are one by one in its `aria-describedby`; the reject button is
+  `Rechazar 0/2: respuesta de Beto`, built from the same string it shows). Icon-only buttons
+  (`✕ ▲ ▼ ◀ ▶`) keep a descriptive `aria-label`.
+- **Form fields** have a stable `id` and `name` (answer fields `answer-<n>`, the room-code boxes
+  `room-code-1…4`, `picker-search`, `custom-input`, `nickname`/`gate-nickname`) and an `autocomplete`:
+  `off` everywhere. Not `nickname`: it is a valid token, but Chrome's DevTools Issues panel reports it
+  as "wrong but well intended" because Chrome has no autofill type for it, and a game nickname is not
+  the person's own. `autocorrect`, `autocapitalize` and `enterkeyhint` stay as they are.
+- **Contrast** of text is at least 4.5:1 _after_ opacity: do not put `opacity-*` on a container that holds
+  a coloured chip or button (the review card dims only the name and the answer).
+
+Check Chrome's DevTools "Issues" (form fields, cookies, ...) for a screen from a script: launch
+Playwright's `chromium` **channel** (`chromium.launch({ channel: 'chromium' })`: the default headless
+shell does not report form issues), open a CDP session (`page.context().newCDPSession(page)`), send
+`Audits.enable` and collect `Audits.issueAdded`.
+
 The Home screen is thumb-friendly: logo, nickname, avatar picker (one row of emoji + one row of
 colours), **Create game** and the room-code input with its **Join** button all fit without
 scrolling at 390 × 844 and 360 × 740 (the account slot — Google button, or My stats + Sign out — and the ES/EN/NL switch too); the actions are
@@ -356,7 +392,7 @@ docker build -t tutti-frutti-web:dev .
 docker run --rm -p 18080:8080 tutti-frutti-web:dev   # http://localhost:18080
 ```
 
-Multi-stage (`node:22-alpine` → `nginxinc/nginx-unprivileged:stable-alpine`), listens on
+Multi-stage (`node:24-alpine` → `nginxinc/nginx-unprivileged:stable-alpine`), listens on
 **8080** as a non-root user. `nginx.conf` handles gzip, SPA fallback, cache headers
 (`no-cache` for `index.html`/`sw.js`/`workbox-*.js`/`manifest.webmanifest`, immutable for
 `/_app/immutable/`), `/healthz`, a JSON 404 (`{"error":"not_found"}`) for the whole backend

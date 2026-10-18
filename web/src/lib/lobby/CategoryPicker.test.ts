@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fieldProblems } from '$lib/a11y.testkit';
 import { makeSettings } from '$lib/game/fixtures';
 import { i18n } from '$lib/i18n.svelte';
 import type { CategoryRef, Settings } from '$lib/protocol';
@@ -308,6 +309,27 @@ describe('CategoryPicker', () => {
 			await fireEvent.click(button);
 			expect(last(onchange).categories).toHaveLength(8);
 			expect(new Set(idList(last(onchange))).size).toBe(8);
+		});
+	});
+
+	describe('form fields', () => {
+		it('gives the search box and the custom-category field an id, a name and autocomplete off', async () => {
+			mount();
+			await screen.findByRole('button', { name: /^Personas/ });
+			await fireEvent.click(screen.getByRole('button', { name: 'Agregar categoría propia' }));
+			const search = screen.getByLabelText('Buscar categoría') as HTMLInputElement;
+			const custom = screen.getByLabelText('Nombre de la categoría') as HTMLInputElement;
+			expect([search.id, search.name, search.getAttribute('autocomplete')]).toEqual([
+				'picker-search',
+				'category-search',
+				'off'
+			]);
+			expect([custom.id, custom.name, custom.getAttribute('autocomplete')]).toEqual([
+				'custom-input',
+				'custom-category',
+				'off'
+			]);
+			expect(fieldProblems(document.body)).toEqual([]);
 		});
 	});
 

@@ -112,9 +112,11 @@ describe('room route', () => {
 					return s;
 				});
 				render(RoomRoute, { code: 'KT7P', createSession });
-				expect(screen.queryByText('Conectando…')).toBeNull();
+				// only the screen-reader-only heading at first: nothing to see
+				expect(screen.queryByText('Entrando a la sala KT7P')).toBeNull();
+				expect(screen.getByText('Conectando…').classList.contains('sr-only')).toBe(true);
 				await vi.advanceTimersByTimeAsync(300);
-				expect(screen.getByText('Conectando…')).toBeTruthy();
+				expect(screen.getByText('Conectando…').classList.contains('sr-only')).toBe(false);
 				expect(screen.getByText('Entrando a la sala KT7P')).toBeTruthy();
 				expect(screen.queryByTestId('room-screen')).toBeNull();
 			} finally {

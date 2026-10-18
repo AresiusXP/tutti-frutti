@@ -57,6 +57,7 @@
 			<LetterSpinner size={168} />
 			<p class="text-xl font-bold text-cream">{m.play_letter_tap_hint()}</p>
 		{:else}
+			<h1 class="sr-only">{m.play_letter_screen()}</h1>
 			<div class="relative">
 				<LetterSpinner size={136} />
 				{#if chooser}

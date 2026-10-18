@@ -14,10 +14,13 @@
 		value = $bindable(''),
 		disabled = false,
 		describedby,
-		oncomplete
+		oncomplete,
+		id = 'room-code'
 	}: {
 		value?: string;
 		disabled?: boolean;
+		/** Prefix of the boxes' `id` / `name` (`room-code-1` … `room-code-4`): unique per page, stable. */
+		id?: string;
 		/** Id of an element describing the code format (e.g. the "no vowels" hint). */
 		describedby?: string;
 		/** Called when the user finishes typing/pasting a full code, or presses Enter on a full code. */
@@ -83,6 +86,8 @@
 	{#each indexes as i (i)}
 		<input
 			bind:this={boxes[i]}
+			id="{id}-{i + 1}"
+			name="{id}-{i + 1}"
 			type="text"
 			inputmode="text"
 			autocapitalize="characters"

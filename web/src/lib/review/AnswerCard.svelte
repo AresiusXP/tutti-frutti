@@ -47,6 +47,13 @@
 		canVote && !empty && badge.kind !== 'wrong_letter' && merge.kind === 'none'
 	);
 	const voterNames = $derived(voters.map((v) => v.name).join(', '));
+	/** Dimmed: a struck answer, or one that cannot be picked while a merge is being set up. */
+	const dim = $derived(merge.kind === 'dim' || (badge.struck && merge.kind === 'none'));
+	/**
+	 * What the reject button shows ("Rechazar 0/2"). Its accessible name starts with exactly this
+	 * (WCAG 2.5.3 label in name) and then says whose answer it is.
+	 */
+	const rejectLabel = $derived(`${m.review_reject()} ${tally.votes}/${tally.needed}`);
 </script>
 
 <li
@@ -54,13 +61,12 @@
 		? 'border-grape ring-4 ring-grape/40'
 		: isMe
 			? 'border-banana/70'
-			: 'border-night-3'} {merge.kind === 'dim' || (badge.struck && merge.kind === 'none')
-		? 'opacity-80'
-		: ''}"
+			: 'border-night-3'}"
 	data-player={player.id}
 	data-kind={badge.kind}
 >
-	<div class="flex items-center gap-2">
+	<!-- Only the name and the answer are dimmed: opacity on the whole card also dims the chip and the buttons, and the strawberry ones then fall below 4.5:1. -->
+	<div class="flex items-center gap-2" class:opacity-80={dim}>
 		<AvatarBadge avatar={avatarOf(player)} size={36} />
 		<div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
 			<span class="max-w-full truncate text-base font-bold" class:text-cream-muted={player.left}>
@@ -88,7 +94,9 @@
 	<p
 		class="mt-2 text-2xl leading-tight font-black [overflow-wrap:anywhere] break-words {empty
 			? 'text-lg font-normal text-cream-muted'
-			: ''} {badge.struck ? 'line-through decoration-strawberry decoration-4' : ''}"
+			: ''} {badge.struck ? 'line-through decoration-strawberry decoration-4' : ''} {dim
+			? 'opacity-80'
+			: ''}"
 		data-testid="answer"
 	>
 		{empty ? m.review_no_answer() : answer}
@@ -121,11 +129,7 @@
 					? 'border-strawberry bg-strawberry text-night'
 					: 'border-night-3 bg-night text-cream'}"
 				aria-pressed={tally.mine}
-				aria-label={m.review_reject_aria({
-					name: player.name,
-					votes: tally.votes,
-					needed: tally.needed
-				})}
+				aria-label={m.review_reject_aria({ label: rejectLabel, name: player.name })}
 				onclick={() => onreject?.()}
 			>
 				<span aria-hidden="true">👎</span>
@@ -133,7 +137,7 @@
 				<span
 					aria-hidden="true"
 					class="rounded-full px-2 text-sm font-black tabular-nums {tally.mine
-						? 'bg-night/25'
+						? 'bg-cream/25'
 						: 'bg-night-3'}"
 				>
 					{tally.votes}/{tally.needed}

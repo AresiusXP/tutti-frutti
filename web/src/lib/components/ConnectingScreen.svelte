@@ -17,12 +17,15 @@
 </script>
 
 <Screen label={m.net_connecting()}>
+	{#if !visible}
+		<h1 class="sr-only">{m.net_connecting()}</h1>
+	{/if}
 	<div role="status" aria-live="polite" class="flex flex-1 flex-col items-center justify-center">
 		{#if visible}
 			<div class="flex w-full animate-bounce-in flex-col items-center gap-5 text-center">
 				<span class="animate-bounce text-6xl" aria-hidden="true">🍓</span>
 				<div class="flex flex-col gap-1">
-					<p class="text-2xl font-black">{m.net_connecting()}</p>
+					<h1 class="text-2xl font-black">{m.net_connecting()}</h1>
 					<p class="text-cream-muted">{m.net_connecting_hint({ code })}</p>
 				</div>
 				<div class="flex w-full flex-col gap-2" aria-hidden="true">

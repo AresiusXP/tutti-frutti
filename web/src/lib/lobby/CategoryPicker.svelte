@@ -312,6 +312,7 @@
 				</label>
 				<input
 					id="picker-search"
+					name="category-search"
 					type="search"
 					bind:value={query}
 					placeholder={m.lobby_search_placeholder()}
@@ -423,6 +424,7 @@
 				<div class="flex gap-2">
 					<input
 						id="custom-input"
+						name="custom-category"
 						bind:this={customInput}
 						bind:value={draft}
 						maxlength={MAX_CUSTOM_LEN}

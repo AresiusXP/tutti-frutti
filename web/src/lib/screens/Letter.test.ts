@@ -130,6 +130,24 @@ describe('Letter: the chooser', () => {
 	});
 });
 
+describe('Letter: the page heading', () => {
+	it('has exactly one h1 for the chooser, for the others and for a player waiting for the next round', () => {
+		const dani = player('p4', 'Dani');
+		const cases: [Setup, string][] = [
+			[{}, '¡Te toca elegir!'],
+			[{ chooserId: 'p2' }, 'Elegir la letra'],
+			[{ chooserId: 'p2', youId: 'p4', participants: ['p1', 'p2', 'p3'] }, 'Elegir la letra']
+		];
+		for (const [s, title] of cases) {
+			const { unmount } = setup({ players: [...letterView().players, dani], ...s });
+			expect(
+				screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent?.trim())
+			).toEqual([title]);
+			unmount();
+		}
+	});
+});
+
 describe('Letter: everybody else', () => {
 	it('sees who is choosing and has no STOP button', () => {
 		setup({ chooserId: 'p2' });

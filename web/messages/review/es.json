@@ -23,7 +23,7 @@
 	"review_points": "{points} puntos",
 	"review_answers": "Respuestas",
 	"review_reject": "Rechazar",
-	"review_reject_aria": "Rechazar la respuesta de {name}: {votes} de {needed} votos",
+	"review_reject_aria": "{label}: respuesta de {name}",
 	"review_voters_aria": "Votaron en contra: {names}",
 	"review_spectator": "Estás mirando esta ronda. Te sumás en la próxima.",
 	"review_same": "Son iguales",

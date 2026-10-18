@@ -42,6 +42,11 @@ const definitions: Record<string, Definition> = {
 		category: COMIDA,
 		rejectVotes: [vote('p2', 'p3', COMIDA)]
 	},
+	// my own vote is cast (the button is strawberry) and it tipped the answer over: struck, chip, button
+	'review-voted': {
+		category: COMIDA,
+		rejectVotes: [vote('p1', 'p3', COMIDA), vote('p2', 'p3', COMIDA)]
+	},
 	'review-merge-pending': {
 		youId: 'p3',
 		category: COMIDA,

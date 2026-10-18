@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fieldProblems, headingOnes } from '$lib/a11y.testkit';
 import { account } from '$lib/account';
 import type { FakeAccount } from '$lib/account/fake.svelte';
 import { ApiError, type RoomInfo } from '$lib/api';
@@ -50,6 +51,36 @@ describe('JoinGate', () => {
 		expect((screen.getByLabelText('Tu apodo') as HTMLInputElement).value).toBe('Ana');
 		expect(screen.getByRole('group', { name: 'Elegí un emoji' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Ir al inicio' }).getAttribute('href')).toBe('/');
+	});
+
+	it('has exactly one h1 in every state, and a well-formed nickname field', async () => {
+		for (const locale of ['es', 'en', 'nl'] as const) {
+			i18n.set(locale);
+			const { unmount } = render(JoinGate, {
+				code: 'KT7P',
+				onjoin: vi.fn(),
+				load: () => Promise.resolve(info())
+			});
+			await waitFor(() => expect(document.querySelector('#gate-nickname')).toBeTruthy());
+			// the wordmark is one span per word, so the text has no space between them
+			expect(headingOnes(document.body), locale).toEqual(['TuttiFrutti']);
+			const nickname = document.getElementById('gate-nickname') as HTMLInputElement;
+			expect([nickname.name, nickname.getAttribute('autocomplete')]).toEqual(['nickname', 'off']);
+			expect(fieldProblems(document.body), locale).toEqual([]);
+			unmount();
+		}
+		for (const [load, title] of [
+			[() => Promise.reject(new ApiError(404, 'room_not_found')), 'No existe esa sala'],
+			[() => Promise.resolve(info({ players: 10, joinable: false })), 'La sala está llena'],
+			[() => Promise.resolve(info({ phase: 'final', joinable: false })), 'La partida terminó'],
+			[() => Promise.reject(new ApiError(503, 'server_busy')), 'No pudimos conectar']
+		] as const) {
+			i18n.set('es');
+			const { unmount } = render(JoinGate, { code: 'KT7P', onjoin: vi.fn(), load });
+			await screen.findByRole('heading', { name: title });
+			expect(headingOnes(document.body), title).toEqual([title]);
+			unmount();
+		}
 	});
 
 	it('Join is disabled while checking and while there is no nickname', async () => {

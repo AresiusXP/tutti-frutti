@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fieldProblems } from '$lib/a11y.testkit';
 import { i18n } from '$lib/i18n.svelte';
 import RoomCodeInput from './RoomCodeInput.svelte';
 
@@ -29,6 +30,27 @@ describe('RoomCodeInput', () => {
 		expect(boxes()).toHaveLength(4);
 		expect(values()).toEqual(['', '', '', '']);
 		expect(boxes()[0].getAttribute('aria-label')).toBe('Carácter 1 de 4');
+	});
+
+	it('gives every box a stable id and name (room-code-1 … 4) and no autocomplete', () => {
+		render(RoomCodeInput, { value: '' });
+		expect(boxes().map((b) => [b.id, b.name, b.getAttribute('autocomplete')])).toEqual([
+			['room-code-1', 'room-code-1', 'off'],
+			['room-code-2', 'room-code-2', 'off'],
+			['room-code-3', 'room-code-3', 'off'],
+			['room-code-4', 'room-code-4', 'off']
+		]);
+		expect(fieldProblems(document.body)).toEqual([]);
+	});
+
+	it('takes another prefix for its ids', () => {
+		render(RoomCodeInput, { value: '', id: 'join-code' });
+		expect(boxes().map((b) => b.id)).toEqual([
+			'join-code-1',
+			'join-code-2',
+			'join-code-3',
+			'join-code-4'
+		]);
 	});
 
 	it('uppercases typed characters and auto-advances', async () => {

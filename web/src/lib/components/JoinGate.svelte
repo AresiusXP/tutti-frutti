@@ -172,6 +172,7 @@
 					</div>
 					<input
 						id="gate-nickname"
+						name="nickname"
 						type="text"
 						bind:value={draft}
 						oninput={onNicknameInput}
@@ -179,7 +180,7 @@
 						onkeydown={(e) => e.key === 'Enter' && join()}
 						placeholder={m.nickname_placeholder()}
 						aria-describedby="gate-nickname-hint"
-						autocomplete="nickname"
+						autocomplete="off"
 						autocapitalize="words"
 						enterkeyhint="go"
 						spellcheck="false"

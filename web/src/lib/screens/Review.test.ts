@@ -4,6 +4,7 @@ import { tick } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FakeSession } from '$lib/game/fake.svelte';
 import { i18n } from '$lib/i18n.svelte';
+import { curate, labelNameMismatches } from '$lib/a11y.testkit';
 import { reviewView, vote, type ReviewOptions } from '$lib/review/fixtures';
 import Review from './Review.svelte';
 
@@ -205,7 +206,7 @@ describe('Review reject votes', () => {
 	it('votes with exactly (category, target) and shows the count against the votes needed', async () => {
 		const { session } = open({ category: COMIDA, rejectVotes: [vote('p4', 'p3', COMIDA)] });
 		const button = within(card('p3')).getByRole('button', {
-			name: 'Rechazar la respuesta de Caro: 1 de 2 votos'
+			name: 'Rechazar 1/2: respuesta de Caro'
 		});
 		expect(button.getAttribute('aria-pressed')).toBe('false');
 		expect(button.textContent).toContain('1/2');
@@ -216,7 +217,7 @@ describe('Review reject votes', () => {
 	it('tapping again withdraws the vote', async () => {
 		const { session } = open({ category: COMIDA, rejectVotes: [vote('p1', 'p2', COMIDA)] });
 		const button = within(card('p2')).getByRole('button', {
-			name: /Rechazar la respuesta de Beto/
+			name: /^Rechazar \d\/\d: respuesta de Beto$/
 		});
 		expect(button.getAttribute('aria-pressed')).toBe('true');
 		await fireEvent.click(button);
@@ -226,14 +227,74 @@ describe('Review reject votes', () => {
 	it('needs more than half of the OTHER connected participants', () => {
 		open({ category: COMIDA, offline: ['p4'] });
 		// p1 p2 p3 connected, p3 is the author: 2 eligible, 2 needed
-		expect(within(card('p3')).getByRole('button', { name: /Caro: 0 de 2 votos/ })).toBeTruthy();
+		expect(
+			within(card('p3')).getByRole('button', { name: 'Rechazar 0/2: respuesta de Caro' })
+		).toBeTruthy();
 		// a connected author does not count himself: p2 has p1 and p3 to convince
-		expect(within(card('p2')).getByRole('button', { name: /Beto: 0 de 2 votos/ })).toBeTruthy();
+		expect(
+			within(card('p2')).getByRole('button', { name: 'Rechazar 0/2: respuesta de Beto' })
+		).toBeTruthy();
 	});
 
 	it('four connected players need 2 of the 3 others', () => {
 		open({ category: COMIDA });
-		expect(within(card('p3')).getByRole('button', { name: /0 de 2 votos/ })).toBeTruthy();
+		expect(within(card('p3')).getByRole('button', { name: /^Rechazar 0\/2: / })).toBeTruthy();
+	});
+
+	it('names the reject button after what it shows (label in name), in every language', () => {
+		const expected = {
+			es: ['Rechazar 1/2', 'Rechazar 1/2: respuesta de Caro'],
+			en: ['Reject 1/2', "Reject 1/2: Caro's answer"],
+			nl: ['Afkeuren 1/2', 'Afkeuren 1/2: antwoord van Caro']
+		} as const;
+		for (const locale of ['es', 'en', 'nl'] as const) {
+			i18n.set(locale);
+			const [shown, name] = expected[locale];
+			const { unmount } = open({
+				lang: locale,
+				category: COMIDA,
+				rejectVotes: [vote('p4', 'p3', COMIDA)]
+			});
+			const button = within(card('p3')).getByRole('button', { name });
+			expect(curate(button.textContent ?? ''), locale).toBe(curate(shown));
+			expect(name.startsWith(shown), `${locale}: the name starts with ${shown}`).toBe(true);
+			expect(labelNameMismatches(document.body), locale).toEqual([]);
+			unmount();
+		}
+	});
+
+	it('names the "same" pick buttons after their visible word, in every language', async () => {
+		for (const locale of ['es', 'en', 'nl'] as const) {
+			i18n.set(locale);
+			const { unmount } = open({ lang: locale, category: COMIDA });
+			const same = screen.getByRole('button', {
+				name: { es: /Son iguales/, en: /Same/, nl: /Zelfde/ }[locale]
+			});
+			await fireEvent.click(same);
+			await fireEvent.click(
+				within(card('p2')).getByRole('button', {
+					name: {
+						es: 'Elegir la respuesta de Beto',
+						en: "Pick Beto's answer",
+						nl: 'Kies het antwoord van Beto'
+					}[locale]
+				})
+			);
+			expect(labelNameMismatches(document.body), locale).toEqual([]);
+			unmount();
+		}
+	});
+
+	it('does not dim the chip and the vote button of a struck answer (contrast stays above 4.5:1)', () => {
+		open({
+			category: COMIDA,
+			rejectVotes: [vote('p1', 'p3', COMIDA), vote('p2', 'p3', COMIDA)]
+		});
+		const struck = card('p3');
+		expect(struck.classList.contains('opacity-80')).toBe(false);
+		expect(within(struck).getByText('Rechazada').closest('.opacity-80')).toBeNull();
+		expect(within(struck).getByRole('button').closest('.opacity-80')).toBeNull();
+		expect(within(struck).getByTestId('answer').classList.contains('opacity-80')).toBe(true);
 	});
 
 	it('shows who voted with avatars and an accessible label', () => {
@@ -249,7 +310,9 @@ describe('Review reject votes', () => {
 			category: COMIDA,
 			rejectVotes: [vote('p1', 'p3', COMIDA), vote('p2', 'p3', COMIDA)]
 		});
-		const button = within(card('p3')).getByRole('button', { name: /Caro: 2 de 2 votos/ });
+		const button = within(card('p3')).getByRole('button', {
+			name: 'Rechazar 2/2: respuesta de Caro'
+		});
 		await fireEvent.click(button);
 		expect(session.sent).toEqual([{ cmd: 'voteReject', args: [COMIDA, 'p3', true] }]);
 	});

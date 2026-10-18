@@ -23,7 +23,7 @@
 	"review_points": "{points} points",
 	"review_answers": "Answers",
 	"review_reject": "Reject",
-	"review_reject_aria": "Reject {name}'s answer: {votes} of {needed} votes",
+	"review_reject_aria": "{label}: {name}'s answer",
 	"review_voters_aria": "Voted to reject: {names}",
 	"review_spectator": "You're watching this round. You join in the next one.",
 	"review_same": "Same",

@@ -54,6 +54,7 @@
 	</div>
 	<input
 		{id}
+		name={id}
 		bind:this={input}
 		{value}
 		{disabled}

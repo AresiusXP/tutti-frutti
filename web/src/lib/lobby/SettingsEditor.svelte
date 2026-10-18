@@ -46,8 +46,7 @@
 	const timeOptions = $derived(
 		TIME_LIMITS.map((seconds) => ({
 			value: seconds as number,
-			label: seconds === 0 ? m.lobby_time_off() : m.lobby_time_secs({ n: seconds }),
-			ariaLabel: seconds === 0 ? m.lobby_time_off_label() : m.lobby_time_secs_label({ n: seconds })
+			label: seconds === 0 ? m.lobby_time_off() : m.lobby_time_secs({ n: seconds })
 		}))
 	);
 

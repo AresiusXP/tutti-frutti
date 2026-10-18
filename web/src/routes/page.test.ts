@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto, replaceState } from '$app/navigation';
 import { account } from '$lib/account';
 import type { FakeAccount } from '$lib/account/fake.svelte';
+import { fieldProblems, headingOnes } from '$lib/a11y.testkit';
 import { ApiError, api, type RoomInfo } from '$lib/api';
 import { hasRoomMark, clearRoomMark } from '$lib/game/roomMark';
 import { i18n } from '$lib/i18n.svelte';
@@ -76,6 +77,39 @@ describe('Home actions', () => {
 		vi.mocked(replaceState).mockClear();
 		vi.mocked(api.createRoom).mockReset();
 		vi.mocked(api.getRoom).mockReset();
+	});
+
+	describe('accessibility', () => {
+		it('has exactly one h1 (the game name) in every language', () => {
+			for (const locale of ['es', 'en', 'nl'] as const) {
+				i18n.set(locale);
+				const { unmount } = render(Home);
+				// the wordmark is one span per word, so the text has no space between them
+				expect(headingOnes(document.body), locale).toEqual(['TuttiFrutti']);
+				unmount();
+			}
+		});
+
+		it('gives every field a stable id, a name and an autocomplete value', () => {
+			render(Home);
+			const nickname = document.getElementById('nickname') as HTMLInputElement;
+			// not "nickname": it is a valid token, but Chrome's DevTools flags it as "wrong but well intended"
+			expect([nickname.name, nickname.getAttribute('autocomplete')]).toEqual(['nickname', 'off']);
+			expect(nickname.getAttribute('autocapitalize')).toBe('words');
+			const boxes = screen.getAllByRole<HTMLInputElement>('textbox').filter((b) => b !== nickname);
+			expect(boxes.map((b) => [b.id, b.name, b.getAttribute('autocomplete')])).toEqual([
+				['room-code-1', 'room-code-1', 'off'],
+				['room-code-2', 'room-code-2', 'off'],
+				['room-code-3', 'room-code-3', 'off'],
+				['room-code-4', 'room-code-4', 'off']
+			]);
+			// the typing aids stay as they were
+			for (const box of boxes) {
+				expect(box.getAttribute('autocorrect')).toBe('off');
+				expect(box.getAttribute('autocapitalize')).toBe('characters');
+			}
+			expect(fieldProblems(document.body)).toEqual([]);
+		});
 	});
 
 	describe('create', () => {

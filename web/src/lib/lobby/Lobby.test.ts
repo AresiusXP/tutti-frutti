@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { flushSync, tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { labelNameMismatches } from '$lib/a11y.testkit';
 import { makeSettings } from '$lib/game/fixtures';
 import { i18n } from '$lib/i18n.svelte';
 import type { Settings } from '$lib/protocol';
@@ -48,9 +49,9 @@ describe('Lobby', () => {
 	describe('the host', () => {
 		it('sees the code, the players, the settings and Start', () => {
 			render(Lobby, { session: host() });
-			expect(
-				screen.getByRole('button', { name: 'Copiar el código K T 7 P' }).textContent
-			).toContain('KT7P');
+			expect(screen.getByRole('button', { name: 'KT7P: tocá para copiar' }).textContent).toContain(
+				'KT7P'
+			);
 			expect(screen.getByRole('button', { name: 'Compartir' })).toBeTruthy();
 			expect(screen.getByRole('button', { name: 'Mostrar el código QR' })).toBeTruthy();
 			expect(screen.getByRole('heading', { name: 'Jugadores' })).toBeTruthy();
@@ -293,15 +294,34 @@ describe('Lobby', () => {
 			const writeText = vi.fn().mockResolvedValue(undefined);
 			setNavigator({ clipboard: { writeText } });
 			render(Lobby, { session: host() });
-			await fireEvent.click(screen.getByRole('button', { name: 'Copiar el código K T 7 P' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'KT7P: tocá para copiar' }));
 			await waitFor(() => expect(toasts.items.map((t) => t.text)).toEqual(['Código copiado']));
 			expect(writeText).toHaveBeenCalledWith('KT7P');
+		});
+
+		it('names the code button after the code it shows and the action (label in name), in every language', () => {
+			const expected = {
+				es: 'KT7P: tocá para copiar',
+				en: 'KT7P: tap to copy',
+				nl: 'KT7P: tik om te kopiëren'
+			} as const;
+			for (const locale of ['es', 'en', 'nl'] as const) {
+				i18n.set(locale);
+				const { unmount } = render(Lobby, { session: host() });
+				const button = screen.getByRole('button', { name: expected[locale] });
+				expect(button.textContent?.trim()).toBe('KT7P');
+				// the letters one by one stay available, as the description
+				const description = document.getElementById(button.getAttribute('aria-describedby') ?? '');
+				expect(description?.textContent, locale).toBe('K T 7 P');
+				expect(labelNameMismatches(document.body), locale).toEqual([]);
+				unmount();
+			}
 		});
 
 		it('tells when copying is impossible', async () => {
 			document.execCommand = vi.fn().mockReturnValue(false);
 			render(Lobby, { session: host() });
-			await fireEvent.click(screen.getByRole('button', { name: 'Copiar el código K T 7 P' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'KT7P: tocá para copiar' }));
 			await waitFor(() => expect(toasts.items.map((t) => t.text)).toEqual(['No se pudo copiar']));
 		});
 
@@ -594,19 +614,60 @@ describe('Lobby', () => {
 		it('sets the time limit', async () => {
 			const session = host();
 			render(Lobby, { session });
-			expect(
-				screen.getByRole('button', { name: 'Sin límite de tiempo' }).getAttribute('aria-pressed')
-			).toBe('true');
+			const time = screen.getByRole('group', { name: 'Tiempo por ronda' });
+			expect(within(time).getByRole('button', { name: 'Libre' }).getAttribute('aria-pressed')).toBe(
+				'true'
+			);
 			for (const [name, seconds] of [
-				['60 segundos', 60],
-				['90 segundos', 90],
-				['120 segundos', 120],
-				['180 segundos', 180]
+				['60 s', 60],
+				['90 s', 90],
+				['120 s', 120],
+				['180 s', 180]
 			] as const) {
-				await fireEvent.click(screen.getByRole('button', { name }));
+				await fireEvent.click(within(time).getByRole('button', { name }));
 				expect(updates(session).at(-1)!.args[0]).toEqual(
 					makeSettings({ timeLimitSeconds: seconds })
 				);
+			}
+		});
+
+		it('names the time-limit buttons by their visible text alone (label in name), in every language', () => {
+			const shown = {
+				es: ['Libre', '60 s', '90 s', '120 s', '180 s'],
+				en: ['Off', '60 s', '90 s', '120 s', '180 s'],
+				nl: ['Uit', '60 s', '90 s', '120 s', '180 s']
+			} as const;
+			const group = { es: 'Tiempo por ronda', en: 'Time per round', nl: 'Tijd per ronde' } as const;
+			for (const locale of ['es', 'en', 'nl'] as const) {
+				i18n.set(locale);
+				const { unmount } = render(Lobby, { session: host() });
+				const buttons = within(screen.getByRole('group', { name: group[locale] })).getAllByRole(
+					'button'
+				);
+				expect(
+					buttons.map((b) => b.textContent?.trim()),
+					locale
+				).toEqual(shown[locale]);
+				// no aria-label that could differ from the text: the name IS the text
+				for (const button of buttons) expect(button.hasAttribute('aria-label')).toBe(false);
+				expect(labelNameMismatches(document.body), locale).toEqual([]);
+				unmount();
+			}
+		});
+
+		it('names the "remove this player" confirmation after its visible word, in every language', async () => {
+			const names = { es: 'Sí, sacar a Beto', en: 'Yes, remove Beto', nl: 'Ja, Beto verwijderen' };
+			for (const locale of ['es', 'en', 'nl'] as const) {
+				i18n.set(locale);
+				const { unmount } = render(Lobby, { session: host() });
+				await fireEvent.click(
+					screen.getByRole('button', { name: /Sacar a Beto|Remove Beto|Beto verwijderen/ })
+				);
+				expect(screen.getByRole('button', { name: names[locale] }).textContent?.trim()).toMatch(
+					/^(Sacar|Remove|Verwijderen)$/
+				);
+				expect(labelNameMismatches(document.body), locale).toEqual([]);
+				unmount();
 			}
 		});
 
@@ -614,7 +675,7 @@ describe('Lobby', () => {
 			const session = host();
 			render(Lobby, { session });
 			await fireEvent.click(screen.getByRole('button', { name: 'Español' }));
-			await fireEvent.click(screen.getByRole('button', { name: 'Sin límite de tiempo' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Libre' }));
 			expect(updates(session)).toHaveLength(0);
 		});
 

@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fieldProblems } from '$lib/a11y.testkit';
 import { FakeSession } from '$lib/game/fake.svelte';
 import { makeRound, makeSettings, makeView, player } from '$lib/game/fixtures';
 import { i18n } from '$lib/i18n.svelte';
@@ -98,6 +99,38 @@ afterEach(() => {
 	vi.useRealTimers();
 	vi.unstubAllGlobals();
 	Reflect.deleteProperty(navigator, 'vibrate');
+});
+
+describe('Playing: the page heading', () => {
+	it('has exactly one h1, naming the round and the letter, in every language and phase', () => {
+		const expected = { es: 'Ronda 2: letra F', en: 'Round 2: letter F', nl: 'Ronde 2: letter F' };
+		for (const lang of ['es', 'en', 'nl'] as const) {
+			for (const [phase, youId] of [
+				['playing', 'p1'],
+				['grace', 'p1'],
+				['playing', 'p4'] // not a participant: a spectator
+			] as const) {
+				i18n.set(lang);
+				const { unmount } = setup({ lang, phase, youId });
+				expect(
+					screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent?.trim()),
+					`${lang} ${phase} ${youId}`
+				).toEqual([expected[lang]]);
+				unmount();
+			}
+		}
+	});
+
+	it('gives every field a stable id, a name and no autocomplete', () => {
+		setup();
+		const fields = screen.getAllByRole<HTMLInputElement>('textbox');
+		expect(fields.map((f) => [f.id, f.name, f.getAttribute('autocomplete')])).toEqual([
+			['answer-0', 'answer-0', 'off'],
+			['answer-1', 'answer-1', 'off'],
+			['answer-2', 'answer-2', 'off']
+		]);
+		expect(fieldProblems(document.body)).toEqual([]);
+	});
 });
 
 describe('Playing: header and fields', () => {

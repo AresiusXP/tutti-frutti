@@ -152,13 +152,14 @@
 				</div>
 				<input
 					id="nickname"
+					name="nickname"
 					type="text"
 					bind:value={draft}
 					oninput={onNicknameInput}
 					onblur={() => (draft = profile.nickname)}
 					placeholder={m.nickname_placeholder()}
 					aria-describedby="nickname-hint"
-					autocomplete="nickname"
+					autocomplete="off"
 					autocapitalize="words"
 					enterkeyhint="done"
 					spellcheck="false"
