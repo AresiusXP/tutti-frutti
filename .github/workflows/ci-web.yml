@@ -55,6 +55,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Built-output assertions (CSP hashes vs build/index.html, manifest) only run
+      # once build/ exists; before the build they are skipped.
+      - name: Security headers and PWA checks against the build
+        run: npx vitest run src/lib/security.test.ts src/lib/pwa.test.ts
+
       - name: Dev playground must not ship in production bundles
         run: |
           if grep -rlE "__tfSession|scenarios\.(play|lobby|review)" build/_app; then

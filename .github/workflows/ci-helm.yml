@@ -31,6 +31,8 @@ env:
   HELM_VERSION: v3.18.4
   KUBECONFORM_VERSION: v0.8.0
   KUBERNETES_VERSION: 1.30.0
+  PROMETHEUS_VERSION: 3.14.0
+  PROMETHEUS_SHA256: f665c6da19eb7ba399c915d30c7d9793c9b417bf8a749b504bc470678631478d
 
 jobs:
   ci:
@@ -53,6 +55,16 @@ jobs:
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/bin/kubeconform" -v
 
+      # promtool validates and unit-tests the alert rules (ci/check-observability.sh).
+      - name: Install promtool
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/prometheus.tar.gz" \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          echo "${PROMETHEUS_SHA256}  $RUNNER_TEMP/prometheus.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/prometheus.tar.gz" -C "$RUNNER_TEMP" --strip-components=1 \
+            "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+          "$RUNNER_TEMP/promtool" --version
+
       - name: helm lint
         run: helm lint "$CHART_PATH"
 
@@ -67,5 +79,11 @@ jobs:
 
       - name: kubeconform (all optional resources enabled)
         run: |
-          helm template t "$CHART_PATH" --set serviceMonitor.enabled=true \
+          helm template t "$CHART_PATH" \
+            --set serviceMonitor.enabled=true \
+            --set dashboard.enabled=true \
+            --set prometheusRule.enabled=true \
             | kubeconform -strict -ignore-missing-schemas -kubernetes-version "$KUBERNETES_VERSION" -summary
+
+      - name: Observability checks (dashboard drift, alert rules)
+        run: PROMTOOL="$RUNNER_TEMP/promtool" "$CHART_PATH/ci/check-observability.sh"
