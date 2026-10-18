@@ -76,6 +76,9 @@ Anything else goes into `server.extraEnv`.
 | `server.image.repository` / `.tag` | `ghcr.io/aresiusxp/tutti-frutti-server` / `""` | Empty tag = chart `appVersion` |
 | `server.logLevel` | `info` | `LOG_LEVEL` |
 | `server.publicUrl` | `""` | `PUBLIC_URL`; empty = `https://<ingress.host>` |
+| `server.maxRooms` | `1000` | `MAX_ROOMS`: live rooms held in memory |
+| `server.trustForwardedFor` | `false` | `TRUST_FORWARDED_FOR`: client IP for rate limits from the rightmost `X-Forwarded-For` entry |
+| `server.allowedOrigins` | `[]` | `ALLOWED_ORIGINS` (comma-joined): extra origins besides the public URL (dev only) |
 | `server.secrets.*` | see above | Existing Secret name, key names, `optional` |
 | `server.extraEnv` | `[]` | Extra `EnvVar` entries |
 | `server.resources` | 50m / 64Mi, 256Mi limit | |

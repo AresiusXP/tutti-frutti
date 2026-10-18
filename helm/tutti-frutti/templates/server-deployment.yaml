@@ -47,6 +47,14 @@ spec:
               value: {{ .Values.server.logLevel | quote }}
             - name: PUBLIC_URL
               value: {{ include "tutti-frutti.publicUrl" . | quote }}
+            - name: MAX_ROOMS
+              value: {{ .Values.server.maxRooms | quote }}
+            - name: TRUST_FORWARDED_FOR
+              value: {{ .Values.server.trustForwardedFor | quote }}
+            {{- with .Values.server.allowedOrigins }}
+            - name: ALLOWED_ORIGINS
+              value: {{ join "," . | quote }}
+            {{- end }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -74,12 +82,17 @@ spec:
             {{- with .Values.server.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          # The server listens only after the database is connected, migrated
+          # and the rooms are restored (cmd/server startupTimeout = 2 min, plus
+          # up to 90 s waiting for the migration lock). Keep this budget (150 s)
+          # above that so a slow start is not killed by Kubernetes before the
+          # application gives up by itself.
           startupProbe:
             httpGet:
               path: /healthz
               port: http
             periodSeconds: 2
-            failureThreshold: 30
+            failureThreshold: 75
           livenessProbe:
             httpGet:
               path: /healthz

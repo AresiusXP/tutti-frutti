@@ -40,6 +40,16 @@ server:
   logLevel: info
   # Empty = https://<ingress.host> (http:// when ingress.tls.enabled=false).
   publicUrl: ""
+  # Upper bound of live game rooms held in memory (MAX_ROOMS).
+  maxRooms: 1000
+  # Take the rate-limit client IP from the rightmost X-Forwarded-For entry
+  # (TRUST_FORWARDED_FOR). Only enable when exactly one trusted proxy hop
+  # appends the header. Behind a Traefik Service with
+  # externalTrafficPolicy=Cluster every client shares one SNAT'd IP anyway.
+  trustForwardedFor: false
+  # Extra browser origins allowed to call the API/WebSocket besides the public
+  # URL (ALLOWED_ORIGINS), e.g. a dev frontend. Empty in production.
+  allowedOrigins: []
   # Extra env entries (list of EnvVar objects).
   extraEnv: []
   # Existing Secret, not created by this chart:
