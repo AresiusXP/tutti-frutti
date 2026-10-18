@@ -1,0 +1,29 @@
+# Go
+server/bin/
+*.test
+*.out
+coverage.txt
+
+# Node / web
+node_modules/
+web/.svelte-kit/
+web/build/
+web/dist/
+.env
+.env.*
+!.env.example
+
+# Playwright
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+
+# Helm
+helm/**/charts/
+*.tgz
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
