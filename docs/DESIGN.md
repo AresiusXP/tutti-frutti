@@ -311,7 +311,7 @@ docs/                  this file
 
 0. Repo + pipeline skeleton (placeholder deploys at the hostname).
 1. Game engine + catalog (pure, heavily tested).
-2. Rooms, WebSocket protocol, persistence, tygo types. **Must include a WebSocket drain on
+2. Rooms, WebSocket protocol, persistence, tygo types (contracts in section 9a). **Must include a WebSocket drain on
    shutdown:** `http.Server.Shutdown` does not wait for hijacked connections, so track open
    sockets, send `server_restarting`, close them (code 1012) and wait for the drain inside the
    existing budget (2 s readiness grace + 20 s drain < 30 s `terminationGracePeriodSeconds`),
@@ -320,6 +320,151 @@ docs/                  this file
 4. Accounts (Google OIDC, stats).
 5. PWA polish, e2e, metrics/dashboard, security headers.
 6. Beta with friends, tune timings, v1.0.0.
+
+## 9a. Phase 2 — rooms, transport and persistence (contracts)
+
+This section is the contract between the packages built in Phase 2. The wire
+types live in `server/internal/protocol` (generated to TypeScript with `tygo`);
+the persistence contract is `server/internal/store`.
+
+### Packages
+
+| Package | Responsibility |
+|---|---|
+| `internal/protocol` | Wire types, error codes, close codes, limits (no logic) |
+| `internal/store` | `Store` interface + `Memory` + `Postgres` (pgx, goose migrations embedded) |
+| `internal/room` | `Hub` (registry, room codes, reaper, restore, shutdown) and one actor goroutine per room that owns a `*game.Game` |
+| `internal/auth` | Signed guest cookie (`tf_guest`) → player ID |
+| `internal/ratelimit` | Per-IP token buckets + trusted client-IP extraction |
+| `internal/ws` | WebSocket endpoint: upgrade, Origin check, read/write pumps, ping, per-connection limits |
+| `internal/httpapi` | REST routes (`/api/session`, `/api/categories`, `/api/rooms`, `/api/rooms/{code}`) |
+| `cmd/server` | Wiring and the shutdown sequence |
+
+### Identity
+
+* The player ID **is** the guest ID from the cookie. `GET /api/session` (and
+  `POST /api/rooms`) mint it if missing: `tf_guest = <id>.<mac>`, `id` = 16
+  random bytes base64url, `mac` = HMAC-SHA256(`SESSION_SECRET`, id) base64url;
+  `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` when `PUBLIC_URL` is https,
+  `Max-Age` 1 year. A forged/invalid cookie is treated as absent (a new ID is
+  minted on REST; the WebSocket answers `unauthorized`).
+* `SESSION_SECRET` empty → a random ephemeral secret is generated at startup
+  and a warning is logged (sessions will not survive a restart). Production sets it.
+* All unsafe REST methods and the WebSocket upgrade check `Origin` against
+  `PUBLIC_URL`'s host plus `ALLOWED_ORIGINS` (comma-separated, for dev:
+  `http://localhost:5173,http://localhost:8000`); a request without `Origin` is
+  allowed only on safe methods. JSON bodies are limited to 4 KiB.
+
+### Connection flow
+
+1. Client calls `POST /api/rooms {name, avatar, lang?}` (creates the room; the
+   caller is the host seat, still disconnected) or learns a code from a friend.
+   `GET /api/rooms/{code}` → `{code, phase, players, maxPlayers, lang, joinable}`
+   or 404 `room_not_found`.
+2. Client opens `wss://host/ws` (cookie authenticates). The **first frame must be
+   `join`** (`protocol.JoinRequest`, `v: 1`). The server looks the room up,
+   applies `game.Join` and then the trusted `Game.SetConnected(now, id, true)`.
+3. After every accepted command the room broadcasts `state` (a per-viewer
+   `game.View`) to all connected clients, preceded by `event` frames for the
+   engine events produced by that command or tick.
+4. A command rejected by the engine returns `error {code, ref}` to the sender
+   only; the connection stays open.
+5. Reconnect = open a new socket and `join` again (same cookie → same seat;
+   score and answers are kept; the engine's `join` never changes connection
+   state, the room layer calls `SetConnected`). A second live connection of the
+   same player replaces the first (`event replaced`, close `4001`).
+6. `leave` → `game.Leave`, close `4005`. Kick → `event kicked`, close `4002`.
+   Socket drop → `SetConnected(false)` (the seat is kept for the whole game).
+
+### Room lifecycle (internal/room)
+
+* **Actor:** one goroutine per room owns the `*game.Game`; everything (client
+  frames, timer fires, connect/disconnect, snapshot requests) goes through its
+  inbox, so no locks are needed. Handlers never block on a slow client: each
+  client has a bounded send queue (`protocol.SendQueueSize`); on overflow the
+  client is closed (1008) and will reconnect for a fresh snapshot.
+* **Timers:** after every command/tick the room arms a single timer at
+  `Game.NextDeadline()` (injectable `Clock`); on fire it calls `Tick(now)` and
+  broadcasts. Late ticks catch up (engine guarantees).
+* **Single timer:** the one per-room timer covers the engine deadline, periodic
+  and heartbeat snapshots, the join deadlines and the idle/unclaimed deadlines (the
+  idle reaper is therefore not a central goroutine; only the snapshot janitor is).
+* **Room codes:** 4 characters from `BCDFGHJKLMNPQRSTVWXZ23456789`, crypto/rand,
+  retry on collision; `MaxRooms` (default 1000) → `server_busy`.
+* **Closing:** a room with nobody connected for `IdleTTL` (30 min) is closed; a
+  room created over REST that nobody connected to within `UnclaimedTTL` (2 min)
+  is closed. Closing deletes its snapshot and closes sockets with `4004`.
+* **Persistence:** the room marshals its state (`room.Persisted{version, code,
+  createdAt, lastActive, game}`) inside the actor and hands the bytes to an
+  asynchronous, per-room latest-wins saver (never blocks the actor, retries with
+  backoff, logs failures). It saves on every phase change, on settings/lobby
+  changes, and every `SnapshotEvery` (5 s) while a round is `playing`/`grace`.
+  Every live room also re-saves at least every `SnapshotMaxAge/4` (heartbeat),
+  so the janitor (`Store.DeleteOlderThan(6 h)`, hourly) can never delete a live
+  room's snapshot. A failed snapshot delete is retried with backoff and keeps the
+  room code reserved until it succeeds (otherwise a stale row could resurrect an
+  old room under a reused code).
+* **Restore (startup):** `Hub.Start` loads all snapshots, rebuilds the rooms with
+  **every player disconnected** (`SetConnected(false)`; nobody has a socket yet),
+  sets `lastActive = now` (so the idle clock restarts) and re-arms timers.
+  Corrupt/unknown-version snapshots are logged and deleted.
+* **Shutdown:** `Hub.Shutdown(ctx)`: stop accepting joins → broadcast `event
+  server_restarting` → flush a final snapshot of every room (synchronously) →
+  close every socket with `1012` → wait for the pumps to finish or ctx to expire.
+  `cmd/server` order: `/readyz` 503 → 2 s grace → `Hub.Shutdown` (≤ 15 s) →
+  `ws.Handler.Shutdown` (≤ 3 s: sends `server_restarting` + 1012 to the sockets the
+  hub does not track and waits for every connection goroutine, since
+  `http.Server.Shutdown` ignores hijacked connections) → `http.Server.Shutdown`
+  (≤ 5 s) → store close (total 25 s < `terminationGracePeriodSeconds` 30).
+
+### Limits and abuse protection
+
+* Frame ≤ `protocol.MaxMessageBytes` (4 KiB) → `message_too_large` + close 1009.
+* Per connection: `ClientRatePerSecond`/`ClientBurst` token bucket → on
+  exhaustion `rate_limited` and close 1008. 10 malformed frames → close 1008.
+* App-level `ping` every 20 s (`pong` carries `serverTime`); no complete frame
+  for 60 s → close (the read is cancelled, so a peer stalling mid-frame is
+  dropped too; once a frame header arrives the rest must follow within 10 s).
+* **Join deadline:** a socket must send `join` within 10 s (`protocol.JoinTimeout`;
+  pings do not count) or it is closed `1008 "join timeout"`; the room then owns a
+  second deadline (`room.Config.JoinTimeout`, 10 s) for the seat: a rejected join
+  does not extend it. A room holds at most `2 × MaxPlayers` unjoined sessions
+  (beyond that → `error server_busy` + 1008) and is only "claimed" (unclaimed TTL
+  stops) after a successful join; unjoined sessions never keep a room alive.
+* **Socket caps:** at most `MaxConns` (2000) sockets in total → `503 server_busy`
+  and `MaxConnsPerGuest` (4) per guest → `429 too_many_connections`, both before
+  the upgrade and without spending the upgrade bucket. Requests rejected by the
+  cookie/Origin/upgrade checks never spend the per-IP bucket either (otherwise one
+  bad actor could exhaust the shared bucket). Gauge `tuttifrutti_ws_connections_open`.
+* `SESSION_SECRET`, when set, must be at least 32 bytes (startup error otherwise).
+* Per IP (client IP from the **rightmost** `X-Forwarded-For` entry when
+  `TRUST_FORWARDED_FOR=true`, else `RemoteAddr`; IPv6 keyed by /64): room creation
+  30/min (burst 10), `GET /api/rooms/{code}` and WebSocket upgrades 300/min
+  (burst 60) → `429 rate_limited` with `Retry-After`. Buckets are evicted when idle.
+  **Homelab caveat:** the Traefik Service uses `externalTrafficPolicy=Cluster`, so
+  every client appears as the same SNAT'd pod IP and these buckets act as one
+  *global* bucket; the numbers are sized for that (a group of friends and a
+  reconnect storm after a deploy never hit them). Switching the Service to
+  `Local` would make them truly per-client.
+* Metrics (Prometheus): `tuttifrutti_rooms` (gauge), `tuttifrutti_connections`
+  (gauge), `tuttifrutti_commands_total{type,result}`, `tuttifrutti_rounds_total`,
+  `tuttifrutti_basta_total`, `tuttifrutti_snapshot_errors_total`,
+  `tuttifrutti_ws_closes_total{code}`.
+
+### Persistence schema (goose, embedded, run at startup)
+
+```sql
+CREATE TABLE room_snapshots (
+  code        text PRIMARY KEY,
+  state       jsonb NOT NULL,
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX room_snapshots_updated_at_idx ON room_snapshots (updated_at);
+```
+
+`users` / `user_stats` arrive with Phase 4. `DATABASE_URL` empty → in-memory
+store with a warning (games do not survive restarts); `/readyz` also pings the
+store when it is a database.
 
 ## 10. Assumptions / open tunables
 

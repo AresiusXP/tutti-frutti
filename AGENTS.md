@@ -34,6 +34,9 @@ Longhorn storage, shared CloudPirates Postgres — **never Bitnami**).
 ```bash
 # server/
 go build ./... && go vet ./... && go test -race ./...
+# TS protocol types (web/src/lib/protocol/*.ts): regenerate after changing
+# internal/protocol, internal/game or internal/catalog; never hand-edit, CI fails on drift
+go tool tygo generate
 # web/
 npm ci && npm run check && npm run lint && npm run test && npm run build
 # helm
