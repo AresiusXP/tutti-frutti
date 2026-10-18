@@ -1,0 +1,82 @@
+@import 'tailwindcss';
+
+/* Phones with room to spare (e.g. 390x844): `tall:` utilities relax the compact layout. */
+@custom-variant tall (@media (min-height: 800px));
+
+/* Playful fruit palette on a dark "grape night" surface. Every text/surface
+   pair used meets WCAG AA (>= 4.5:1); most are >= 7:1 (the lowest is
+   strawberry <-> night at 5.7:1). */
+@theme {
+	--font-sans:
+		ui-rounded, 'SF Pro Rounded', 'Nunito', 'Segoe UI', system-ui, -apple-system,
+		'Noto Color Emoji', 'Apple Color Emoji', sans-serif;
+
+	--color-night: #1a1033;
+	--color-night-2: #261648;
+	--color-night-3: #3a2468;
+	--color-cream: #fff8e7;
+	--color-cream-muted: #cdbfe8;
+
+	--color-banana: #ffd23f;
+	--color-tangerine: #ff8a1f;
+	--color-strawberry: #ff4f81;
+	--color-lime: #7ddc3b;
+	--color-grape: #9b6cff;
+	--color-blueberry: #4cc9f0;
+
+	--shadow-pop: 0 5px 0 0 rgb(0 0 0 / 0.35);
+	--shadow-pop-sm: 0 3px 0 0 rgb(0 0 0 / 0.35);
+
+	--animate-bounce-in: bounce-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+
+	@keyframes bounce-in {
+		from {
+			opacity: 0;
+			transform: translateY(0.75rem) scale(0.92);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+}
+
+@layer base {
+	html {
+		color-scheme: dark;
+		background-color: var(--color-night);
+		color: var(--color-cream);
+		-webkit-tap-highlight-color: transparent;
+		text-size-adjust: 100%;
+	}
+
+	body {
+		min-height: 100dvh;
+		font-family: var(--font-sans);
+		background:
+			radial-gradient(60rem 30rem at 85% -10%, rgb(255 79 129 / 0.22), transparent 60%),
+			radial-gradient(50rem 28rem at -10% 5%, rgb(255 210 63 / 0.16), transparent 60%),
+			var(--color-night);
+		background-attachment: fixed;
+	}
+
+	:focus-visible {
+		outline: 3px solid var(--color-banana);
+		outline-offset: 3px;
+	}
+
+	button:not(:disabled),
+	a[href] {
+		cursor: pointer;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}

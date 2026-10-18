@@ -1,0 +1,11 @@
+# Package manager
+package-lock.json
+
+# Build output / generated
+build/
+.svelte-kit/
+dev-dist/
+src/lib/paraglide/
+static/
+project.inlang/*
+!project.inlang/settings.json

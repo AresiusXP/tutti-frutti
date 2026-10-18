@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Tutti Frutti">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2e1a5c" />
+      <stop offset="1" stop-color="#1a1033" />
+    </linearGradient>
+    <radialGradient id="orange" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#ffc15e" />
+      <stop offset="1" stop-color="#ff7a00" />
+    </radialGradient>
+    <radialGradient id="berry" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#ff8fb0" />
+      <stop offset="1" stop-color="#ff3d73" />
+    </radialGradient>
+    <radialGradient id="lime" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#b8f07a" />
+      <stop offset="1" stop-color="#5cc21f" />
+    </radialGradient>
+  </defs>
+  <rect id="bg" width="512" height="512" rx="112" fill="url(#bg)" />
+  <g id="art">
+    <!-- strawberry-ish ball (left) -->
+    <circle cx="150" cy="316" r="92" fill="url(#berry)" />
+    <g fill="#ffe27a">
+      <ellipse cx="118" cy="290" rx="6" ry="9" />
+      <ellipse cx="156" cy="272" rx="6" ry="9" />
+      <ellipse cx="190" cy="304" rx="6" ry="9" />
+      <ellipse cx="128" cy="338" rx="6" ry="9" />
+      <ellipse cx="170" cy="350" rx="6" ry="9" />
+      <ellipse cx="144" cy="312" rx="6" ry="9" />
+    </g>
+    <!-- lime slice (right) -->
+    <circle cx="362" cy="316" r="92" fill="#3f9a12" />
+    <circle cx="362" cy="316" r="76" fill="url(#lime)" />
+    <g stroke="#e9ffc8" stroke-width="7" stroke-linecap="round" opacity="0.85">
+      <path d="M362 316 V248" />
+      <path d="M362 316 V384" />
+      <path d="M362 316 H294" />
+      <path d="M362 316 H430" />
+      <path d="M362 316 L314 268" />
+      <path d="M362 316 L410 268" />
+      <path d="M362 316 L314 364" />
+      <path d="M362 316 L410 364" />
+    </g>
+    <!-- orange slice (front) -->
+    <circle cx="256" cy="282" r="122" fill="#e56a00" />
+    <circle cx="256" cy="282" r="102" fill="url(#orange)" />
+    <g stroke="#fff1d6" stroke-width="8" stroke-linecap="round" opacity="0.9">
+      <path d="M256 282 V196" />
+      <path d="M256 282 V368" />
+      <path d="M256 282 H170" />
+      <path d="M256 282 H342" />
+      <path d="M256 282 L195 221" />
+      <path d="M256 282 L317 221" />
+      <path d="M256 282 L195 343" />
+      <path d="M256 282 L317 343" />
+    </g>
+    <circle cx="256" cy="282" r="14" fill="#fff1d6" />
+    <!-- leaf -->
+    <path d="M262 160 C262 112 306 82 360 90 C356 142 314 176 262 168 Z" fill="#5cc21f" />
+    <path d="M268 164 C292 134 318 112 346 100" fill="none" stroke="#3f9a12" stroke-width="6" stroke-linecap="round" />
+    <path d="M256 168 C252 150 254 136 262 124" fill="none" stroke="#7a4a1c" stroke-width="10" stroke-linecap="round" />
+  </g>
+</svg>
