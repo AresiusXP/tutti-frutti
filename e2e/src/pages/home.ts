@@ -24,6 +24,11 @@ export class HomePage extends PageObject {
 		return this.button('join_game');
 	}
 
+	/** The quiet link to the static privacy policy at the bottom (`/privacy#<language>`). */
+	get privacyLink(): Locator {
+		return this.page.getByRole('link', { name: this.t('privacy_link'), exact: true });
+	}
+
 	codeBox(index: number): Locator {
 		return this.page.getByRole('textbox', {
 			name: this.t('code_char_label', { n: index + 1, total: 4 }),
