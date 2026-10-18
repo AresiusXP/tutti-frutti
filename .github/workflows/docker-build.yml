@@ -1,0 +1,45 @@
+# Build-only check of the container images on pull requests (no push), so a
+# broken Dockerfile is caught before a release is cut.
+# Both images are built whenever either side changes; the gha cache keeps the
+# untouched one fast.
+
+name: Docker build
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "web/**"
+      - ".github/workflows/docker-build.yml"
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        name: [server, web]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build ${{ matrix.name }} image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./${{ matrix.name }}
+          push: false
+          platforms: linux/amd64
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,scope=${{ matrix.name }},mode=max

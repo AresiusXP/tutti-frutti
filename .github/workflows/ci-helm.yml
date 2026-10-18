@@ -1,0 +1,71 @@
+# CI for the Helm chart.
+# Triggered only when files under helm/ (or this workflow) change.
+
+name: CI — Helm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "helm/**"
+      - ".github/workflows/ci-helm.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "helm/**"
+      - ".github/workflows/ci-helm.yml"
+
+concurrency:
+  group: ci-helm-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CHART_PATH: helm/tutti-frutti
+  HELM_VERSION: v3.18.4
+  KUBECONFORM_VERSION: v0.8.0
+  KUBERNETES_VERSION: 1.30.0
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kubeconform
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -sSfL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP/bin" kubeconform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bin/kubeconform" -v
+
+      - name: helm lint
+        run: helm lint "$CHART_PATH"
+
+      - name: helm template
+        run: helm template t "$CHART_PATH" > /dev/null
+
+      # ServiceMonitor is a CRD without a bundled schema, hence -ignore-missing-schemas.
+      - name: kubeconform (default values)
+        run: |
+          helm template t "$CHART_PATH" \
+            | kubeconform -strict -ignore-missing-schemas -kubernetes-version "$KUBERNETES_VERSION" -summary
+
+      - name: kubeconform (all optional resources enabled)
+        run: |
+          helm template t "$CHART_PATH" --set serviceMonitor.enabled=true \
+            | kubeconform -strict -ignore-missing-schemas -kubernetes-version "$KUBERNETES_VERSION" -summary

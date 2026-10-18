@@ -1,0 +1,72 @@
+# End-to-end tests (Playwright against the docker compose stack).
+# Manual only for now; the suite arrives in Phase 5 (e2e/).
+
+name: E2E
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: No e2e suite yet
+        if: hashFiles('e2e/package.json') == ''
+        run: echo "no e2e suite yet (e2e/package.json not found), nothing to run"
+
+      - name: Set up Node.js
+        if: hashFiles('e2e/package.json') != ''
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install e2e dependencies
+        if: hashFiles('e2e/package.json') != ''
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Start the stack
+        if: hashFiles('e2e/package.json') != ''
+        run: docker compose up -d --build --wait
+
+      - name: Run Playwright
+        if: hashFiles('e2e/package.json') != ''
+        working-directory: e2e
+        env:
+          E2E_BASE_URL: http://localhost:8000
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() && hashFiles('e2e/package.json') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Show compose logs on failure
+        if: ${{ failure() && hashFiles('e2e/package.json') != '' }}
+        run: docker compose logs --no-color --tail=200
+
+      - name: Stop the stack
+        if: ${{ always() && hashFiles('e2e/package.json') != '' }}
+        run: docker compose down -v

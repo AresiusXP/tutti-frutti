@@ -1,0 +1,194 @@
+# Release pipeline for the whole monorepo: ONE version (vX.Y.Z) for server, web
+# and the Helm chart, since server and web share the WebSocket protocol.
+#
+#   push to main
+#     -> release-please   keeps the release PR up to date; merging it creates the
+#                         vX.Y.Z tag + GitHub release (and bumps Chart.yaml)
+#     -> images (matrix)  builds/pushes ghcr.io/<owner>/tutti-frutti-{server,web}:X.Y.Z
+#     -> chart            packages/pushes oci://ghcr.io/<owner>/charts/tutti-frutti
+#
+# Why publishing lives in this same workflow: the tag is created by release-please
+# with the default GITHUB_TOKEN, and events caused by GITHUB_TOKEN do not trigger
+# other workflows, so a separate `on: push: tags` / `on: release` workflow would
+# never run. Images and chart therefore run here, gated on release_created.
+#
+# Recovery: run this workflow manually (workflow_dispatch) with `tag` set to an
+# existing release tag (e.g. v0.1.0) to build any MISSING image and publish the
+# chart if that chart version is missing. release-please is skipped then.
+# Published versions are immutable: an image tag that already exists is never
+# rebuilt (floating base-image tags could otherwise change a released version)
+# unless `force_images` is explicitly ticked.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)publish, e.g. v0.1.0"
+        required: true
+        type: string
+      force_images:
+        description: "Rebuild and OVERWRITE image tags that already exist (audited escape hatch)"
+        required: false
+        default: false
+        type: boolean
+
+# Releases are serialized; a run in progress is never cancelled halfway.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  images:
+    needs: release-please
+    if: ${{ !cancelled() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name || inputs.tag }}
+    strategy:
+      fail-fast: false
+      matrix:
+        name: [server, web]
+
+    steps:
+      - name: Resolve version and image name
+        id: meta
+        env:
+          NAME: ${{ matrix.name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid tag '$TAG' (expected vX.Y.Z)"
+            exit 1
+          fi
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/tutti-frutti-${NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release tag
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip images that are already published
+        id: exists
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          FORCE: ${{ inputs.force_images }}
+        run: |
+          if [[ "$FORCE" != "true" ]] && docker buildx imagetools inspect "${IMAGE}:${VERSION}" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${IMAGE}:${VERSION} already exists; not rebuilding (tick force_images to overwrite)"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The source label links the GHCR package to this repository.
+      - name: Build and push ${{ matrix.name }} image
+        if: steps.exists.outputs.exists != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: ./${{ matrix.name }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+          cache-from: type=registry,ref=${{ steps.meta.outputs.image }}:cache
+          cache-to: type=registry,ref=${{ steps.meta.outputs.image }}:cache,mode=max
+
+  chart:
+    needs: [release-please, images]
+    if: ${{ !cancelled() && needs.images.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name || inputs.tag }}
+      CHART_PATH: helm/tutti-frutti
+      CHART_NAME: tutti-frutti
+      HELM_VERSION: v3.18.4
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Verify Chart.yaml matches the release
+        run: |
+          version="${TAG#v}"
+          chart_version="$(helm show chart "$CHART_PATH" | awk '/^version:/ {print $2}' | tr -d '"')"
+          app_version="$(helm show chart "$CHART_PATH" | awk '/^appVersion:/ {print $2}' | tr -d '"')"
+          if [[ "$chart_version" != "$version" || "$app_version" != "$version" ]]; then
+            echo "::error::Chart.yaml (version=$chart_version, appVersion=$app_version) does not match release $version"
+            exit 1
+          fi
+          helm lint "$CHART_PATH"
+
+      - name: Package and push Helm chart
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${TAG#v}"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          helm package "$CHART_PATH" --destination "$RUNNER_TEMP"
+          echo "$GITHUB_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          # Skip the push when this chart version already exists (idempotent re-runs).
+          if helm show chart "oci://ghcr.io/${owner}/charts/${CHART_NAME}" --version "$version" > /dev/null 2>&1; then
+            echo "Chart ${CHART_NAME} ${version} already exists in the registry, skipping push."
+            echo "Chart ${CHART_NAME} ${version} already published, push skipped." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          helm push "$RUNNER_TEMP/${CHART_NAME}-${version}.tgz" "oci://ghcr.io/${owner}/charts"
+          echo "Published oci://ghcr.io/${owner}/charts/${CHART_NAME}:${version}" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,77 @@
+# CI for the Go server.
+# Triggered only when files under server/ (or this workflow) change.
+
+name: CI — Server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/ci-server.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/ci-server.yml"
+
+concurrency:
+  group: ci-server-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        id: go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+
+      # staticcheck is installed at @latest, so the cached binary is refreshed
+      # weekly (and whenever the Go version changes).
+      - name: Compute staticcheck cache key
+        id: week
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache staticcheck
+        id: staticcheck-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/go/bin/staticcheck
+          key: staticcheck-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ steps.week.outputs.week }}
+
+      - name: Install staticcheck
+        if: steps.staticcheck-cache.outputs.cache-hit != 'true'
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: staticcheck
+        run: ~/go/bin/staticcheck ./...
+
+      # TODO(phase 2): once protocol types are generated from Go structs with
+      # tygo, regenerate them here and fail if the generated file is stale
+      # (e.g. run tygo, then `git diff --exit-code` on the generated file).
+      # The generated file lives under web/, so add web/** to the trigger paths.
+      - name: Check generated protocol types are up to date (placeholder)
+        run: echo "tygo drift check not implemented yet (Phase 2)"
+
+      - name: go test
+        run: go test -race ./...
+
+      - name: go build
+        run: go build ./...

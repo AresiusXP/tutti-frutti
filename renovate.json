@@ -1,0 +1,41 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "semanticCommits": "enabled",
+  "enabledManagers": [
+    "gomod",
+    "npm",
+    "dockerfile",
+    "docker-compose",
+    "github-actions",
+    "helm-values"
+  ],
+  "packageRules": [
+    {
+      "description": "Group minor/patch updates per ecosystem",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "go dependencies"
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm dependencies"
+    },
+    {
+      "matchManagers": ["dockerfile", "docker-compose"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "docker images"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "github actions"
+    },
+    {
+      "matchManagers": ["helm-values"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "helm values images"
+    }
+  ]
+}
