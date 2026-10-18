@@ -1,0 +1,35 @@
+{
+	"name": "tutti-frutti-e2e",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Playwright end-to-end suite for Tutti Frutti (runs against the docker compose stack)",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"test": "playwright test",
+		"test:stack": "bash scripts/run-local.sh",
+		"test:fast": "playwright test --project=chromium",
+		"test:slow": "playwright test --project=slow",
+		"report": "playwright show-report",
+		"browsers": "playwright install --with-deps chromium",
+		"lint": "prettier --check . && eslint . && tsc --noEmit",
+		"format": "prettier --write .",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@axe-core/playwright": "4.14.0",
+		"@eslint/js": "10.0.1",
+		"@playwright/test": "1.64.1",
+		"@types/node": "22.20.5",
+		"@types/ws": "8.18.2",
+		"eslint": "10.13.0",
+		"eslint-plugin-playwright": "2.12.1",
+		"globals": "17.13.0",
+		"prettier": "3.9.10",
+		"typescript": "6.0.3",
+		"typescript-eslint": "8.71.2",
+		"ws": "8.22.0"
+	}
+}

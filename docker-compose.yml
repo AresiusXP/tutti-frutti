@@ -1,6 +1,7 @@
 name: tutti-frutti
 
-# Local dev / e2e stack: http://localhost:8000
+# Local dev / e2e stack: http://localhost:8000 (override with EDGE_PORT / POSTGRES_PORT
+# and `docker compose -p <project>` to run several stacks side by side)
 #   edge (Caddy, mimics Traefik path routing) -> web (/) and server (/api, /ws)
 #   server -> postgres
 #
@@ -14,7 +15,7 @@ services:
       POSTGRES_PASSWORD: tutti
       POSTGRES_DB: tutti
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -28,7 +29,7 @@ services:
     environment:
       PORT: "8080"
       LOG_LEVEL: debug
-      PUBLIC_URL: http://localhost:8000
+      PUBLIC_URL: http://localhost:${EDGE_PORT:-8000}
       DATABASE_URL: postgres://tutti:tutti@postgres:5432/tutti?sslmode=disable
       SESSION_SECRET: dev-only-session-secret-do-not-use-in-production
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -43,7 +44,7 @@ services:
   edge:
     image: caddy:2-alpine
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${EDGE_PORT:-8000}:8000"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:

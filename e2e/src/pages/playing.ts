@@ -1,0 +1,162 @@
+import { expect, type Locator } from '@playwright/test';
+import { msgPattern } from '../messages';
+import { PageObject } from './base';
+
+export class LetterPage extends PageObject {
+	get main(): Locator {
+		return this.page.getByRole('main', { name: this.t('play_letter_screen'), exact: true });
+	}
+
+	/** The chooser's big button; nobody else has one. */
+	get stopButton(): Locator {
+		return this.button('letter_stop');
+	}
+
+	choosing(name: string): Locator {
+		return this.page
+			.getByRole('status')
+			.filter({ hasText: this.t('play_letter_choosing', { name }) });
+	}
+
+	get joinsNextRound(): Locator {
+		return this.page.getByText(this.t('play_joins_next_round'), { exact: true });
+	}
+
+	async expectVisible(): Promise<void> {
+		await expect(this.main).toBeVisible();
+	}
+
+	async stop(): Promise<void> {
+		await this.stopButton.click();
+	}
+
+	/** The letters already played, as the chooser sees them. */
+	get usedLetters(): Locator {
+		return this.page
+			.getByRole('list', { name: this.t('play_used_letters'), exact: true })
+			.getByRole('listitem');
+	}
+}
+
+interface SplashWindow {
+	__tfSplash?: string[][];
+}
+
+export class PlayingPage extends PageObject {
+	get main(): Locator {
+		return this.page.getByRole('main', {
+			name: msgPattern(this.player.locale, 'play_screen_label')
+		});
+	}
+
+	async expectVisible(): Promise<void> {
+		await expect(this.main).toBeVisible();
+	}
+
+	/** `{ round, letter }` read from the screen's accessible name ("Ronda 1: letra M"). */
+	async roundInfo(): Promise<{ round: number; letter: string }> {
+		await this.expectVisible();
+		const label = (await this.main.getAttribute('aria-label')) ?? '';
+		const found = msgPattern(this.player.locale, 'play_screen_label').exec(label);
+		if (!found) throw new Error(`cannot read the round from "${label}"`);
+		return { round: Number(found[1]), letter: found[2] as string };
+	}
+
+	async letter(): Promise<string> {
+		return (await this.roundInfo()).letter;
+	}
+
+	get fields(): Locator {
+		return this.page
+			.getByRole('group', { name: this.t('play_answers_label'), exact: true })
+			.getByRole('textbox');
+	}
+
+	field(label: string): Locator {
+		return this.page.getByRole('textbox', { name: label, exact: true });
+	}
+
+	async fill(label: string, text: string): Promise<void> {
+		await this.field(label).fill(text);
+		await expect(this.field(label)).toHaveValue(text);
+	}
+
+	/** Writes one answer per field, in field order. `null` leaves a field empty. */
+	async fillAll(answers: (string | null)[]): Promise<void> {
+		await expect(this.fields).toHaveCount(answers.length);
+		for (const [i, text] of answers.entries()) {
+			if (text === null) continue;
+			const field = this.fields.nth(i);
+			await field.fill(text);
+			await expect(field).toHaveValue(text);
+		}
+	}
+
+	async expectValues(values: string[]): Promise<void> {
+		await expect(this.fields).toHaveCount(values.length);
+		for (const [i, text] of values.entries()) {
+			await expect(this.fields.nth(i)).toHaveValue(text);
+		}
+	}
+
+	get bastaButton(): Locator {
+		return this.button('basta_button');
+	}
+
+	/** "Name: 3 of 6" in the progress strip (the server has that many answers of that player). */
+	progress(name: string, filled: number, total: number): Locator {
+		return this.page
+			.getByRole('list', { name: this.t('play_progress_label'), exact: true })
+			.getByText(this.t('play_progress', { name, filled, total }), { exact: true });
+	}
+
+	/** The m:ss clock of a round with a time limit. */
+	get timer(): Locator {
+		return this.page.getByRole('timer', { name: this.t('play_time_left'), exact: true });
+	}
+
+	/** The grace banner ("Ana cantó ¡BASTA!" / "¡Se acabó el tiempo!") with its 3-2-1. */
+	get graceBanner(): Locator {
+		return this.page.getByTestId('grace-banner');
+	}
+
+	/** The polite/assertive announcement region the screen reader hears ("Ana: ¡Basta para mí, ...!"). */
+	get announcement(): Locator {
+		return this.page.getByRole('alert');
+	}
+
+	get spectatorNote(): Locator {
+		return this.page.getByText(this.t('play_spectator'), { exact: true });
+	}
+
+	/**
+	 * The full-screen Basta overlay lasts under a second: record it with a MutationObserver so
+	 * the assertion can never miss it. Call BEFORE the Basta; read with `splashes()`.
+	 */
+	async watchSplash(): Promise<void> {
+		await this.page.evaluate(() => {
+			const w = window as unknown as SplashWindow;
+			w.__tfSplash = [];
+			const grab = () => {
+				for (const el of document.querySelectorAll('[data-testid="basta-splash"]')) {
+					const texts = [...el.querySelectorAll('p')].map((p) => p.textContent?.trim() ?? '');
+					if (!w.__tfSplash?.some((seen) => seen.join('|') === texts.join('|')))
+						w.__tfSplash?.push(texts);
+				}
+			};
+			new MutationObserver(grab).observe(document.body, { childList: true, subtree: true });
+			grab();
+		});
+	}
+
+	/** Every overlay shown since `watchSplash()`: the paragraphs of each (caller name, call). */
+	splashes(): Promise<string[][]> {
+		return this.page.evaluate(() => (window as unknown as SplashWindow).__tfSplash ?? []);
+	}
+
+	async expectSplash(texts: string[]): Promise<void> {
+		await expect
+			.poll(() => this.splashes(), { message: 'the Basta overlay was shown' })
+			.toContainEqual(texts);
+	}
+}
