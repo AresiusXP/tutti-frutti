@@ -1,5 +1,6 @@
 # CI for the Helm chart.
-# Triggered only when files under helm/ (or this workflow) change.
+# Triggered when files under helm/ change, or the Go sources / design doc the observability
+# consistency test reads (registered metric names, the metrics and alerts tables), or this workflow.
 
 name: CI — Helm
 
@@ -8,11 +9,17 @@ on:
     branches: [main]
     paths:
       - "helm/**"
+      # the dashboard/alert consistency test reads the registered metrics and the metrics table
+      - "server/internal/**"
+      - "docs/DESIGN.md"
       - ".github/workflows/ci-helm.yml"
   pull_request:
     branches: [main]
     paths:
       - "helm/**"
+      # the dashboard/alert consistency test reads the registered metrics and the metrics table
+      - "server/internal/**"
+      - "docs/DESIGN.md"
       - ".github/workflows/ci-helm.yml"
 
 concurrency:
