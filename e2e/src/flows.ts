@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import type { App } from './fixtures';
-import type { Player, ScreenName } from './player';
+import type { Locale } from './messages';
+import type { Player, PlayerOptions, ScreenName } from './player';
 import type { AvatarChoice } from './pages/home';
 
 /** Letters only (a letter + a name + a letter), so it is a valid answer for any category. */
@@ -12,6 +13,18 @@ export function answerFor(letter: string, player: Player | string, field: number
 /** `count` unique answers of one player, e.g. `Manaa, Manab, Manac`. */
 export function uniqueAnswers(letter: string, player: Player | string, count: number): string[] {
 	return Array.from({ length: count }, (_, i) => answerFor(letter, player, i));
+}
+
+/** Unique answers for every field except the ones in `skip`, which stay empty (`null`). */
+export function answersLeaving(
+	letter: string,
+	player: Player | string,
+	skip: number[] = [],
+	fields = 6
+): (string | null)[] {
+	return uniqueAnswers(letter, player, fields).map((answer, i) =>
+		skip.includes(i) ? null : answer
+	);
 }
 
 /** The host opens Home, picks a nickname (and avatar) and creates a room. Returns its code. */
@@ -129,6 +142,47 @@ export async function bastaBy(caller: Player, others: Player[]): Promise<void> {
 	await expect(caller.playing.bastaButton).toBeEnabled();
 	await caller.playing.bastaButton.click();
 	await Promise.all(others.map((p) => expect(p.playing.graceBanner).toBeVisible()));
+}
+
+/**
+ * Somebody with answers missing asks everyone to stop: the main button, the confirmation, "Yes, ask
+ * everyone". The asker gets the banner and every voter the (non-modal) prompt with the asker's name.
+ */
+export async function askToStop(asker: Player, voters: Player[]): Promise<void> {
+	await asker.playing.askEveryoneToStop();
+	await Promise.all(voters.map((v) => expect(v.playing.voteTitle(asker.name)).toBeVisible()));
+}
+
+export interface OpenRoundOptions {
+	locale?: Locale;
+	/** The first one is the host (and the first chooser). Default: Ana, Ben, Cleo. */
+	names?: string[];
+	playerOptions?: (name: string) => PlayerOptions;
+	/** The host's turn in the lobby (settings) while everybody is there, before the game starts. */
+	lobby?: (host: Player, guests: Player[]) => Promise<void>;
+}
+
+/**
+ * A table ready to play: everybody joins the host's room by code, the host starts the game and stops the
+ * letter. Everybody is on the playing screen of round 1; `letter` is the round's letter.
+ */
+export async function openRound(
+	app: App,
+	options: OpenRoundOptions = {}
+): Promise<{ players: Player[]; host: Player; code: string; letter: string }> {
+	const { locale = 'es', names = ['Ana', 'Ben', 'Cleo'] } = options;
+	const players: Player[] = [];
+	for (const name of names) {
+		players.push(await app.player(name, { locale, ...options.playerOptions?.(name) }));
+	}
+	const [host, ...guests] = players as [Player, ...Player[]];
+	const code = await createRoom(app, host);
+	for (const guest of guests) await joinByCode(guest, code);
+	await host.lobby.expectPlayers(names);
+	await options.lobby?.(host, guests);
+	await startGame(host, players);
+	await chooserStops(players);
+	return { players, host, code, letter: await host.playing.letter() };
 }
 
 /**

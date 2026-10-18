@@ -1,6 +1,15 @@
 import { expectAccessible } from '../src/a11y';
 import { expect, test } from '../src/fixtures';
-import { bastaBy, chooserStops, createRoom, startGame, uniqueAnswers } from '../src/flows';
+import {
+	answersLeaving,
+	bastaBy,
+	chooserStops,
+	createRoom,
+	expectServerHas,
+	openRound,
+	startGame,
+	uniqueAnswers
+} from '../src/flows';
 import type { Locale } from '../src/messages';
 
 test.describe.configure({ mode: 'parallel' });
@@ -60,5 +69,35 @@ for (const locale of ['es', 'en', 'nl'] as Locale[]) {
 		await expectAccessible(ana, 'final (host)');
 		await beto.expectScreen('final');
 		await expectAccessible(beto, 'final (guest)');
+	});
+}
+
+/**
+ * The vote to stop adds two surfaces the main-screens smoke never sees: the confirmation (a modal
+ * `alertdialog`) and, for everybody else, a NON-modal prompt in the footer while a vote is open (plus the
+ * asker's banner). Axe on each, in each screen language.
+ */
+for (const locale of ['es', 'en', 'nl'] as Locale[]) {
+	test(`no serious accessibility violations on the vote to stop (${locale})`, async ({ app }) => {
+		const {
+			players: [ana, ben, cleo],
+			letter
+		} = await openRound(app, { locale, playerOptions: () => ({ reducedMotion: true }) });
+		if (!ana || !ben || !cleo) throw new Error('three players expected');
+		await ana.playing.fillAll(answersLeaving(letter, ana, [5]));
+		await ben.playing.fillAll(answersLeaving(letter, ben));
+		await cleo.playing.fillAll(answersLeaving(letter, cleo));
+		await expectServerHas(ben, ana, 5, 6);
+
+		await ana.playing.openAskDialog();
+		await expectAccessible(ana, 'confirmation to ask everyone to stop');
+		await ana.playing.askConfirm.click();
+
+		await expect(ben.playing.voteTitle('Ana')).toBeVisible();
+		await expectAccessible(ben, 'voter prompt');
+		await expectAccessible(ana, 'asker banner');
+		await ben.playing.voteYes.click();
+		await expect(ben.playing.voteWaiting(1, 2)).toBeVisible();
+		await expectAccessible(ben, 'voter prompt after a yes');
 	});
 }

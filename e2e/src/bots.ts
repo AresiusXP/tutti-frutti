@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import { BASE_URL, ORIGIN } from './env';
 
-const PROTOCOL_VERSION = 2;
+const PROTOCOL_VERSION = 3;
 
 /**
  * A cheap player without a browser: its own guest cookie and one WebSocket that joins a room.
@@ -11,6 +11,8 @@ export class Bot {
 	#socket?: WebSocket;
 	closeCode: number | undefined;
 	lastEvent: string | undefined;
+	/** The `code` of every `error` frame the server sent (e.g. `not_participant`). */
+	readonly errors: string[] = [];
 
 	private constructor(
 		readonly name: string,
@@ -58,6 +60,7 @@ export class Bot {
 				} else if (frame.t === 'event') {
 					this.lastEvent = frame.d?.type;
 				} else if (frame.t === 'error') {
+					this.errors.push(frame.d?.code ?? '');
 					clearTimeout(timer);
 					reject(new Error(`${this.name}: ${JSON.stringify(frame.d)}`));
 				}
@@ -70,6 +73,11 @@ export class Bot {
 				reject(error);
 			});
 		});
+	}
+
+	/** Sends a command (`ask_stop`, `vote_stop`, ...); the server answers with state or an `error` frame. */
+	send(type: string, payload?: unknown): void {
+		this.#socket?.send(JSON.stringify({ t: type, v: PROTOCOL_VERSION, d: payload }));
 	}
 
 	close(): void {

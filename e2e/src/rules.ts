@@ -33,3 +33,17 @@ export const CLASSIC_CATEGORIES: Record<Lang, string[]> = {
 export const MAX_PLAYERS = 10;
 export const UNIQUE_POINTS = 10;
 export const SHARED_POINTS = 5;
+
+/**
+ * The exact words of the Basta call: the main button of the playing screen and the full-screen overlay.
+ * English and Dutch say just "Stop!", with no Spanish word or character.
+ */
+export const BASTA_BUTTON: Record<Lang, string> = { es: '¡BASTA!', en: 'Stop!', nl: 'Stop!' };
+export const BASTA_OVERLAY: Record<Lang, string> = {
+	es: '¡Basta para mí, basta para todos!',
+	en: 'Stop!',
+	nl: 'Stop!'
+};
+
+/** How long the others have to agree to a vote to stop (DESIGN.md "Vote to stop"). */
+export const STOP_VOTE_SECONDS = 15;

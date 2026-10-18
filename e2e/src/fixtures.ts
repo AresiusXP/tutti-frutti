@@ -69,6 +69,7 @@ export class App {
 			locale: options.browserLanguage ?? LOCALE_TAGS[locale],
 			timezoneId: 'America/Argentina/Buenos_Aires',
 			permissions: [],
+			...(options.viewport ? { viewport: options.viewport } : {}),
 			...(options.reducedMotion ? { reducedMotion: 'reduce' as const } : {})
 		});
 		this.#contexts.push(context);

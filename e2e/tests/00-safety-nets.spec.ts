@@ -1,4 +1,6 @@
 import { expectAccessible } from '../src/a11y';
+import { answersLeaving, askToStop, openRound } from '../src/flows';
+import { expectUnobscured } from '../src/layout';
 import { expectDutchOnly, expectEnglishOnly } from '../src/no-spanish';
 import { expect, test } from '../src/fixtures';
 
@@ -107,6 +109,60 @@ test.describe('the safety nets', () => {
 		);
 		await expect(expectAccessible(ana, 'home with a nameless button')).rejects.toThrow(
 			/button-name/
+		);
+	});
+
+	test('the vote-to-stop checks fail when the vote, the prompt, the dialog or the frame is absent', async ({
+		app
+	}) => {
+		const {
+			players: [ana, ben],
+			letter
+		} = await openRound(app, { names: ['Ana', 'Ben'] });
+		if (!ana || !ben) throw new Error('two players expected');
+		await ana.playing.fillAll(answersLeaving(letter, ana, [5]));
+		const quick = { timeout: 700 };
+
+		// no vote yet: the "absent" checks pass, every "present" check fails
+		await ana.playing.expectNoVote();
+		await ben.playing.expectNoVote();
+		await expect(ana.playing.expectTally(0, 1, quick)).rejects.toThrow(/stop-wait-banner/);
+		await expect(ben.playing.voteTitle('Ana')).toBeHidden(quick);
+		await expect(ana.playing.askDialog).toBeHidden(quick);
+		await expect(ana.playing.hint(ana.t('play_hint_ready'))).toBeHidden(quick);
+		expect(ana.sentCount('ask_stop')).toBe(0);
+
+		// a vote is open: the "no vote" check fails on the asker's banner and on the voter's prompt,
+		// and the tally, the asker's name, the waiting line and the frame count are exact
+		await askToStop(ana, [ben]);
+		await expect(ana.playing.expectNoVote(quick)).rejects.toThrow(/stop-wait-banner/);
+		await expect(ben.playing.expectNoVote(quick)).rejects.toThrow(/stop-vote-sheet/);
+		await ana.playing.expectTally(0, 1);
+		await expect(ana.playing.expectTally(1, 1, quick)).rejects.toThrow(/dijeron que sí/);
+		await expect(ana.playing.expectTally(0, 2, quick)).rejects.toThrow(/dijeron que sí/);
+		await expect(ben.playing.voteTitle('Cleo')).toBeHidden(quick);
+		await expect(ben.playing.voteWaiting(1, 1)).toBeHidden(quick);
+		await expect(ben.playing.onlooker('Ana')).toBeHidden(quick);
+		expect(ana.sentCount('ask_stop')).toBe(1);
+		expect(ben.sentCount('ask_stop')).toBe(0);
+		expect(ben.sentCount('vote_stop')).toBe(0);
+
+		// the visibility check sees a cover and a field pushed off the screen
+		const field = ben.playing.field('Nombre');
+		await expectUnobscured(field, 'the first field', quick);
+		await ben.page.evaluate(() => {
+			// styled through the CSSOM: the page's CSP refuses inline `style` attributes (and the guard says so)
+			const cover = document.createElement('div');
+			cover.id = 'cover';
+			Object.assign(cover.style, { position: 'fixed', inset: '0', zIndex: '99' });
+			document.body.append(cover);
+		});
+		await expect(expectUnobscured(field, 'the first field', quick)).rejects.toThrow(/lies over/);
+		await ben.page.evaluate(() => document.getElementById('cover')?.remove());
+		await expectUnobscured(field, 'the first field', quick);
+		await field.evaluate((el) => (el.style.transform = 'translateY(3000px)'));
+		await expect(expectUnobscured(field, 'the first field', quick)).rejects.toThrow(
+			/below the screen/
 		);
 	});
 });

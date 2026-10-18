@@ -102,8 +102,22 @@ interface LetterClockWindow {
 	__tfLetterObserver?: MutationObserver;
 }
 
+interface Timeout {
+	timeout?: number;
+}
+
 interface SplashWindow {
 	__tfSplash?: string[][];
+}
+
+/** What `watchGrace()` records: every text the grace banner showed and whether an input was locked meanwhile. */
+export interface GraceRecord {
+	texts: string[];
+	inputLocked: boolean;
+}
+
+interface GraceWindow {
+	__tfGrace?: GraceRecord;
 }
 
 export class PlayingPage extends PageObject {
@@ -167,6 +181,105 @@ export class PlayingPage extends PageObject {
 		return this.button('basta_button');
 	}
 
+	/** The line above the main button ("Te faltan 2 · tocá para pedir que paren", "¡Todo listo!"). */
+	hint(text: string): Locator {
+		return this.page.locator('#basta-hint').filter({ hasText: text });
+	}
+
+	// ---- vote to stop -----------------------------------------------------------------------
+
+	/** The confirmation before asking: an `alertdialog` named "¿Pedir que paren?". */
+	get askDialog(): Locator {
+		return this.page.getByRole('alertdialog', { name: this.t('play_ask_title'), exact: true });
+	}
+
+	get askConfirm(): Locator {
+		return this.askDialog.getByRole('button', { name: this.t('play_ask_confirm'), exact: true });
+	}
+
+	get askKeep(): Locator {
+		return this.askDialog.getByRole('button', { name: this.t('play_ask_keep'), exact: true });
+	}
+
+	/** Taps the main button with answers missing and waits for the confirmation. */
+	async openAskDialog(): Promise<void> {
+		await this.bastaButton.click();
+		await expect(this.askDialog).toBeVisible();
+	}
+
+	/** Taps the main button, confirms, and waits for the asker's banner. */
+	async askEveryoneToStop(): Promise<void> {
+		await this.openAskDialog();
+		await this.askConfirm.click();
+		await expect(this.waitBanner).toBeVisible();
+	}
+
+	/** The asker's banner: "Esperando a los demás", "0 de 2 dijeron que sí", the countdown. */
+	get waitBanner(): Locator {
+		return this.page.getByTestId('stop-wait-banner');
+	}
+
+	/** "Esperando a los demás" + "1 de 2 dijeron que sí" in the asker's banner. */
+	async expectTally(yes: number, total: number, options: Timeout = {}): Promise<void> {
+		await expect(this.waitBanner).toContainText(this.t('play_ask_waiting'), options);
+		await expect(this.waitBanner).toContainText(this.t('play_ask_tally', { yes, total }), options);
+	}
+
+	/** The countdown of a vote ("15" ... "0") in the asker's banner or the voters' prompt. */
+	get voteTimer(): Locator {
+		return this.page.getByRole('timer', { name: this.t('play_vote_time_label'), exact: true });
+	}
+
+	/** Seconds left on the vote's countdown. */
+	async voteSecondsLeft(): Promise<number> {
+		return Number(await this.voteTimer.innerText());
+	}
+
+	/** The voters' prompt (NOT a dialog): "Ana pide parar. ¿Parar?" with yes / no. */
+	get votePrompt(): Locator {
+		return this.page.getByTestId('stop-vote-sheet');
+	}
+
+	voteTitle(askerName: string): Locator {
+		return this.votePrompt.getByText(this.t('play_vote_title', { name: askerName }), {
+			exact: true
+		});
+	}
+
+	get voteYes(): Locator {
+		return this.votePrompt.getByRole('button', { name: this.t('play_vote_yes'), exact: true });
+	}
+
+	get voteNo(): Locator {
+		return this.votePrompt.getByRole('button', { name: this.t('play_vote_no'), exact: true });
+	}
+
+	/** After a yes the prompt shrinks to "Esperando a los demás (1/2)". */
+	voteWaiting(yes: number, total: number): Locator {
+		return this.votePrompt.getByText(this.t('play_vote_waiting', { yes, total }), {
+			exact: true
+		});
+	}
+
+	/** The one-line note of spectators (and of anyone outside the electorate): "Ana pidió parar…". */
+	onlooker(askerName: string): Locator {
+		return this.page
+			.getByTestId('stop-vote-onlooker')
+			.filter({ hasText: this.t('play_vote_onlooker', { name: askerName }) });
+	}
+
+	/** A toast of the screen ("No todos aceptaron", "Se acabó el tiempo"): they live in a polite live region. */
+	toast(text: string): Locator {
+		return this.page.getByText(text, { exact: true });
+	}
+
+	/** Nobody is voting from this player's point of view: no banner, no prompt, no onlooker line. */
+	async expectNoVote(options: Timeout = {}): Promise<void> {
+		await expect(this.waitBanner).toHaveCount(0, options);
+		await expect(this.votePrompt).toHaveCount(0, options);
+		await expect(this.page.getByTestId('stop-vote-onlooker')).toHaveCount(0, options);
+	}
+
 	/** "Name: 3 of 6" in the progress strip (the server has that many answers of that player). */
 	progress(name: string, filled: number, total: number): Locator {
 		return this.page
@@ -216,6 +329,45 @@ export class PlayingPage extends PageObject {
 	/** Every overlay shown since `watchSplash()`: the paragraphs of each (caller name, call). */
 	splashes(): Promise<string[][]> {
 		return this.page.evaluate(() => (window as unknown as SplashWindow).__tfSplash ?? []);
+	}
+
+	/**
+	 * After a time-up the grace phase lasts only the 500 ms late-update allowance, shorter than two
+	 * sequential assertions can be trusted to span: record the banner texts (and whether an answer
+	 * field was locked while it was up) with a MutationObserver. Call BEFORE the deadline; read with
+	 * `graces()`.
+	 */
+	async watchGrace(): Promise<void> {
+		await this.page.evaluate(() => {
+			const w = window as unknown as GraceWindow;
+			const record: GraceRecord = { texts: [], inputLocked: false };
+			w.__tfGrace = record;
+			const grab = () => {
+				for (const el of document.querySelectorAll('[data-testid="grace-banner"]')) {
+					const text = el.textContent?.trim() ?? '';
+					if (text && !record.texts.includes(text)) record.texts.push(text);
+					if (document.querySelector('input:disabled')) record.inputLocked = true;
+				}
+			};
+			new MutationObserver(grab).observe(document.body, {
+				childList: true,
+				subtree: true,
+				characterData: true,
+				attributes: true
+			});
+			grab();
+		});
+	}
+
+	/** Everything the grace banner showed since `watchGrace()`. */
+	graces(): Promise<GraceRecord> {
+		return this.page.evaluate(
+			() =>
+				(window as unknown as GraceWindow).__tfGrace ?? {
+					texts: [],
+					inputLocked: false
+				}
+		);
 	}
 
 	async expectSplash(texts: string[]): Promise<void> {

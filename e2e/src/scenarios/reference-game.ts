@@ -15,14 +15,7 @@ import {
 import type { Locale } from '../messages';
 import { ROOM_CODE } from '../pages/home';
 import type { Player } from '../player';
-import { CLASSIC_CATEGORIES, playableLetters } from '../rules';
-
-/** The exact words of the Basta call, written out (not read from the message files) on purpose. */
-const OVERLAY: Record<Locale, string> = {
-	es: '¡Basta para mí, basta para todos!',
-	en: 'Stop!',
-	nl: 'Stop!'
-};
+import { BASTA_OVERLAY, CLASSIC_CATEGORIES, playableLetters } from '../rules';
 
 export type PhaseName = 'lobby' | 'letter' | 'playing' | 'grace' | 'review' | 'summary' | 'final';
 
@@ -58,7 +51,7 @@ export async function playReferenceGame(
 	const caro = await app.player('Caro', { locale });
 	const everyone = [ana, beto, caro];
 	const categories = CLASSIC_CATEGORIES[locale];
-	const overlay = OVERLAY[locale];
+	const overlay = BASTA_OVERLAY[locale];
 
 	await test.step('Ana creates a room and is alone in it', async () => {
 		const code = await createRoom(app, ana, { emoji: '🍓', color: 'strawberry' });
@@ -93,7 +86,8 @@ export async function playReferenceGame(
 				guest.t(`lobby_lang_${locale}`),
 				guest.t('lobby_summary_hard_on', { count: playableLetters(locale, true).length }),
 				guest.t('lobby_summary_rounds', { n: 2 }),
-				guest.t('lobby_summary_time_off')
+				guest.t('lobby_summary_time_off'),
+				guest.t('lobby_summary_stop_on')
 			]);
 			await guest.lobby.expectCategories(categories);
 		}
@@ -154,10 +148,17 @@ export async function playReferenceGame(
 		]
 	};
 
-	await test.step("everybody writes; Basta needs every field valid; nobody sees the others' answers", async () => {
+	await test.step("everybody writes; with a field missing the button only offers to ask everyone to stop; nobody sees the others' answers", async () => {
 		await Promise.all(everyone.map((p) => fillAnswers(p, answers[p.name] ?? [])));
-		await expect(beto.playing.bastaButton).toBeDisabled();
-		await expect(beto.page.getByText(beto.t('play_hint_fill'), { exact: true })).toBeVisible();
+		// Beto left one field empty: his button does not call Basta, it opens the confirmation (and he keeps playing)
+		await expect(beto.playing.bastaButton).toBeEnabled();
+		await expect(beto.playing.hint(beto.t('play_hint_ask_one'))).toBeVisible();
+		await beto.playing.openAskDialog();
+		await beto.playing.askKeep.click();
+		await expect(beto.playing.askDialog).toBeHidden();
+		expect(beto.sentCount('basta'), 'no Basta with a field missing').toBe(0);
+		expect(beto.sentCount('ask_stop'), 'nothing was asked').toBe(0);
+		for (const p of everyone) await p.playing.expectNoVote();
 		await expectServerHas(ana, beto, 5, 6);
 		await expectServerHas(ana, caro, 6, 6);
 		await expectServerHas(caro, ana, 6, 6);

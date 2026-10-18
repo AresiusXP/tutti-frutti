@@ -66,8 +66,17 @@ test('a round with a 60 s time limit ends by itself, nobody calls Basta', async 
 		]);
 		await expectServerHas(ana, beto, 2, 6);
 		await expectServerHas(beto, ana, 1, 6);
-		await expect(ana.playing.bastaButton).toBeDisabled();
-		await Promise.all(everyone.map((p) => p.playing.watchSplash())); // the "time's up" overlay lasts under a second
+		// the button only offers a vote (it never calls Basta with fields missing): the hint counts what is missing
+		await expect(ana.playing.hint(ana.t('play_hint_ask_many', { count: 5 }))).toBeVisible();
+		await expect(beto.playing.hint(beto.t('play_hint_ask_many', { count: 4 }))).toBeVisible();
+		await ana.playing.openAskDialog();
+		await ana.playing.askKeep.click();
+		await expect(ana.playing.askDialog).toBeHidden();
+		expect(ana.sentCount('basta')).toBe(0);
+		expect(ana.sentCount('ask_stop')).toBe(0);
+		// the "time's up" overlay and the grace banner last under a second each: record, never race them
+		await Promise.all(everyone.map((p) => p.playing.watchSplash()));
+		await Promise.all(everyone.map((p) => p.playing.watchGrace()));
 	});
 
 	await test.step('the last seconds turn the clock urgent, then the room locks without a caller', async () => {
@@ -76,15 +85,25 @@ test('a round with a 60 s time limit ends by itself, nobody calls Basta', async 
 				timeout: 70_000
 			});
 		}
+		for (const p of everyone) await p.expectScreen('review', { timeout: 30_000 });
 		for (const p of everyone) {
-			await expect(p.playing.graceBanner).toContainText(p.t('play_time_up'), { timeout: 30_000 });
-			await expect(p.playing.graceBanner).not.toContainText(
-				p.t('play_caller_called', { name: 'Ana' })
-			);
+			const grace = await p.playing.graces();
+			const seen = grace.texts.join(' | ');
+			expect(
+				grace.texts.some((text) => text.includes(p.t('play_time_up'))),
+				`the grace banner said the time was up (saw: ${seen})`
+			).toBe(true);
+			expect(
+				grace.texts.some((text) => text.includes(p.t('play_locked'))),
+				`the grace banner said the answers are locked (saw: ${seen})`
+			).toBe(true);
+			expect(
+				grace.texts.some((text) => text.includes(p.t('play_caller_called', { name: 'Ana' }))),
+				`nobody called Basta (saw: ${seen})`
+			).toBe(false);
+			expect(grace.inputLocked, 'the answer fields were locked while the banner was up').toBe(true);
 		}
 		await beto.playing.expectSplash([beto.t('play_time_up')]);
-		await expect(ana.playing.graceBanner).toContainText(ana.t('play_locked'), { timeout: 10_000 });
-		await expect(ana.playing.field('Nombre')).toBeDisabled();
 	});
 
 	await test.step('the answers written before the deadline reach the review and the score', async () => {

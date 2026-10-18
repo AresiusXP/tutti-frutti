@@ -102,10 +102,20 @@ test('answers written with the ĳ ligature count for the letter I: "Ĳsland" is 
 		await expect(
 			beto.page.getByText(beto.t('play_field_wrong_letter', { letter: 'I' }))
 		).toBeVisible();
+		// the wrong answer and the empty fields keep him from calling Stop: the button offers a vote instead
 		await expect(
-			beto.page.getByText(beto.t('play_hint_wrong', { categories: land }), { exact: true })
+			beto.playing.hint(beto.t('play_hint_ask_wrong', { categories: land }))
 		).toBeVisible();
-		await expect(beto.playing.bastaButton).toBeDisabled();
+		await beto.playing.openAskDialog();
+		await expect(
+			beto.playing.askDialog.getByText(beto.t('play_ask_wrong_one', { letter: 'I' }), {
+				exact: true
+			})
+		).toBeVisible();
+		await beto.playing.askKeep.click();
+		await expect(beto.playing.askDialog).toBeHidden();
+		expect(beto.sentCount('basta'), 'no Stop! with a wrong answer').toBe(0);
+		expect(beto.sentCount('ask_stop'), 'nothing was asked').toBe(0);
 
 		await ana.playing.fillAll(anaAnswers);
 		await beto.playing.fillAll(betoAnswers); // overwrites "Ysland"

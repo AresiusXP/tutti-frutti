@@ -87,6 +87,18 @@ export class LobbyPage extends PageObject {
 		await expect(this.hardLetters).toHaveAttribute('aria-checked', String(on));
 	}
 
+	/** The host's "Permitir pedir que paren" switch (vote to stop). */
+	get stopVote(): Locator {
+		return this.settings.getByRole('switch', { name: this.t('lobby_stop_label'), exact: true });
+	}
+
+	async setStopVote(on: boolean): Promise<void> {
+		if ((await this.stopVote.getAttribute('aria-checked')) !== String(on)) {
+			await this.stopVote.click();
+		}
+		await expect(this.stopVote).toHaveAttribute('aria-checked', String(on));
+	}
+
 	/** What the hard-letters row says ("Fuera: K Ñ Q W X Y Z · se juegan 20 letras"). */
 	get hardLettersDescription(): Locator {
 		return this.settings.locator('#hard-desc');
@@ -142,11 +154,16 @@ export class LobbyPage extends PageObject {
 
 	// ---- settings: what everybody sees ------------------------------------------------------
 
-	/** The read-only chips guests see: language, hard letters, rounds, time. */
+	/** The read-only chips guests see: language, hard letters, rounds, time, vote to stop. */
 	get chips(): Locator {
 		return this.page
 			.getByRole('list', { name: this.t('lobby_settings_title'), exact: true })
 			.getByRole('listitem');
+	}
+
+	/** The last chip: "Se puede pedir que paren" / "Sin pedir que paren". */
+	get stopChip(): Locator {
+		return this.chips.nth(4);
 	}
 
 	/** The selected categories in game order (both the host's card and the guests' chips). */

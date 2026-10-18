@@ -22,6 +22,8 @@ export interface PlayerOptions {
 	network?: boolean;
 	/** Ask the browser for reduced motion (calmer screenshots and contrast checks). */
 	reducedMotion?: boolean;
+	/** Another screen than the project's phone (390x844), e.g. a small 360x740 one. */
+	viewport?: { width: number; height: number };
 }
 
 /** One player = one browser context (own cookies/storage, so own guest id) with one tab. */
@@ -37,6 +39,9 @@ export class Player {
 	readonly final = new FinalPage(this);
 	readonly closed = new ClosedPage(this);
 
+	/** The `t` of every frame this player's first tab has sent over its room sockets, in order. */
+	readonly #sent: string[] = [];
+
 	constructor(
 		readonly name: string,
 		/** UI language; changes when the player presses ES / EN. */
@@ -45,7 +50,23 @@ export class Player {
 		readonly page: Page,
 		/** Present when the player was created with `{ network: true }`: drop / restore the connection. */
 		readonly network?: Network
-	) {}
+	) {
+		page.on('websocket', (socket) =>
+			socket.on('framesent', ({ payload }) => {
+				try {
+					const frame = JSON.parse(payload.toString()) as { t?: unknown };
+					if (typeof frame.t === 'string') this.#sent.push(frame.t);
+				} catch {
+					// not a JSON frame: nothing the app sends
+				}
+			})
+		);
+	}
+
+	/** How many frames of this type (`ask_stop`, `vote_stop`, `basta`, ...) the player has sent so far. */
+	sentCount(type: string): number {
+		return this.#sent.filter((t) => t === type).length;
+	}
 
 	t(key: string, params?: Params): string {
 		return msg(this.locale, key, params);

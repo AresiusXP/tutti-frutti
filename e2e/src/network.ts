@@ -5,6 +5,9 @@ interface TrackedSockets {
 	__tfSockets?: Set<WebSocket>;
 }
 
+/** How long the "network is away" allowances stay after `restore()` (see there). */
+const SETTLE_MS = 2000;
+
 /**
  * Network trouble on demand for one player. `context.setOffline(true)` blocks HTTP and fires the
  * `offline` event but leaves an established WebSocket alone, so "the connection is gone" also needs
@@ -67,9 +70,21 @@ export class Network {
 		);
 	}
 
-	/** The network is back: the app notices (`online` event) and reconnects. */
+	/**
+	 * The network is back: the app notices (`online` event) and reconnects.
+	 *
+	 * The "network is away" allowances outlive this call by `SETTLE_MS`: the failure event of a
+	 * request that died while offline (the app's retried `GET /api/session`, passed on by the
+	 * service worker as ERR_FAILED) can reach the guard a moment after `setOffline(false)` resolves,
+	 * because it comes from another CDP target, and it must still be judged by the allowance of the
+	 * moment it failed. They only match the network-down error names, so a real failure after the
+	 * network is back (a refused connection, an HTTP error) is still reported.
+	 */
 	async restore(): Promise<void> {
 		await this.context.setOffline(false);
-		for (const release of this.#releases.splice(0)) release();
+		const releases = this.#releases.splice(0);
+		setTimeout(() => {
+			for (const release of releases) release();
+		}, SETTLE_MS).unref();
 	}
 }
