@@ -1,0 +1,14 @@
+# Patterns to ignore when building packages (same syntax as .gitignore).
+.git/
+.gitignore
+.DS_Store
+*.swp
+*.bak
+*.tmp
+# Dashboard generator, its tests and the alert-rule unit tests are repo tooling,
+# not part of the chart package. dashboards/tutti-frutti.json IS packaged.
+dashboards/generate.py
+dashboards/test_*.py
+dashboards/__pycache__/
+tests/
+ci/

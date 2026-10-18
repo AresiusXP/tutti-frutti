@@ -84,3 +84,25 @@ Public URL of the app: explicit override, otherwise derived from the ingress hos
 {{- printf "%s://%s" (ternary "https" "http" .Values.ingress.tls.enabled) .Values.ingress.host }}
 {{- end }}
 {{- end }}
+
+{{/*
+Labels of one alert: its severity plus prometheusRule.additionalRuleLabels.
+Usage: include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .)
+*/}}
+{{- define "tutti-frutti.alertLabels" -}}
+severity: {{ .severity | quote }}
+{{- range $key, $value := .context.Values.prometheusRule.additionalRuleLabels }}
+{{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
+Extra annotations of every alert (runbook_url plus
+prometheusRule.additionalRuleAnnotations), one per line; empty when there are none.
+*/}}
+{{- define "tutti-frutti.alertAnnotations" -}}
+{{- $lines := list -}}
+{{- with .Values.prometheusRule.runbookUrl }}{{ $lines = append $lines (printf "runbook_url: %s" (. | quote)) }}{{ end -}}
+{{- range $key, $value := .Values.prometheusRule.additionalRuleAnnotations }}{{ $lines = append $lines (printf "%s: %s" $key ($value | quote)) }}{{ end -}}
+{{- join "\n" $lines -}}
+{{- end }}

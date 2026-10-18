@@ -1,0 +1,299 @@
+{{- if .Values.prometheusRule.enabled -}}
+{{- $ns := .Release.Namespace -}}
+{{- $server := include "tutti-frutti.componentFullname" (dict "component" "server" "context" .) -}}
+{{- /* Selectors: the server Service is the Prometheus job (ServiceMonitor default); kube-state-metrics and cAdvisor series are selected by pod name. */ -}}
+{{- $m := printf `namespace=%q, job=%q` $ns $server -}}
+{{- $podRe := printf "%s-.+" $server -}}
+{{- $pods := printf `namespace=%q, pod=~%q, container="server"` $ns $podRe -}}
+{{- $anyPod := printf `namespace=%q, pod=~%q` $ns $podRe -}}
+{{- $user := `route!~"GET /(healthz|readyz|metrics)"` -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "tutti-frutti.componentFullname" (dict "component" "server" "context" .) }}
+  labels:
+    {{- include "tutti-frutti.componentLabels" (dict "component" "server" "context" .) | nindent 4 }}
+    {{- range $key, $value := .Values.prometheusRule.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- with .Values.prometheusRule.annotations }}
+  annotations:
+    {{- range $key, $value := . }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+spec:
+  groups:
+    - name: tutti-frutti.availability
+      {{- with .Values.prometheusRule.interval }}
+      interval: {{ . }}
+      {{- end }}
+      rules:
+        - alert: TuttiFruttiServerDown
+          expr: |-
+            (max(up{ {{- $m -}} }) == 0) or absent(up{ {{- $m -}} })
+          for: 5m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "critical" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti server is down
+            description: >-
+              Prometheus has not been able to scrape the Tutti Frutti server ({{ $ns }}/{{ $server }})
+              for 5 minutes, or its target has disappeared. Nobody can play. A normal deploy takes
+              about 10 seconds, so this is not a rollout.
+            runbook: >-
+              kubectl -n {{ $ns }} get pods,events; kubectl -n {{ $ns }} describe deploy/{{ $server }};
+              kubectl -n {{ $ns }} logs deploy/{{ $server }} --previous --tail=100. Missing target: check the
+              ServiceMonitor (serviceMonitor.enabled) and the Service endpoints.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+        - alert: TuttiFruttiServerRestartLoop
+          expr: |-
+            increase(kube_pod_container_status_restarts_total{ {{- $pods -}} }[30m]) >= 3
+          for: 5m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti server container keeps restarting
+            description: >-
+              The server container restarted {{`{{ $value | humanize }}`}} times in the last 30 minutes
+              (crash, OOM kill or failing liveness probe). Rooms are restored from Postgres after every
+              restart, but players are disconnected each time. A normal deploy replaces the pod and does not count.
+            runbook: >-
+              kubectl -n {{ $ns }} describe pod -l app.kubernetes.io/component=server (Last State: reason and exit code,
+              OOMKilled means raise server.resources.limits.memory or look for a leak);
+              kubectl -n {{ $ns }} logs deploy/{{ $server }} --previous --tail=200.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+        - alert: TuttiFruttiServerNotReady
+          expr: |-
+            min(kube_pod_status_ready{ {{- $anyPod }}, condition="true"}) == 0
+          for: 5m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "critical" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti server is not ready (database unreachable?)
+            description: >-
+              The server pod has been NotReady for 5 minutes, so the Service sends it no traffic. /readyz fails when
+              the Postgres ping fails (or while shutting down), so the usual cause is an unreachable database. The
+              startup probe allows 150 s, so this is not a slow start.
+            runbook: >-
+              kubectl -n {{ $ns }} logs deploy/{{ $server }} --tail=100 | grep -i "readiness check failed";
+              kubectl -n {{ $ns }} describe pod -l app.kubernetes.io/component=server (probe failures);
+              check the shared Postgres (pods in namespace postgres) and the database-url key of the Secret.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+    - name: tutti-frutti.persistence
+      {{- with .Values.prometheusRule.interval }}
+      interval: {{ . }}
+      {{- end }}
+      rules:
+        - alert: TuttiFruttiSnapshotFailures
+          expr: |-
+            sum(increase(tuttifrutti_snapshot_errors_total{ {{- $m -}} }[5m])) > 0
+          for: 10m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti cannot persist room snapshots
+            description: >-
+              Room snapshot writes or deletions have been failing for at least 10 minutes
+              ({{`{{ $value | humanize }}`}} errors in the last 5 minutes). Games keep running from memory but every room
+              would be lost if the server restarted now. A blip shorter than 10 minutes does not alert.
+            runbook: >-
+              kubectl -n {{ $ns }} logs deploy/{{ $server }} --tail=200 | grep -i snapshot; check the shared
+              Postgres (disk full, connection limit, restart) and the database-url key of the Secret.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+    - name: tutti-frutti.traffic
+      {{- with .Values.prometheusRule.interval }}
+      interval: {{ . }}
+      {{- end }}
+      rules:
+        - alert: TuttiFruttiRateLimitSaturation
+          expr: |-
+            sum(rate(tuttifrutti_http_requests_total{ {{- $m }}, code="429"}[5m])) > 0.1
+          for: 5m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti is rate limiting players
+            description: >-
+              More than 6 requests per minute have been answered 429 for 5 minutes. The limiters are global buckets
+              (Traefik hides client IPs), so real players are being refused: either a burst of reconnects/scrapers,
+              or a single abusive client draining the shared bucket.
+            runbook: >-
+              Dashboard "Tutti Frutti", row Connections, panel "Rate-limited requests" shows the route.
+              kubectl -n {{ $ns }} logs deploy/{{ $server }} --tail=300 | grep '"status":429';
+              check traefik access logs for one dominant client.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+        - alert: TuttiFruttiWebSocketUpgradesFailing
+          expr: |-
+            (
+              sum(rate(tuttifrutti_http_requests_total{ {{- $m }}, route="GET /ws", code!="101"}[5m]))
+                /
+              sum(rate(tuttifrutti_http_requests_total{ {{- $m }}, route="GET /ws"}[5m]))
+                > 0.5
+            )
+            and
+            sum(rate(tuttifrutti_http_requests_total{ {{- $m }}, route="GET /ws"}[5m])) > 0.05
+          for: 10m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Most WebSocket upgrades are being refused
+            description: >-
+              {{`{{ $value | humanizePercentage }}`}} of the WebSocket upgrades of the last 5 minutes were refused
+              (not 101), and it has been like that for 10 minutes. Players cannot join rooms. Typical causes: 401 (guest cookie not sent),
+              403 (Origin not allowed: check server.publicUrl / server.allowedOrigins), 429 (rate limit), 503 (MAX
+              connections reached or shutting down).
+            runbook: >-
+              Dashboard "Tutti Frutti", row Connections, panel "WebSocket upgrades by status" shows the code.
+              kubectl -n {{ $ns }} logs deploy/{{ $server }} --tail=200 | grep '/ws'.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+        - alert: TuttiFruttiHighErrorRate
+          expr: |-
+            (
+              sum(rate(tuttifrutti_http_requests_total{ {{- $m }}, {{ $user }}, code=~"5.."}[10m]))
+                /
+              sum(rate(tuttifrutti_http_requests_total{ {{- $m }}, {{ $user }}}[10m]))
+                > 0.05
+            )
+            and
+            sum(rate(tuttifrutti_http_requests_total{ {{- $m }}, {{ $user }}}[10m])) > 0.02
+          for: 10m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti API returns server errors
+            description: >-
+              {{`{{ $value | humanizePercentage }}`}} of the API requests of the last 10 minutes were answered
+              with a 5xx status (health probes and scrapes excluded).
+            runbook: >-
+              kubectl -n {{ $ns }} logs deploy/{{ $server }} --tail=300 | grep -E '"status":5|"level":"(ERROR|WARN)"';
+              Dashboard "Tutti Frutti", row HTTP API.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+    - name: tutti-frutti.runtime
+      {{- with .Values.prometheusRule.interval }}
+      interval: {{ . }}
+      {{- end }}
+      rules:
+        - alert: TuttiFruttiGoroutineLeak
+          expr: |-
+            go_goroutines{ {{- $m -}} }
+              > 100 + 4 * tuttifrutti_ws_connections_open{ {{- $m -}} } + 3 * tuttifrutti_rooms{ {{- $m -}} }
+          for: 30m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti server has too many goroutines (leak?)
+            description: >-
+              The server runs {{`{{ $value | humanize }}`}} goroutines, more than 100 + 4 per open WebSocket + 3 per room,
+              for 30 minutes. A healthy server uses about 2 per socket and 2 per room plus ~15, so goroutines are
+              leaking (stuck connection pumps or room loops).
+            runbook: >-
+              Compare Dashboard "Tutti Frutti", row Go runtime, panel "Goroutines" with the expected line. Save the logs
+              (kubectl -n {{ $ns }} logs deploy/{{ $server }} --tail=500), then restart the pod
+              (kubectl -n {{ $ns }} rollout restart deploy/{{ $server }}) and open an issue with the graph and the logs.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+        - alert: TuttiFruttiMemoryHigh
+          expr: |-
+            max(container_memory_working_set_bytes{ {{- $pods -}} })
+              /
+            max(kube_pod_container_resource_limits{ {{- $pods }}, resource="memory"})
+              > 0.85
+          for: 15m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti server is close to its memory limit
+            description: >-
+              The server container uses {{`{{ $value | humanizePercentage }}`}} of its memory limit for 15 minutes.
+              At 100 % the kernel OOM-kills it (all players disconnect, rooms are restored from Postgres).
+            runbook: >-
+              Dashboard "Tutti Frutti", row Go runtime, panel "Memory". Many live rooms or a leak? Raise
+              server.resources.limits.memory or lower server.maxRooms; kubectl -n {{ $ns }} top pod -l
+              app.kubernetes.io/component=server.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+        - alert: TuttiFruttiMemoryGrowth
+          expr: |-
+            (
+              max by (namespace, pod) (predict_linear(container_memory_working_set_bytes{ {{- $pods -}} }[6h], 4 * 3600))
+                >
+              on (namespace, pod) max by (namespace, pod) (kube_pod_container_resource_limits{ {{- $pods }}, resource="memory"})
+            )
+            and on (namespace, pod)
+            (time() - max by (namespace, pod) (process_start_time_seconds{ {{- $m -}} }) > 6 * 3600)
+          for: 30m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti server memory keeps growing (leak?)
+            description: >-
+              At the growth rate of the last 6 hours the server would exceed its memory limit within 4 hours
+              (only evaluated for pods older than 6 hours, so a deploy does not trigger it).
+            runbook: >-
+              Dashboard "Tutti Frutti", row Go runtime, panel "Memory" (heap vs RSS vs limit). Correlate with rooms
+              and connections; restart during a quiet hour (kubectl -n {{ $ns }} rollout restart deploy/{{ $server }})
+              and open an issue with the graph.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+    - name: tutti-frutti.accounts
+      {{- with .Values.prometheusRule.interval }}
+      interval: {{ . }}
+      {{- end }}
+      rules:
+        - alert: TuttiFruttiStatsRecordingFailing
+          expr: |-
+            sum(increase(tuttifrutti_stats_recorded_total{ {{- $m }}, result="error"}[5m])) > 0
+          for: 10m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti cannot record game statistics
+            description: >-
+              Writing the lifetime statistics of finished games to Postgres has been failing for at least 10 minutes
+              ({{`{{ $value | humanize }}`}} failed attempts in the last 5 minutes). Games are not affected: the recorder
+              keeps the finished games in a bounded queue and retries with backoff, then gives up (see
+              TuttiFruttiStatsDropped). A blip shorter than 10 minutes does not alert.
+            runbook: >-
+              kubectl -n {{ $ns }} logs deploy/{{ $server }} --tail=200 | grep -i "game statistics"; check the shared
+              Postgres (the users / user_stats / user_games tables live in the same database as the snapshots).
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+        - alert: TuttiFruttiStatsDropped
+          expr: |-
+            sum(increase(tuttifrutti_stats_recorded_total{ {{- $m }}, result="dropped"}[10m])) > 0
+          for: 0m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti dropped the statistics of finished games
+            description: >-
+              {{`{{ $value | humanize }}`}} finished games in the last 10 minutes were not credited to their players'
+              lifetime stats: the store kept failing until the retries ran out, refused the record, or the server shut
+              down with games still queued. A room that was still in its final phase records the game again after a
+              restart; the others are lost.
+            runbook: >-
+              kubectl -n {{ $ns }} logs deploy/{{ $server }} --tail=300 | grep -i "game statistics";
+              fix the database first, then the affected players can only be credited manually.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+{{- end }}

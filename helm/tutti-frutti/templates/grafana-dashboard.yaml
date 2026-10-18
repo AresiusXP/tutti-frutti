@@ -1,0 +1,21 @@
+{{- if .Values.dashboard.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tutti-frutti.componentFullname" (dict "component" "dashboard" "context" .) }}
+  labels:
+    {{- include "tutti-frutti.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dashboard
+    {{- range $key, $value := .Values.dashboard.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- with .Values.dashboard.annotations }}
+  annotations:
+    {{- range $key, $value := . }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+data:
+  tutti-frutti.json: |-
+    {{- .Files.Get "dashboards/tutti-frutti.json" | trim | nindent 4 }}
+{{- end }}

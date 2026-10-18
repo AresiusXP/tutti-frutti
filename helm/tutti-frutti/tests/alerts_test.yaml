@@ -1,0 +1,423 @@
+# Unit tests of the Tutti Frutti alert rules (promtool test rules).
+#
+# Run through helm/tutti-frutti/ci/check-observability.sh: it renders the
+# PrometheusRule for release "tutti-frutti" in namespace "tutti-frutti", strips
+# the annotations (they are checked separately) and runs these tests against it.
+# Series labels therefore use namespace="tutti-frutti", job="tutti-frutti-server".
+rule_files:
+  - rules.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # ------------------------------------------------------------- ServerDown
+  - name: ServerDown fires after 5 minutes of a failing target
+    interval: 1m
+    input_series:
+      - series: 'up{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '1x3 0x15'
+    alert_rule_test:
+      - eval_time: 7m
+        alertname: TuttiFruttiServerDown
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: TuttiFruttiServerDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+
+  - name: ServerDown fires when the target disappears
+    interval: 1m
+    input_series:
+      - series: 'up{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '1x3 _x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: TuttiFruttiServerDown
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: TuttiFruttiServerDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              namespace: tutti-frutti
+              job: tutti-frutti-server
+
+  - name: ServerDown stays quiet during a normal deploy (old pod gone, new pod 2 minutes later)
+    interval: 1m
+    input_series:
+      - series: 'up{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-old-1", instance="10.1.0.5:8080"}'
+        values: '1x10 _x20'
+      - series: 'up{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", instance="10.1.0.9:8080"}'
+        values: '_x12 1x18'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: TuttiFruttiServerDown
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: TuttiFruttiServerDown
+        exp_alerts: []
+      - eval_time: 29m
+        alertname: TuttiFruttiServerDown
+        exp_alerts: []
+
+  # ------------------------------------------------------------ RestartLoop
+  - name: RestartLoop fires after 4 restarts in 30 minutes
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_container_status_restarts_total{namespace="tutti-frutti", pod="tutti-frutti-server-abc-1", container="server"}'
+        values: '0 0 1 1 2 2 3 3 4 4x25'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: TuttiFruttiServerRestartLoop
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: tutti-frutti
+              pod: tutti-frutti-server-abc-1
+              container: server
+
+  - name: RestartLoop ignores one restart and ignores a replaced pod
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_container_status_restarts_total{namespace="tutti-frutti", pod="tutti-frutti-server-abc-1", container="server"}'
+        values: '0 0 1x28'
+      - series: 'kube_pod_container_status_restarts_total{namespace="tutti-frutti", pod="tutti-frutti-server-def-1", container="server"}'
+        values: '_x10 0x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: TuttiFruttiServerRestartLoop
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: TuttiFruttiServerRestartLoop
+        exp_alerts: []
+
+  # --------------------------------------------------------------- NotReady
+  - name: NotReady fires after 5 minutes without a Ready pod
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_status_ready{namespace="tutti-frutti", pod="tutti-frutti-server-abc-1", condition="true"}'
+        values: '1x3 0x15'
+    alert_rule_test:
+      - eval_time: 7m
+        alertname: TuttiFruttiServerNotReady
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: TuttiFruttiServerNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+
+  - name: NotReady ignores a slow start (3 minutes) and the web pod
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_status_ready{namespace="tutti-frutti", pod="tutti-frutti-server-abc-1", condition="true"}'
+        values: '0x3 1x20'
+      - series: 'kube_pod_status_ready{namespace="tutti-frutti", pod="tutti-frutti-web-abc-1", condition="true"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: TuttiFruttiServerNotReady
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: TuttiFruttiServerNotReady
+        exp_alerts: []
+
+  # ------------------------------------------------------- SnapshotFailures
+  - name: SnapshotFailures fires when errors continue for 10 minutes
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_errors_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1"}'
+        values: '0+1x25'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: TuttiFruttiSnapshotFailures
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: TuttiFruttiSnapshotFailures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+
+  - name: SnapshotFailures ignores a short database blip
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_errors_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1"}'
+        values: '0 1 2 3 3x30'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: TuttiFruttiSnapshotFailures
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: TuttiFruttiSnapshotFailures
+        exp_alerts: []
+
+  # --------------------------------------------------- RateLimitSaturation
+  - name: RateLimitSaturation fires above 6 rejected requests per minute for 5 minutes
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="POST /api/rooms", method="POST", code="429"}'
+        values: '0+12x20'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: TuttiFruttiRateLimitSaturation
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: TuttiFruttiRateLimitSaturation
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+
+  - name: RateLimitSaturation ignores an occasional 429
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /ws", method="GET", code="429"}'
+        values: '0+3x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: TuttiFruttiRateLimitSaturation
+        exp_alerts: []
+
+  # ---------------------------------------------- WebSocketUpgradesFailing
+  - name: WebSocketUpgradesFailing fires when most upgrades are refused
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /ws", method="GET", code="101"}'
+        values: '0+1x30'
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /ws", method="GET", code="403"}'
+        values: '0+5x30'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: TuttiFruttiWebSocketUpgradesFailing
+        exp_alerts: []
+      - eval_time: 18m
+        alertname: TuttiFruttiWebSocketUpgradesFailing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+
+  - name: WebSocketUpgradesFailing ignores a healthy mix and a trickle of failures
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /ws", method="GET", code="101"}'
+        values: '0+5x30'
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /ws", method="GET", code="403"}'
+        values: '0+1x30'
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /ws", method="GET", code="401"}'
+        values: '0+0.1x30'
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: TuttiFruttiWebSocketUpgradesFailing
+        exp_alerts: []
+      - eval_time: 28m
+        alertname: TuttiFruttiWebSocketUpgradesFailing
+        exp_alerts: []
+
+  - name: WebSocketUpgradesFailing needs real traffic (0.5 failed upgrades per minute is noise)
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /ws", method="GET", code="403"}'
+        values: '0+0.5x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: TuttiFruttiWebSocketUpgradesFailing
+        exp_alerts: []
+
+  # ---------------------------------------------------------- HighErrorRate
+  - name: HighErrorRate fires at 9 percent 5xx
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /api/rooms/{code}", method="GET", code="200"}'
+        values: '0+60x40'
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /api/rooms/{code}", method="GET", code="500"}'
+        values: '0+6x40'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: TuttiFruttiHighErrorRate
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: TuttiFruttiHighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+
+  - name: HighErrorRate ignores 1.6 percent 5xx and failing health probes
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /api/rooms/{code}", method="GET", code="200"}'
+        values: '0+60x40'
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /api/rooms/{code}", method="GET", code="500"}'
+        values: '0+1x40'
+      - series: 'tuttifrutti_http_requests_total{namespace="tutti-frutti", job="tutti-frutti-server", route="GET /readyz", method="GET", code="503"}'
+        values: '0+300x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: TuttiFruttiHighErrorRate
+        exp_alerts: []
+
+  # ---------------------------------------------------------- GoroutineLeak
+  - name: GoroutineLeak fires when goroutines far exceed what sockets and rooms explain
+    interval: 1m
+    input_series:
+      - series: 'go_goroutines{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '2000x50'
+      - series: 'tuttifrutti_ws_connections_open{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '2x50'
+      - series: 'tuttifrutti_rooms{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '1x50'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: TuttiFruttiGoroutineLeak
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: TuttiFruttiGoroutineLeak
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: tutti-frutti
+              job: tutti-frutti-server
+              pod: tutti-frutti-server-abc-1
+              instance: 10.1.0.5:8080
+
+  - name: GoroutineLeak ignores a busy but healthy server (3 goroutines per socket, 2 per room)
+    interval: 1m
+    input_series:
+      - series: 'go_goroutines{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '1560x50'
+      - series: 'tuttifrutti_ws_connections_open{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '500x50'
+      - series: 'tuttifrutti_rooms{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '20x50'
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: TuttiFruttiGoroutineLeak
+        exp_alerts: []
+
+  # ------------------------------------------------------------- MemoryHigh
+  - name: MemoryHigh fires above 85 percent of the limit for 15 minutes
+    interval: 1m
+    input_series:
+      - series: 'container_memory_working_set_bytes{namespace="tutti-frutti", pod="tutti-frutti-server-abc-1", container="server", id="/kubepods/x", name="abc"}'
+        values: '241172480x40'
+      - series: 'kube_pod_container_resource_limits{namespace="tutti-frutti", pod="tutti-frutti-server-abc-1", container="server", resource="memory", unit="byte"}'
+        values: '268435456x40'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: TuttiFruttiMemoryHigh
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: TuttiFruttiMemoryHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+
+  - name: MemoryHigh ignores a server at 40 percent
+    interval: 1m
+    input_series:
+      - series: 'container_memory_working_set_bytes{namespace="tutti-frutti", pod="tutti-frutti-server-abc-1", container="server", id="/kubepods/x", name="abc"}'
+        values: '107374182x40'
+      - series: 'kube_pod_container_resource_limits{namespace="tutti-frutti", pod="tutti-frutti-server-abc-1", container="server", resource="memory", unit="byte"}'
+        values: '268435456x40'
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: TuttiFruttiMemoryHigh
+        exp_alerts: []
+
+  # ----------------------------------------------------------- MemoryGrowth
+  - name: MemoryGrowth fires for an old pod growing 30 MiB per hour
+    interval: 2m
+    input_series:
+      - series: 'container_memory_working_set_bytes{namespace="tutti-frutti", pod="tutti-frutti-server-abc-1", container="server", id="/kubepods/x", name="abc"}'
+        values: '20971520+1048576x300'
+      - series: 'kube_pod_container_resource_limits{namespace="tutti-frutti", pod="tutti-frutti-server-abc-1", container="server", resource="memory", unit="byte"}'
+        values: '268435456x300'
+      - series: 'process_start_time_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0x300'
+    alert_rule_test:
+      - eval_time: 5h
+        alertname: TuttiFruttiMemoryGrowth
+        exp_alerts: []
+      - eval_time: 8h
+        alertname: TuttiFruttiMemoryGrowth
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: tutti-frutti
+              pod: tutti-frutti-server-abc-1
+
+  - name: MemoryGrowth ignores a young pod (warm-up growth) and a flat old pod
+    interval: 2m
+    input_series:
+      - series: 'container_memory_working_set_bytes{namespace="tutti-frutti", pod="tutti-frutti-server-young-1", container="server", id="/kubepods/y", name="young"}'
+        values: '20971520+1048576x300'
+      - series: 'kube_pod_container_resource_limits{namespace="tutti-frutti", pod="tutti-frutti-server-young-1", container="server", resource="memory", unit="byte"}'
+        values: '268435456x300'
+      - series: 'process_start_time_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-young-1", instance="10.1.0.6:8080"}'
+        values: '23400x300'
+      - series: 'container_memory_working_set_bytes{namespace="tutti-frutti", pod="tutti-frutti-server-flat-1", container="server", id="/kubepods/z", name="flat"}'
+        values: '31457280x300'
+      - series: 'kube_pod_container_resource_limits{namespace="tutti-frutti", pod="tutti-frutti-server-flat-1", container="server", resource="memory", unit="byte"}'
+        values: '268435456x300'
+      - series: 'process_start_time_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-flat-1", instance="10.1.0.7:8080"}'
+        values: '0x300'
+    alert_rule_test:
+      - eval_time: 7h
+        alertname: TuttiFruttiMemoryGrowth
+        exp_alerts: []
+      - eval_time: 9h
+        alertname: TuttiFruttiMemoryGrowth
+        exp_alerts: []
+
+  # ----------------------------------------------------------------- Stats
+  - name: StatsRecordingFailing fires when attempts keep failing for 10 minutes
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_stats_recorded_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="error"}'
+        values: '0+2x30'
+      - series: 'tuttifrutti_stats_recorded_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="ok"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: TuttiFruttiStatsRecordingFailing
+        exp_alerts: []
+      - eval_time: 18m
+        alertname: TuttiFruttiStatsRecordingFailing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+
+  - name: StatsRecordingFailing ignores a retry that succeeded (two failed attempts then ok)
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_stats_recorded_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="error"}'
+        values: '0 0 1 2 2x30'
+      - series: 'tuttifrutti_stats_recorded_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="ok"}'
+        values: '0 0 0 0 1x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: TuttiFruttiStatsRecordingFailing
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: TuttiFruttiStatsRecordingFailing
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: TuttiFruttiStatsRecordingFailing
+        exp_alerts: []
+
+  - name: StatsDropped fires at once when a finished game is given up
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_stats_recorded_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="dropped"}'
+        values: '0x5 1x25'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: TuttiFruttiStatsDropped
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: TuttiFruttiStatsDropped
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+      - eval_time: 25m
+        alertname: TuttiFruttiStatsDropped
+        exp_alerts: []

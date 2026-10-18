@@ -91,6 +91,16 @@ Anything else goes into `server.extraEnv`.
 | `ingress.annotations` / `ingress.labels` | cert-manager, external-dns, HSTS | external-dns needs **both** the `external-dns.aresius.xyz: pihole` annotation and label |
 | `ingress.tls.enabled` / `.secretName` | `true` / `tuttifrutti.aresius.xyz-tls` | Empty secret name = `<host>-tls` |
 | `serviceMonitor.enabled` | `false` | Optional Prometheus Operator `ServiceMonitor` for the server (`release: kube-prometheus-stack` label, port `http`, path `/metrics`); the CRD must exist |
+| `dashboard.enabled` | `false` | ConfigMap with the Grafana dashboard (uid `tutti-frutti`) for the Grafana sidecar, see [Observability](#observability) |
+| `dashboard.labels` | `{grafana_dashboard: "1"}` | ConfigMap labels the Grafana sidecar selects on (the homelab sidecar: `LABEL=grafana_dashboard`, `LABEL_VALUE=1`, `NAMESPACE=ALL`) |
+| `dashboard.annotations` | `{}` | ConfigMap annotations, e.g. `{grafana_folder: Games}` when the sidecar sets `FOLDER_ANNOTATION` (the homelab one does not) |
+| `prometheusRule.enabled` | `false` | `PrometheusRule` with the alerts (needs the Prometheus Operator CRD, `serviceMonitor.enabled`, kube-state-metrics and cAdvisor) |
+| `prometheusRule.labels` | `{release: kube-prometheus-stack}` | Labels of the `PrometheusRule`; the homelab Prometheus `ruleSelector` only loads rules with this label |
+| `prometheusRule.annotations` | `{}` | Annotations of the `PrometheusRule` object |
+| `prometheusRule.interval` | `""` | Evaluation interval of the rule groups; empty = Prometheus default (30 s) |
+| `prometheusRule.additionalRuleLabels` | `{}` | Extra labels on every alert (next to `severity`) |
+| `prometheusRule.additionalRuleAnnotations` | `{}` | Extra annotations on every alert (next to `summary`, `description`, `runbook`) |
+| `prometheusRule.runbookUrl` | DESIGN.md "Observability" anchor | `runbook_url` annotation of every alert; empty = omit |
 | `nodeSelector`, `tolerations`, `affinity`, `imagePullSecrets`, `dnsConfig` | empty / ndots 1 | Applied to both pods |
 | `containerSecurityContext` | hardened | Applied to both containers |
 
@@ -112,6 +122,59 @@ Ingress routing: `/api` and `/ws` go to the server, `/` goes to web.
 `/metrics`, `/healthz` and `/readyz` are intentionally **not** routed through the
 ingress; Prometheus scrapes the server Service directly (enable
 `serviceMonitor.enabled`) and kubelet probes hit the pod.
+
+## Observability
+
+Three optional resources, all **off by default**; the metric catalogue, the
+dashboard layout and what to do when an alert fires are in
+[`docs/DESIGN.md`](../../docs/DESIGN.md#observability-phase-5).
+
+| Resource | Switch | Template |
+|---|---|---|
+| ServiceMonitor (scrapes the server `/metrics`) | `serviceMonitor.enabled` | `templates/servicemonitor.yaml` |
+| Grafana dashboard ConfigMap | `dashboard.enabled` | `templates/grafana-dashboard.yaml`, content `dashboards/tutti-frutti.json` |
+| PrometheusRule (12 alerts) | `prometheusRule.enabled` | `templates/prometheusrule.yaml` |
+
+Homelab (kube-prometheus-stack, Alertmanager disabled): the ServiceMonitor is picked
+up by every Prometheus (`serviceMonitorSelector: {}`); rules need the label
+`release: kube-prometheus-stack` (default of `prometheusRule.labels`); the Grafana
+sidecar imports ConfigMaps labelled `grafana_dashboard: "1"` from any namespace
+into the "General" folder. Without Alertmanager the alerts show up in the
+Prometheus UI (Alerts) and in Grafana (Alerting, Prometheus rules) but nothing notifies.
+
+```bash
+helm template t helm/tutti-frutti --set serviceMonitor.enabled=true \
+  --set dashboard.enabled=true --set prometheusRule.enabled=true
+```
+
+Alert selectors use the release namespace and the server Service name (the
+Prometheus `job` label) rendered by Helm, so a second release in another namespace
+gets its own correctly scoped rules; the dashboard has `namespace` / `job`
+variables instead.
+
+**The dashboard JSON is generated.** Never edit `dashboards/tutti-frutti.json` by
+hand: change `dashboards/generate.py` (Python 3, standard library only), run
+
+```bash
+python3 helm/tutti-frutti/dashboards/generate.py          # rewrite the JSON
+python3 helm/tutti-frutti/dashboards/generate.py --check  # CI: fail when it is stale
+```
+
+and commit both. The ConfigMap is limited to 1 MiB (and ~256 KiB when ArgoCD stores a
+copy in the `last-applied-configuration` annotation): the JSON is ~130 KB.
+
+Checks without a cluster (needs `helm`, `python3` and [`promtool`](https://github.com/prometheus/prometheus/releases)):
+
+```bash
+PROMTOOL=/path/to/promtool helm/tutti-frutti/ci/check-observability.sh
+```
+
+It verifies that the JSON is up to date and valid, that the ConfigMap contains it
+verbatim, that the PrometheusRule passes `promtool check rules` (every alert has
+`severity`, `summary`, `description`, `runbook`, `for`) and runs the alert unit tests
+in `tests/alerts_test.yaml` (`promtool test rules`: each alert fires when it should and
+stays quiet during a normal deploy, a short database blip, ...).
+`dashboards/generate.py`, its tests, `tests/` and `ci/` are excluded from the packaged chart (`.helmignore`).
 
 ## How releases flow
 
