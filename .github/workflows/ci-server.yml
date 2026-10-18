@@ -1,5 +1,7 @@
 # CI for the Go server.
-# Triggered only when files under server/ (or this workflow) change.
+# Triggered only when files under server/, the generated TypeScript protocol
+# types (web/src/lib/protocol/) or this workflow change. The generated types are
+# part of the trigger so that a hand edit of them is caught by the drift check.
 
 name: CI — Server
 
@@ -8,11 +10,13 @@ on:
     branches: [main]
     paths:
       - "server/**"
+      - "web/src/lib/protocol/**"
       - ".github/workflows/ci-server.yml"
   pull_request:
     branches: [main]
     paths:
       - "server/**"
+      - "web/src/lib/protocol/**"
       - ".github/workflows/ci-server.yml"
 
 concurrency:
@@ -28,6 +32,22 @@ jobs:
     defaults:
       run:
         working-directory: server
+
+    # Postgres for the store's integration tests (TEST_DATABASE_URL below).
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: tutti
+          POSTGRES_PASSWORD: tutti
+          POSTGRES_DB: tutti
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tutti -d tutti"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout repository
@@ -63,14 +83,22 @@ jobs:
       - name: staticcheck
         run: ~/go/bin/staticcheck ./...
 
-      # TODO(phase 2): once protocol types are generated from Go structs with
-      # tygo, regenerate them here and fail if the generated file is stale
-      # (e.g. run tygo, then `git diff --exit-code` on the generated file).
-      # The generated file lives under web/, so add web/** to the trigger paths.
-      - name: Check generated protocol types are up to date (placeholder)
-        run: echo "tygo drift check not implemented yet (Phase 2)"
+      # The TypeScript protocol types are generated from the Go wire types
+      # (server/tygo.yaml). Regenerate them and fail if the checked-in files
+      # differ: `git status --porcelain` also catches new or deleted files.
+      - name: Check generated protocol types are up to date
+        run: |
+          go tool tygo generate
+          if [ -n "$(git status --porcelain -- ../web/src/lib/protocol)" ]; then
+            echo "::error title=Generated protocol types are stale::web/src/lib/protocol/ is out of date with the Go wire types. Run 'cd server && go tool tygo generate' and commit the result. Never edit those files by hand."
+            git status --short -- ../web/src/lib/protocol
+            git diff -- ../web/src/lib/protocol
+            exit 1
+          fi
 
       - name: go test
+        env:
+          TEST_DATABASE_URL: postgres://tutti:tutti@localhost:5432/tutti?sslmode=disable
         run: go test -race ./...
 
       - name: go build
