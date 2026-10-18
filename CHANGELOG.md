@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.1.0...v0.2.0) (2026-10-18)
+
+
+### Features
+
+* **helm:** configure server limits and startup probe budget ([28bbe7f](https://github.com/AresiusXP/tutti-frutti/commit/28bbe7f1bc5d20f9e99d4994334495d2c420f1d6))
+* **server:** add room, transport, and persistence layers ([3ddf3da](https://github.com/AresiusXP/tutti-frutti/commit/3ddf3da70c66a385519b826a66cbe76a4a4e0a43))
+* **web:** add generated TypeScript wire-protocol types ([366cefd](https://github.com/AresiusXP/tutti-frutti/commit/366cefdcfa90143438fb2b24c9540fc07b547961))
+
+
+### Documentation
+
+* define Phase 2 room and transport contracts ([8866f2a](https://github.com/AresiusXP/tutti-frutti/commit/8866f2ac63ce4dfdd38fce3cfce115f3445d5191))
+
 ## 0.1.0 (2026-10-18)
 
 
