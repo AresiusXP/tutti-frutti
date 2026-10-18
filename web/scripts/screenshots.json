@@ -1,0 +1,18 @@
+[
+	{
+		"name": "lobby",
+		"scenario": "lobby-host",
+		"label": "Sala de espera: invitá a tus amigos con el código o el QR"
+	},
+	{
+		"name": "playing",
+		"scenario": "play-playing-valid",
+		"label": "Una palabra por categoría contra el reloj"
+	},
+	{
+		"name": "review",
+		"scenario": "review-voting",
+		"label": "Revisión de respuestas entre todos"
+	},
+	{ "name": "summary", "scenario": "summary-host", "label": "Puntajes de cada ronda" }
+]

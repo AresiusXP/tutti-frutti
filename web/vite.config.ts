@@ -5,7 +5,7 @@ import { svelteTesting } from '@testing-library/svelte/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { defineConfig } from 'vitest/config';
 import { paraglideOptions } from './paraglide.config.js';
-import { BRAND } from './src/lib/brand.ts';
+import { manifest } from './scripts/pwa-manifest.ts';
 
 const isTest = Boolean(process.env.VITEST);
 
@@ -28,32 +28,12 @@ export default defineConfig({
 						registerType: 'prompt',
 						strategies: 'generateSW',
 						kit: { adapterFallback: 'index.html', spa: true },
-						manifest: {
-							id: '/',
-							name: BRAND,
-							short_name: BRAND,
-							description: `${BRAND}: Basta multijugador en tiempo real`,
-							lang: 'es',
-							start_url: '/',
-							scope: '/',
-							display: 'standalone',
-							orientation: 'portrait',
-							theme_color: '#1a1033',
-							background_color: '#1a1033',
-							categories: ['games'],
-							icons: [
-								{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-								{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-								{
-									src: '/icons/maskable-512.png',
-									sizes: '512x512',
-									type: 'image/png',
-									purpose: 'maskable'
-								}
-							]
-						},
+						manifest,
 						workbox: {
 							cleanupOutdatedCaches: true,
+							// The store screenshots are only fetched by the install dialog: keep them
+							// out of the precache (every client would download them for nothing).
+							globIgnores: ['**/screenshots/**', '**/node_modules/**/*', 'sw.js', 'workbox-*.js'],
 							// Backend routes are served by the Go server: never answer them
 							// with index.html nor from a cache.
 							navigateFallbackDenylist: [/^\/(?:api|ws|healthz|readyz|metrics)(?:\/|$)/],
