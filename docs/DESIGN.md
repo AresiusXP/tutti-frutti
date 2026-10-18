@@ -52,10 +52,14 @@ Argentine game *Tutti Frutti* / *Basta*. Hosted on the homelab at
   is visible.
 * **Restarts**: snapshot to Postgres; on startup reload and let clients
   reconnect with backoff. Deployment is `strategy: Recreate`, replicas: 1.
-* **Identity**: signed `HttpOnly` guest cookie (random guest ID) lets a player
-  reclaim their seat. Google OIDC (code flow + PKCE) is handled by the server and
-  sets a session cookie. WebSocket is same-origin, authenticated by cookie, and the
-  `Origin` header is checked.
+* **Identity**: signed `HttpOnly` guest cookie (random guest ID = player ID) lets
+  a player reclaim their seat; it never changes. Google OIDC (code flow + PKCE,
+  scope `openid profile`, no email stored) is handled by the server and sets a
+  second, signed `HttpOnly` session cookie (`tf_session`) that only decides who
+  gets a saved profile and lifetime stats: playing never needs an account.
+  WebSocket is same-origin, authenticated by the guest cookie (the session
+  cookie, when valid, links the player to the user) and the `Origin` header is
+  checked. Details in section 9b.
 * **Client version check**: client sends protocol version on connect. On
   mismatch the app shows "Nueva versión disponible → Recargar" / "New version
   available → Reload".
@@ -63,7 +67,7 @@ Argentine game *Tutti Frutti* / *Basta*. Hosted on the homelab at
 ### Postgres
 
 Reuse the existing CloudPirates Postgres in the cluster with a dedicated
-database + user. Tables: `users`, `user_stats`, `room_snapshots`. Migrations
+database + user. Tables: `users`, `user_stats`, `user_games`, `room_snapshots`. Migrations
 (goose) are embedded in the server binary and run at startup (safe with one
 replica). The category catalog is an embedded JSON file, not a table.
 
@@ -122,6 +126,15 @@ Lowercase, trim, collapse internal whitespace, strip diacritics
 (`México` == `mexico`). In **Spanish** lobbies `ñ` stays a distinct letter
 (it is not folded into `n`), and the starting-letter check treats `ñ` as its own
 letter. Two normalized answers within a category are "the same".
+
+Text a player types is cleaned before it is stored: invisible **format
+characters** (zero width space, soft hyphen, bidi marks, …) and **control
+characters** (NUL above all: PostgreSQL's `jsonb` cannot store U+0000, so one
+in a nickname would make the room's snapshot unsaveable) are removed, so
+`"\u200bMéxico"` equals `"mexico"` and a hidden character cannot dodge the
+duplicate check. Nicknames and custom category labels keep a zero width joiner
+that glues two emoji (`👨‍💻` stays one emoji); anywhere else it is removed.
+Avatar fields (`emoji`, `color`) are refused when they hold a control character.
 
 ### Review
 
@@ -193,9 +206,11 @@ Round total = sum over categories; added to the player's running total.
 ### REST (`/api`)
 
 `POST /rooms` · `GET /rooms/{code}` · `GET /session` · `GET /me` ·
-`GET /me/stats` · `GET /auth/google/login?returnTo=` · `GET /auth/google/callback`
-· `POST /auth/logout` · `GET /categories?lang=` · plus `/healthz`, `/readyz`,
-`/metrics` at the root.
+`PUT /me/profile` · `GET /me/stats` · `DELETE /me` ·
+`GET /auth/google/login?returnTo=` · `GET /auth/google/callback` ·
+`POST /auth/logout` · `GET /categories?lang=` · plus `/healthz`, `/readyz`,
+`/metrics` at the root. The account endpoints and their bodies are specified in
+section 9b (`web/src/lib/protocol/api.ts` is generated from `internal/api`).
 
 ### WebSocket (`/ws`)
 
@@ -298,7 +313,8 @@ docs/                  this file
 
 * **Pull requests** (path-filtered): `ci-server` (vet, staticcheck, race tests,
   build, tygo drift), `ci-web` (svelte-check, lint, vitest, build), `ci-helm`
-  (lint, template, kubeconform), `e2e` (manual / when both change).
+  (lint, template, kubeconform), `e2e` (Playwright against the compose stack; also
+  manual).
 * **One version for everything** (server + web share the WS protocol).
   `release-please` opens a release PR from conventional commits; it bumps
   `helm/tutti-frutti/Chart.yaml` (`version` + `appVersion`). Merging the release
@@ -322,7 +338,7 @@ docs/                  this file
    existing budget (2 s readiness grace + 20 s drain < 30 s `terminationGracePeriodSeconds`),
    after snapshotting all rooms.
 3. Web UI (all screens, i18n, category picker).
-4. Accounts (Google OIDC, stats).
+4. Accounts (Google OIDC, stats; contracts in section 9b).
 5. PWA polish, e2e, metrics/dashboard, security headers.
 6. Beta with friends, tune timings, v1.0.0.
 
@@ -339,10 +355,10 @@ the persistence contract is `server/internal/store`.
 | `internal/protocol` | Wire types, error codes, close codes, limits (no logic) |
 | `internal/store` | `Store` interface + `Memory` + `Postgres` (pgx, goose migrations embedded) |
 | `internal/room` | `Hub` (registry, room codes, reaper, restore, shutdown) and one actor goroutine per room that owns a `*game.Game` |
-| `internal/auth` | Signed guest cookie (`tf_guest`) → player ID |
+| `internal/auth` | Signed guest cookie (`tf_guest`) → player ID; account session cookie (`tf_session`) and the Google OIDC flow (Phase 4, section 9b) |
 | `internal/ratelimit` | Per-IP token buckets + trusted client-IP extraction |
 | `internal/ws` | WebSocket endpoint: upgrade, Origin check, read/write pumps, ping, per-connection limits |
-| `internal/httpapi` | REST routes (`/api/session`, `/api/categories`, `/api/rooms`, `/api/rooms/{code}`) |
+| `internal/httpapi` | REST routes (`/api/session`, `/api/categories`, `/api/rooms`, `/api/rooms/{code}`, and the account endpoints of section 9b) |
 | `cmd/server` | Wiring and the shutdown sequence |
 
 ### Identity
@@ -470,7 +486,8 @@ CREATE TABLE room_snapshots (
 CREATE INDEX room_snapshots_updated_at_idx ON room_snapshots (updated_at);
 ```
 
-`users` / `user_stats` arrive with Phase 4. `DATABASE_URL` empty → in-memory
+`users`, `user_stats` and `user_games` arrived with Phase 4 (migration
+`00002_accounts.sql`, section 9b). `DATABASE_URL` empty → in-memory
 store with a warning (games do not survive restarts); `/readyz` also pings the
 store when it is a database.
 
@@ -521,6 +538,532 @@ last `view` kept) → `connected` …, or `closed` with a reason: `room_gone`, `
 connects at once; any other visit (invite link in a fresh tab) sees the gate (room preflight, nickname,
 avatar, Join). Errors become toasts (`err_<code>` messages for every engine/protocol code); closed
 sessions get a screen per reason, always with a Home button.
+
+### Accounts UI (Phase 4)
+
+Code: `lib/account/` (store, REST client, types, `GoogleButton`, `AccountChip`, test double
+`FakeAccount`) and `routes/stats/`; contracts in the REST list (§5) and 9b. Messages: `messages/account/`
+(`account_*`, `stats_*`). A guest who never touches the login sees no behaviour change.
+
+* **Account store** (`account`, runes, injectable `fetch`/timers/`navigate`/`notify`/`win`/`doc`): `status`
+  (`loading` → `ready`), `googleEnabled`, `loggedIn`, `user {id, name, profile}`, `stats`, `initError`.
+  `init()` runs once per page load (Home, the gate and the stats screen call it on mount): `GET /api/session`,
+  and when `loggedIn` `GET /api/me` (`status` stays `loading` until both answered: no half-logged-in flash).
+  `401` on `/api/me` ⇒ guest. A network/5xx failure never reaches the UI: the app stays a guest app
+  (`initError` set) and `init()` is retried lazily (next `init()`, `online`, tab visible). Actions return an
+  `Outcome` (`{ok}` | `{ok:false, code}`), they do not throw. `login(returnTo)` is a full-page navigation to
+  `/api/auth/google/login?returnTo=…`, `returnTo` restricted to `/` or `/<ROOMCODE>` like the server (else `/`);
+  `logout()` saves a pending edit first; `deleteAccount()`; both reset the state (the local nickname/avatar stay: they
+  are the device's guest profile). Wire types come from the generated `lib/protocol/api.ts` (`lib/account/types.ts`
+  only re-exports them under the names the feature uses).
+* **Profile sync** (logged in only; nothing at all runs for a guest): the first `/api/me` of a page load decides
+  once. *Saved profile present ⇒ the server wins*: nickname + avatar are adopted into the local `profile` store
+  (an avatar outside the palette is ignored); *no saved profile (first login) ⇒* the local nickname is uploaded, or the Google
+  display name (≤ 16 runes) becomes the nickname and is uploaded. If the user typed while `/api/me` was in flight, the
+  local value wins and is uploaded (typing is never overwritten). Afterwards every nickname/avatar change is
+  saved with `PUT /api/me/profile` after 800 ms of quiet (trailing debounce, at most one request in flight, never an
+  empty nickname), flushed with `keepalive` on `visibilitychange → hidden` and `pagehide`. Failures are silent (the
+  next change retries); after 3 consecutive failures one calm toast, again only after a success. A `401` means the
+  session is gone: back to guest, no more requests. Home/gate inputs follow the adopted profile
+  (`draft` re-syncs unless it already normalises to the same nickname).
+* **Home:** the old "coming soon" link is one slot above the fold, in four states: reserved blank while `loading`
+  (`h-12`, so nothing jumps), the secondary "Iniciar sesión con Google" button (`googleEnabled && !loggedIn`), a
+  two-button row *Mis estadísticas* (→ `/stats`) | *Cerrar sesión* (`loggedIn`), or nothing (`!googleEnabled`: no dead
+  link). The signed-in identity is a chip (avatar + Google name) on the left of the ES/EN row, which is empty
+  otherwise, so the layout is identical at 390×844 and 360×740. `?login=failed|cancelled` ⇒ a translated toast, then the
+  parameter is removed with `replaceState` (from `afterNavigate`, so the router is ready; other params and the hash stay).
+  The "G" is a stroked SVG path: no external image, font or Google artwork.
+* **Invite gate:** a guest sees a compact "Iniciar sesión" pill in the top row (`returnTo=/<CODE>`, so the friend comes
+  straight back to the same invite); a signed-in user sees the chip and the saved nickname/avatar prefilled.
+* **Stats screen** (`/stats`, static SPA route, `Screen` with the Home button in the thumb zone): title, chip, five tiles
+  (games, wins, total points, best round, unique answers) with derived captions computed client-side (win rate % under
+  wins, average points per game under points; both hidden at 0 games, never a division by zero), a skeleton while
+  loading (previous numbers stay while refreshing), an empty state at 0 games ("Todavía no jugaste ninguna partida",
+  the bottom button becomes "Jugar una partida"), error + Retry, an `aria-live` status that announces each result, a
+  friendly "Iniciá sesión para ver tus estadísticas" with the Google button (`returnTo=/`) for guests. *Cerrar sesión*
+  goes Home with a toast. *Eliminar mi cuenta* opens a modal (`role=dialog`, `aria-modal`, the page behind it is
+  `inert`, focus starts on Cancel, Tab is trapped, Escape closes, focus returns to the trigger) that says the profile and
+  stats are erased for good; confirming sends `DELETE /api/me`, goes Home and toasts. A failure stays in the dialog with
+  the reason; an expired session closes it.
+* **Tests:** the store with a routable fake `fetch` (`account.testkit.ts`), components with `FakeAccount` through
+  `vi.mock('$lib/account')`. Rune effects only run under `// @vitest-environment jsdom` (the node environment compiles
+  for SSR, where `$effect` is a no-op): the store tests need it for the sync.
+* **Limits / decisions:** `returnTo` cannot be `/stats` (server allow-list); the local profile is not cleared on
+  sign-out or deletion; there is no account recovery UI beyond sign-in again.
+
+### Observability (Phase 5)
+
+Three optional chart resources, all off by default: `serviceMonitor.enabled` (scrape),
+`dashboard.enabled` (Grafana dashboard ConfigMap, uid `tutti-frutti`) and
+`prometheusRule.enabled` (12 alerts). The homelab enables all three in
+`argocd-apps/values/tutti-frutti.yaml`. Facts about that install that the defaults
+encode: Prometheus selects every ServiceMonitor (`serviceMonitorSelector: {}`) but only
+rules labelled `release: kube-prometheus-stack`; the Grafana sidecar imports ConfigMaps
+labelled `grafana_dashboard: "1"` from all namespaces into "General" (no folder
+annotation); **Alertmanager is disabled**, so alerts are visible (Prometheus Alerts,
+Grafana Alerting) but nothing notifies until a receiver is added.
+
+**Metrics** (server `/metrics`, scraped every 30 s; `job` = server Service name,
+`namespace` = release namespace). Labels are bounded: unknown values collapse into
+`unknown` / `other`.
+
+| Metric                                      | Type      | Labels                                                                  | Meaning                                                         |
+| ------------------------------------------- | --------- | ----------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `tuttifrutti_rooms`                         | gauge     |                                                                         | Live rooms in memory (cap `MAX_ROOMS`, chart `server.maxRooms`) |
+| `tuttifrutti_connections`                   | gauge     |                                                                         | Clients attached to a room (joined)                             |
+| `tuttifrutti_ws_connections_open`           | gauge     |                                                                         | All live sockets, joined or not (cap 2000 → `503 server_busy`)  |
+| `tuttifrutti_commands_total`                | counter   | `type` (16 commands, `unknown`), `result` (`ok` or the error code)      | Client frames handled by a room                                 |
+| `tuttifrutti_rounds_total`                  | counter   |                                                                         | Rounds started                                                  |
+| `tuttifrutti_basta_total`                   | counter   |                                                                         | Basta calls (rounds that end by time-up have no counter)        |
+| `tuttifrutti_snapshot_errors_total`         | counter   |                                                                         | Failed room snapshot writes / deletions (each retry counts)     |
+| `tuttifrutti_stats_recorded_total`          | counter   | `result`: `ok`, `error` (failed attempt, retried), `dropped` (given up) | Finished games handed to the stats store                        |
+| `tuttifrutti_logins_total`                  | counter   | `result`: `ok`, `failed`, `cancelled`                                   | Google logins that reached the callback                         |
+| `tuttifrutti_ws_closes_total`               | counter   | `code` (1000, 1001, 1006, 1008, 1009, 1011, 1012, 4001–4005, `other`)   | Why connections ended                                           |
+| `tuttifrutti_ws_frames_total`               | counter   | `dir` (`in`/`out`), `type`                                              | WebSocket frames                                                |
+| `tuttifrutti_http_requests_total`           | counter   | `route` (mux pattern, `unmatched`), `method`, `code`                    | HTTP requests incl. probes and `GET /ws` (101)                  |
+| `tuttifrutti_http_request_duration_seconds` | histogram | `route`, `method`                                                       | Latency; WebSocket upgrades excluded                            |
+| `go_*`, `process_*`                         |           |                                                                         | Go runtime and process (goroutines, heap, GC, CPU, fds)         |
+
+The dashboard and alerts also read kube-state-metrics (`kube_pod_status_ready`,
+`kube_pod_container_status_restarts_total`, `kube_pod_container_resource_{limits,requests}`)
+and cAdvisor (`container_memory_working_set_bytes`), selected by pod name (`<server>-.+`).
+
+**Not instrumented yet** (so no panel or alert exists for them; proposal for a server
+change, names are suggestions): `tuttifrutti_games_started_total` / `_games_finished_total`
+(engine events `game_started`, `game_over`; the dashboard shows `start_game` commands
+instead), `tuttifrutti_time_ups_total` (event `time_up`) and a letter-phase auto-stop
+counter, `tuttifrutti_snapshot_saves_total{result}` + `tuttifrutti_snapshot_save_duration_seconds`
++ `tuttifrutti_snapshot_last_success_timestamp_seconds` (needed for a SnapshotStale alert:
+  "no successful save while rooms are active"), restore count/duration at startup,
+  saver backlog gauge, janitor deletions, and a send-queue-overflow counter (today only
+  visible inside close code 1008). The web image (nginx-unprivileged) exports nothing.
+
+**Dashboard** (`helm/tutti-frutti/dashboards/tutti-frutti.json`, generated; 6 h, refresh 30 s,
+variables `DS_PROMETHEUS`, `namespace`, `job`; every panel has a description saying what it
+means and what to check; a purple annotation marks every server (re)start):
+
+| Row                      | Panels                                                                                                                                                                                                |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview                 | Server up, uptime, rooms, connected players, open sockets (orange 1500 / red 1900), rooms created/min, games started (1 h), container restarts (24 h); rooms/players/sockets over time                |
+| Gameplay                 | Rounds and Basta in range, share of rounds ended by Basta, rejected-command share; rounds vs Basta per min; commands by type; rejected commands by result; rejected-command ratio (total and by type) |
+| Connections              | Upgrades by status, close codes (readable legend), reconnect churn, 429s by route, frames in/out, policy closes (1008)                                                                                |
+| Persistence              | Snapshot errors (stat and rate), pod readiness, `/readyz` responses (503 = DB ping failing), container restarts, uptime                                                                               |
+| Accounts                 | Logins by result, stats recorded by result (empty until used)                                                                                                                                         |
+| HTTP API                 | Requests by route and by status code, 5xx ratio, latency p50/p95/p99, p95 by route                                                                                                                    |
+| Go runtime and container | Goroutines vs expected, memory (heap, RSS, working set, limit), CPU, GC, allocation rate, file descriptors                                                                                            |
+
+**Alerts** (group → alert, severity, `for`; every alert carries `summary`, `description`,
+`runbook` with the `kubectl` commands to run, and `runbook_url` to this section). The
+server is one replica that restarts with a ~10 s gap on every deploy: during the first 4 h
+in the cluster (8 pods, i.e. 7 replacements) the only scrape gaps visible at 30 s resolution
+were two of 30 s, hence the long `for` on availability alerts.
+
+| Alert                                 | Sev.     | Fires when                                                                                            | `for`                        | First thing to do                                                                                     |
+| ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `TuttiFruttiServerDown`               | critical | `max(up) == 0` or the target is absent                                                                | 5m                           | `kubectl -n <ns> get pods,events`; `logs deploy/<server> --previous`                                  |
+| `TuttiFruttiServerRestartLoop`        | warning  | ≥ 3 container restarts in 30 min (deploys do not count)                                               | 5m                           | `describe pod` (Last State: OOMKilled?), previous logs                                                |
+| `TuttiFruttiServerNotReady`           | critical | pod NotReady (`/readyz` fails: **Postgres ping**, or shutdown); also the "database unreachable" alert | 5m (startup budget is 150 s) | logs `readiness check failed`; check the shared Postgres and the `database-url` Secret key            |
+| `TuttiFruttiSnapshotFailures`         | warning  | snapshot errors in every 5 min window for 10 min (a short DB blip does not alert)                     | 10m                          | logs `snapshot`; Postgres disk / connections                                                          |
+| `TuttiFruttiRateLimitSaturation`      | warning  | > 6 requests/min answered 429 (global buckets: real players refused)                                  | 5m                           | dashboard Connections row; one abusive client?                                                        |
+| `TuttiFruttiWebSocketUpgradesFailing` | warning  | > 50 % of upgrades (≥ 3/min) not 101                                                                  | 10m                          | status code on the dashboard (401 cookie, 403 Origin → `server.publicUrl`/`allowedOrigins`, 429, 503) |
+| `TuttiFruttiHighErrorRate`            | warning  | > 5 % 5xx of user traffic (probes excluded, ≥ 1.2 req/min)                                            | 10m                          | logs `"status":5`                                                                                     |
+| `TuttiFruttiGoroutineLeak`            | warning  | `go_goroutines` > 100 + 4 × open sockets + 3 × rooms (healthy: ~2 per socket and room + ~15)          | 30m                          | goroutine panel; restart and open an issue                                                            |
+| `TuttiFruttiMemoryHigh`               | warning  | working set > 85 % of the container limit                                                             | 15m                          | memory panel; raise the limit or lower `server.maxRooms`                                              |
+| `TuttiFruttiMemoryGrowth`             | warning  | linear trend of 6 h would exceed the limit within 4 h (pods older than 6 h only)                      | 30m                          | memory panel vs rooms; restart at a quiet hour                                                        |
+| `TuttiFruttiStatsRecordingFailing`    | warning  | stats write errors in every 5 min window for 10 min                                                   | 10m                          | logs `game statistics`; Postgres                                                                      |
+| `TuttiFruttiStatsDropped`             | warning  | any finished game given up in 10 min (stats of that game lost)                                        | 0m                           | same; fix the database                                                                                |
+
+**Extending.** Dashboard: edit `dashboards/generate.py` (helpers `stat`, `timeseries`,
+`state_timeline`; the layout engine places panels left to right on the 24-column grid),
+run it, commit the JSON. Before committing, run every new expression against a live
+Prometheus (`/api/v1/query_range`) and make sure it returns data or an intentionally
+empty result; use `$__rate_interval`, set units and thresholds, and guard divisions with
+`/ (x > 0)`. Alerts: add the rule to `templates/prometheusrule.yaml` (Helm-escape
+Prometheus templates as ``{{`{{ $value }}`}}``), add a firing and a not-firing case to
+`tests/alerts_test.yaml`, and run `helm/tutti-frutti/ci/check-observability.sh`
+(`PROMTOOL=<path>`). The script is the CI check (`.github/workflows/ci-helm.yml` should
+install promtool and run it, in addition to `helm lint --strict` and `kubeconform -strict
+-ignore-missing-schemas -kubernetes-version 1.30.0` with `--set serviceMonitor.enabled=true
+--set dashboard.enabled=true --set prometheusRule.enabled=true`).
+
+### Security headers and PWA (Phase 5)
+
+**Where.** Every response of the web image carries the headers: `web/nginx-security-headers.conf`
+(`add_header … always`) is included at server level and again in every location that sets its own
+header (nginx does not inherit `add_header` otherwise), so `/healthz`, the JSON 404 of the backend
+namespace and asset 404s have them too. `web/nginx.conf` holds the per-request `map`s, and a test
+(`src/lib/security.test.ts`) fails when a location sets a header without the include. Responses of
+the Go server (`/api`, `/ws`) get their headers from the server, not from this image.
+
+**Content-Security-Policy** (one line, no `unsafe-inline`/`unsafe-eval` anywhere):
+
+```
+default-src 'self'; script-src 'self' 'sha256-<bootstrap>'; style-src 'self';
+style-src-attr 'unsafe-hashes' 'sha256-<wrapper>' 'sha256-<announcer>'; img-src 'self'; font-src 'self';
+connect-src 'self' ws://<host> wss://<host>; manifest-src 'self'; worker-src 'self'; object-src 'none';
+base-uri 'self'; form-action 'self'; frame-ancestors 'none'  [; upgrade-insecure-requests  (https only)]
+```
+
+- `script-src`: the SPA shell has ONE inline script (SvelteKit's bootstrap, its text embeds content-hashed
+  chunk names, so its hash changes on every build). Everything else is external (`'self'`); the service worker
+  and `workbox-*.js` are same-origin files.
+- `style-src 'self'`: Tailwind ships one external CSS file and Svelte's `style:` directive / `el.style.x = …`
+  go through the CSSOM, which CSP does not restrict (verified: `style.cssText =` and `style.setProperty` raise no
+  violation). Static `style="…"` attributes in a template ARE restricted (`style-src-attr`). Two exist and are
+  allowed by hash (`'unsafe-hashes'`, no `'unsafe-inline'`): the shell's `<div style="display: contents">` and
+  SvelteKit's route announcer (`#svelte-announcer`, rendered at start; without its style the screen-reader-only
+  text would become visible). Chromium found the announcer: it is exactly the kind of thing a real browser run
+  catches and reading the code does not.
+- `img-src 'self'`: the QR is an inline `<svg>`, avatars are emoji text, the CSS has no `url()`: no `data:`.
+- `connect-src`: `'self'` plus `ws://` and `wss://` of the request's own host (`$http_host` through a validated
+  `map`: only `[a-z0-9.-]` + optional port is ever interpolated, anything else falls back to `'self'`). Safari has
+  historically not matched `ws(s):` with `'self'`; naming the host costs nothing and works in every deployment
+  without configuration (Caddy forwards the original `Host`, verified; Traefik does by default, `passHostHeader`). `ws://` on an https page is blocked
+  by mixed-content rules anyway, so listing both schemes weakens nothing and cannot fail closed when a proxy omits
+  `X-Forwarded-Proto`.
+- `form-action 'self'`: the Google sign-in is a top-level navigation (`<a href="/api/auth/google/login">`) that
+  302s to accounts.google.com: navigations are not restricted by these directives. Verified in Chromium with a
+  link, `location.href` and a `<form method=get>` whose target 302s to another origin and back: all work.
+- `frame-ancestors 'none'` (with `X-Frame-Options: DENY`), `object-src 'none'`, `base-uri 'self'`.
+- `upgrade-insecure-requests` only when `X-Forwarded-Proto` is `https` (cluster); it would break plain-http
+  localhost/compose, so those requests do not get it.
+- Not enabled on purpose: `report-uri`/`report-to` (no collector), Trusted Types (Svelte builds DOM from
+  `innerHTML` templates), COEP (not needed, would break cross-origin embeds we do not have).
+
+**Hash flow (header and meta can never disagree).** There is no `<meta http-equiv>` CSP: the nginx header is the
+only policy (the build fails if `index.html` carries one). `svelte.config.js` wraps `adapter-static`; right after it
+writes `build/`, `scripts/csp.mjs` reads `build/index.html` and the client bundle and writes
+`.svelte-kit/nginx/csp-hashes.conf` (two `map`s: `$tf_script_hashes`, `$tf_style_attr_hashes`), which the
+Dockerfile copies next to the snippet (`RUN nginx -t` then validates the whole config at image build). The script
+**fails the build** (so `npm run build`, CI and the Docker build fail) when the shell contains anything the policy
+would block: a second inline `<script>`, an inline event handler, a `javascript:` URL, an inline `<style>`, a CSP
+`<meta>`, or a static `style="…"` attribute (in `index.html` or in a template of the client bundle) that is not in
+`EXPECTED_STYLE_ATTRS`. Fix: move the code to a file, use `style:prop={…}`, or extend the policy deliberately. The
+Vitest tests cover the generator (known hash vector, every rejection), the policy text (required directives, no
+wildcard/unsafe sources), the nginx structure and, when `build/` exists, the real output.
+
+**Other headers.** `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`,
+`X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`
+(verified harmless: the Google round trip, the PWA, and the app still boots after it; cross-origin framing and
+embedding of our files are refused), `X-Permitted-Cross-Domain-Policies: none`, and
+`Permissions-Policy` denying accelerometer, camera, display-capture, geolocation, gyroscope, hid, magnetometer,
+microphone, midi, payment, serial and usb. Wake Lock, Web Share, clipboard writes and vibration are left at their
+default (this origin); only names Chromium recognises are listed, unknown ones log a console warning.
+`Strict-Transport-Security: max-age=31536000` (no `includeSubDomains`, no `preload`) is sent only when
+`X-Forwarded-Proto` is `https`, so it never appears on the http compose stack. Cache headers: unchanged, except
+that `Cache-Control` on `/_app/immutable/*` and on images no longer uses `always`: before, a **404** there (e.g. a
+chunk of the other version during a rolling deploy) was cached as `immutable` for a year.
+
+**Debugging a violation.** The console says `Refused to … because it violates the following Content Security
+Policy directive: …` and names the directive; `document.addEventListener('securitypolicyviolation', …)` gives
+`violatedDirective`, `blockedURI` and, for inline code, the hash the browser wants. Check the served policy with
+`curl -sI http://localhost:8000/ | grep -i content-security`. Playwright: `page.exposeFunction` + that listener, plus
+CDP `Audits.enable` (`ContentSecurityPolicyIssue`). The policy blocks (verified): inline scripts and handlers,
+`eval`/`new Function`/`setTimeout(string)`, `javascript:` URLs, foreign `fetch`/WebSocket/`<img>`/`<script>`/
+stylesheet/`<iframe>`/`<object>`/`<base>`/form posts, `data:` images, `setAttribute('style')`, and framing.
+
+**PWA checklist (all verified over `http://localhost` in Chromium: `Page.getInstallabilityErrors` is empty, no
+manifest warnings).** Manifest (`web/scripts/pwa-manifest.ts`, built from `BRAND`): `id`, `name`/`short_name`,
+`description`, `start_url`, `scope`, `display: standalone`, `orientation: portrait`, `lang`, `dir`, `categories:
+[games]`, `theme_color` = `background_color` = `--color-night` = `<meta name="theme-color">` (a test keeps the four in
+sync), icons 192/512 `any` + 512 `maskable`, `apple-touch-icon` (180), iOS meta tags. The first paint never flashes:
+the stylesheet is render-blocking, so the first frame already has the night background (a screencast with the CSS
+delayed 2 s shows no frame before it), and the splash uses `background_color`. `screenshots`: four narrow 540×960
+PNGs (26–41 KB, `static/screenshots/`, from the dev playground with `node scripts/screenshots.mjs`), which Chrome
+needs for its richer install UI; they are excluded from the precache (`workbox.globIgnores`) so no client downloads
+them unless the install dialog asks. No `wide` screenshots (mobile-first game). No `shortcuts`: "join a game" would need
+app support (`/?join=1`), not trivial.
+
+**Service worker and update flow** (Workbox `generateSW`, `registerType: 'prompt'`). It precaches the shell, navigations
+fall back to `index.html` except `/api`, `/ws`, `/healthz`, `/readyz`, `/metrics` (denylist + `NetworkOnly`). A new
+version installs in the background and WAITS; `UpdatePrompt` shows "Nueva versión disponible → Recargar" and only the
+click sends `SKIP_WAITING` and reloads. There is no `clientsClaim` and no automatic `skipWaiting`
+(a test checks the built `sw.js`), so a game is never reloaded behind the player's back. `cleanupOutdatedCaches`
+and Workbox's precache cleanup remove the old revisions on activation. Verified with two builds (v1 → v2 served on
+the same port, page left open): the prompt appeared, the new worker stayed `waiting`, the page was not reloaded or
+navigated for 6 s, the click loaded v2, one precache cache remained without v1-only chunks. Offline (origin
+unreachable + `navigator.onLine=false`): `/`, `/KT7P` and `/stats` load from the precache, the offline banner shows and
+goes away when the browser is back online, `fetch('/api/session')` and a navigation to `/api/auth/google/login` fail
+as network errors instead of being answered by the worker.
+
+**Full-game verification.** `docker compose -p tf-c` with the released server `0.3.0` and the web image built from
+this tree: a 3-player game in Chromium (Home, language switch, invite gate, lobby with copy-fallback, QR sheet and
+category picker, letter, playing with Wake Lock, offline/online, review, summary, final, rematch, leave) in Spanish
+and English, over plain http and over TLS (`https://` with `Strict-Transport-Security`, `upgrade-insecure-requests`
+and `wss://`): zero `securitypolicyviolation` events and no Permissions-Policy warnings.
+
+### End-to-end tests (Phase 5)
+
+`e2e/` (Playwright + TypeScript, own `package.json`; see `e2e/README.md`) drives the real compose stack
+(Postgres, Go server, nginx web, Caddy edge) through Chromium with Pixel 7 emulation (390×844). A player is a browser
+context (own cookies and storage); a test is a conversation between players. Base URL `E2E_BASE_URL` (default
+`http://localhost:8000`); `E2E_COMPOSE_PROJECT` names the stack for the server-restart test (skipped without it).
+
+**Projects.** `chromium` (every spec but the next two, ~2 min), `slow` (`*.slow.spec.ts`: the 60 s round time limit,
+which must run against the server's own clock; the shortest allowed limit is 60 s) and `restart`
+(`*.restart.spec.ts`: restarts the server container, so it runs alone after the other two via project dependencies).
+Two workers, one retry in CI, trace on failure, no video, HTML + list reporters.
+
+**Specs.** (1/2) the reference 3-player game in Spanish and English: create, join by code and by lowercase invite link,
+settings visible to guests, chooser order, Basta overlay (`¡Basta para mí, basta para todos!` / exactly `Stop!`),
+review with two rejections, totals equal to a hand-computed table, finish-early confirmation, last-round summary,
+podium, rematch, leave, second game from zero; in English no Spanish character or word on any screen.
+(3) custom categories (2 built-in + 1 custom, duplicates by case/accents/built-in names refused). (4) time limit.
+(5) hard letters and language: letter list, rounds limit, several rounds never reveal a hard letter. (6) reload, network
+loss and server restart mid-round keep room, round, seats and answers. (7) unknown room, full lobby of 10 (WebSocket
+bots), kicked player, mid-round joiner, second tab "replaced", finished game. (8) service worker, offline shell,
+manifest. (9) axe on every main screen in both languages: no `serious`/`critical` violation; findings still open are
+listed per element in `e2e/src/a11y.ts` with the reason and a TODO for the web app.
+
+**Rules of the suite.** (A spec of its own checks that the guard, the English-only check and the accessibility check really fail when they should; the main assertions were also mutation-checked against deliberately broken servers and messages.) Labels come from the app's real `web/messages/**` (never retyped, so they cannot drift); the
+exact Basta words and the game rules (alphabets, hard letters, points) are written out in the tests, so drift from this
+document fails a test. Selectors are roles and labels. No fixed sleeps: auto-waiting assertions and `expect.poll`
+(short-lived UI such as the 0.9 s Basta overlay is recorded with a `MutationObserver`, not raced). A global guard
+fails any test on an uncaught page error, a console `error`, a failed or `>= 400` same-origin request, and on any
+message that mentions a Content Security Policy violation; expected noise (a provoked 404, the offline window, the
+server restart) is allowed per test with a stated reason. `context.setOffline` leaves an open WebSocket alone, so a
+"lost connection" also closes the page's room socket.
+
+**Rate limits.** The per-IP buckets act as one global bucket in compose and in the cluster (room creation 30/min,
+burst 10; lookups and WebSocket upgrades 300/min, burst 60 each) and `TRUST_FORWARDED_FOR` is off in compose, so
+the suite stays under them by construction: each worker mirrors its share of the creation bucket and waits before
+overdrawing it (about 20 rooms per run).
+
+**CI** (`.github/workflows/e2e.yml`): `workflow_dispatch` and pull requests touching `server/**`, `web/**`, `e2e/**`,
+`docker-compose.yml`, `deploy/**` or the workflow; lint of the suite, npm and Playwright-browser caches, server and
+web images built with the same `gha` layer-cache scopes as `docker-build.yml`, `docker compose up --no-build --wait`,
+`E2E_COMPOSE_PROJECT=tutti-frutti`, compose logs on failure, report and traces uploaded on failure, 30 minute limit,
+newer runs of the same ref cancel older ones.
+
+**Not covered on purpose:** real Google login (needs credentials and a consent screen), other browsers and desktop
+sizes, load, Kubernetes/Traefik specifics.
+
+## 9b. Phase 4 — accounts and stats (contracts)
+
+Playing never needs an account. A Google login adds two things for a returning
+player: a saved nickname/avatar that prefills the join form, and lifetime stats.
+The web client is described in "Accounts UI (Phase 4)"; the response bodies live
+in `server/internal/api` (→ generated `web/src/lib/protocol/api.ts`).
+
+### Cookies
+
+| Cookie | Value | Attributes |
+|---|---|---|
+| `tf_guest` | `<playerId>.<mac>` (section 9a) | `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` on https, 1 year |
+| `tf_session` | `<userId>.<expiryUnix>.<mac>`, `mac = base64url(HMAC-SHA256(HMAC(SESSION_SECRET, "tf-session-v1"), userId + "." + expiryUnix))` | same, `Max-Age` 30 days |
+| `tf_oauth` | `<base64url(json{state,verifier,nonce,returnTo,expiry})>.<mac>`, key `HMAC(SESSION_SECRET, "tf-oauth-v1")` | same, `Path=/api/auth/google`, 10 min; expired by every callback |
+
+* The three keys are derived from the one secret with different labels (the guest
+  cookie uses the secret itself), so a MAC for one cookie never verifies for
+  another, even if a client renames a cookie. MACs are compared in constant time
+  with a strict base64 decoder; a value over 91 bytes (`tf_oauth`: 1 KiB), with a
+  non-canonical expiry (leading zero, sign, hex), a non-UUID user id, an expiry in
+  the past or more than 30 days + 1 min ahead is refused before any hashing or
+  after one MAC check.
+* The player id **stays the guest id**: logging in does not change it. The
+  WebSocket still authenticates with `tf_guest`; a valid `tf_session` on the
+  upgrade request only links the player to the user (an invalid or missing one
+  is a guest, never an error). A session without a guest cookie is refused like
+  any request without one.
+* Sessions are stateless: logout clears the browser's cookie but cannot revoke a
+  copy. Deleting the account does (every account endpoint checks that the user
+  still exists). There is no sliding renewal: a login gives 30 days.
+* `Secure` is set when `PUBLIC_URL` is https. Cookies are never logged.
+
+### Endpoints
+
+All JSON, all `Cache-Control: no-store` (a small middleware also sets
+`X-Content-Type-Options: nosniff` and `Referrer-Policy: same-origin` on every
+response and defaults `no-store` for everything under `/api/`; the categories
+handler overrides it). Errors are `{"error":"<code>"}`. Unsafe methods go through
+the Origin check (`403 forbidden_origin`). Bodies ≤ 4 KiB, `application/json`
+(else `415 unsupported_media_type`, `413 payload_too_large`, `400 bad_request`
+for malformed JSON or unknown fields).
+
+| Endpoint | Answer |
+|---|---|
+| `GET /api/session` | `{"guest":true,"googleEnabled":bool,"loggedIn":bool}`; mints `tf_guest`; `loggedIn` = a valid unexpired `tf_session`, **no database lookup** |
+| `GET /api/me` | `{"id","name","profile":null\|{"nickname","avatar":{"emoji","color"}}}`; `name` = Google display name (cleaned, ≤ 16 runes, may be empty); `401 unauthorized` without a valid session **or** when the user no longer exists (the cookie is then expired) |
+| `PUT /api/me/profile` | body `{"nickname","avatar":{"emoji","color"}}` → `204`; nickname through `game.CleanName` (`400 invalid_name`), emoji and color non-empty, ≤ 32 bytes, no control characters (`400 invalid_avatar`); `401` |
+| `GET /api/me/stats` | `{"gamesPlayed","wins","totalPoints","bestRound","uniqueAnswers"}` (integers, all 0 before the first game); `401` |
+| `DELETE /api/me` | `204`: deletes the user, profile, stats and game rows (cascade) and expires `tf_session`; the guest cookie stays; `401` |
+| `POST /api/auth/logout` | `204`, expires `tf_session` (also without a session) |
+| `GET /api/auth/google/login?returnTo=` | `302` to Google; `404 auth_disabled` when Google is not configured; `429 rate_limited` (+ `Retry-After`); if Google's discovery fails, `302 /?login=failed` (the browser is mid-navigation: never leave it on JSON) |
+| `GET /api/auth/google/callback?code&state` | **always `302`, empty body**, `Location` is a constant of ours: success → `returnTo` with `tf_session`; any failure → `/?login=failed`; `error=access_denied` → `/?login=cancelled`; rate limited → `/?login=failed`; `404 auth_disabled` when Google is off. Query parameters are never echoed, never logged and never decide where it redirects |
+
+Every other `401` clears a stale `tf_session` the browser still sends.
+
+### Google OIDC (authorization code + PKCE)
+
+* Libraries: `golang.org/x/oauth2`, `github.com/coreos/go-oidc/v3`. `redirect_uri`
+  = `PUBLIC_URL` + `/api/auth/google/callback` (register exactly this URI; no
+  JavaScript origins are needed). Scope **`openid profile`** only (no email),
+  `prompt=select_account`, no offline access; the access token is discarded.
+* `login` builds the request: random `state`, `nonce`, PKCE verifier (S256
+  challenge), stores them with the sanitised `returnTo` in `tf_oauth`, redirects.
+  **`returnTo` allow-list:** exactly `/` or `/<ROOMCODE>` (4 characters of
+  `BCDFGHJKLMNPQRSTVWXZ23456789`, any case, normalised to upper case); anything
+  else, however clever (`//host`, `/\host`, a scheme, dot segments, encoded or
+  doubled slashes, CRLF, long strings), becomes `/`. No trimming, no decoding.
+* `callback` checks, in this order: the `tf_oauth` signature and expiry (a
+  missing cookie fails, so a replayed or forged callback never reaches Google);
+  `state` equal to the cookie's (constant time); `error` (`access_denied` →
+  cancelled); `code` present (≤ 2048 bytes); the code exchange (client secret in
+  the POST body, PKCE verifier; the code is single use at Google); an `id_token`
+  in the response; its signature against Google's JWKS (**RS256 only**: `none`,
+  HS256 and other algorithms are refused), `iss = https://accounts.google.com`,
+  `aud` contains the client id (and `azp` equals it when there are several),
+  `exp` in the future, `nonce` equal to the cookie's (constant time), `sub`
+  non-empty, ≤ 255 bytes, no control characters. Then `name` is cleaned (control
+  and invisible format characters dropped, whitespace collapsed, 16 runes),
+  the user is created or refreshed (`last_login_at`, name; the saved profile is
+  kept) and `tf_session` is issued.
+* **Lazy discovery:** nothing touches the network at startup. The first login
+  fetches `.well-known/openid-configuration` (the JWKS follows on the first
+  verification, refetched by go-oidc on an unknown `kid`); a failure is retried
+  by the next login, a success is cached. All requests to Google share an HTTP
+  client with a 10 s timeout, response bodies over 1 MiB refused and redirects
+  never followed (the token request carries the client secret).
+* Logs name the stage that failed (`state`, `exchange`, `id_token`, `nonce`...),
+  never a token, code, state, verifier, nonce, secret or cookie.
+* The issuer and its transport are constructor parameters (tests run against a
+  fake provider with its own RSA key: `internal/auth/authtest`); there is no
+  environment variable for them.
+
+### Stats
+
+A game goes through three stages in its room (all on the room's goroutine; only
+the delivery is in the background):
+
+1. **Game start.** At `game_started` the room mints the **game id** (a random
+   UUID, new for every game and every rematch, cleared by the rematch). It is
+   part of *every* snapshot of a game in progress, so a game replayed after a
+   crash (restored from a snapshot taken before `game_over`) ends under the same
+   id. A restored started game without an id (an older snapshot) gets one.
+2. **Game over.** The room builds the `GameRecord` once (game id, `PlayedAt`, one
+   result per credited user), appends it to its **outbox** (`pending`, at most 8
+   records, part of every snapshot, schema field `pending` + marker `outbox: 1`)
+   and offers it to the recorder. The record is frozen: it is never rebuilt from
+   live state, so a later reconnect, leave or rematch cannot change who gets
+   credit. (A final-phase snapshot of a server without the outbox, which has a game
+   id and no marker, rebuilds its record once at restore.)
+3. **Delivery.** When the recorder reports that the store has the record (or
+   refused it for good) the room removes it from the outbox and saves. A record
+   the recorder gave up on (attempts exhausted, queue full, shutdown) **stays in
+   the outbox**: it is offered again at the room's next snapshot, by the next
+   process at its start, and, if the room is closed for good, handed to the
+   recorder one last time. Beyond 8 the oldest is given up (`dropped`).
+
+Credit rules:
+
+* Players linked to a user who took part in **≥ 1 scored round**, in a game with
+  **≥ 2 participants** (players that appear in a scored round). A player who left
+  still gets the rounds they played but cannot win (only `Winners` win; a tie is
+  a win for everybody who tied). Two seats linked to the same user (two devices)
+  count once, the first seat.
+* **The link player → user** is taken at `join` from the connection's
+  `tf_session`, kept in the room's snapshot and dropped with the seat. It follows
+  the latest join **only until the player takes part in the game** (they are a
+  participant of the round in progress, or appear in a scored round); from then
+  until the rematch it is **frozen**, a missing link included. So a guest who
+  signs in after the game started gets no credit for that game (sign in before
+  starting), a signed-out reconnect or an expired session does not cost the user
+  their credit, and nobody can move the credit of rounds already played to another
+  account by reconnecting. At the rematch the history is gone and the next connect
+  refreshes the links.
+* Per user: `gamesPlayed += 1`, `wins += 1` if in `View.Winners`, `totalPoints +=
+  final score`, `bestRound = max(bestRound, best single-round total)`,
+  `uniqueAnswers += number of 10-point cells`.
+
+Guarantees:
+
+* **Idempotent per (user, game id)**: `RecordGame` inserts the `user_games` row
+  `ON CONFLICT DO NOTHING` and updates `user_stats` only when the row was
+  inserted, in one transaction; users that no longer exist are skipped silently
+  (a share lock on the user's key keeps a concurrent `DELETE /api/me` safe).
+  Together with the id minted at the start, retries, restarts, a crash between
+  the commit and the next snapshot, and a double delivery never double count.
+* **Delivery never blocks a room.** The recorder is one goroutine per hub with a
+  bounded queue (256 games; a game that does not fit stays in its room's outbox):
+  failures are retried with exponential backoff (1 s → 30 s, on the hub's clock,
+  at most 20 attempts per offer); a game the store refuses as invalid or a panic
+  in the store do not stop the queue. At shutdown (after the rooms stopped
+  producing and within the existing 15 s hub budget) every queued game gets one
+  last attempt; the final snapshots already carry the outbox, so what still fails
+  is recorded by the next process.
+* **What can still be lost:** a game whose room is closed for good (idle, everyone
+  left) while the store has been down for longer than the process lives; a process
+  killed before the snapshot with the outbox is durable (the game is then replayed
+  or never reached `game_over`); an outbox that overflows (8 unrecorded games in
+  one room).
+* Metrics (constant cardinality): `tuttifrutti_logins_total{result=ok|failed|cancelled}`
+  (callbacks that ended in each outcome), `tuttifrutti_stats_recorded_total{result=ok|error|dropped}`:
+  `ok` = a game recorded, `error` = a failed attempt (it is retried), `dropped` =
+  a game that will never be recorded (refused by the store, evicted from a full
+  outbox, unreadable in a snapshot, or abandoned with its room).
+
+### Schema (`00002_accounts.sql`)
+
+```sql
+users      (id uuid PK, google_sub text UNIQUE NOT NULL, name text NOT NULL,
+            nickname, avatar_emoji, avatar_color text NULL (all or none, CHECK),
+            created_at, last_login_at timestamptz)
+user_stats (user_id uuid PK → users ON DELETE CASCADE, games_played int, wins int,
+            total_points bigint, best_round int, unique_answers int, updated_at)
+user_games (user_id → users ON DELETE CASCADE, game_id uuid, played_at, won bool,
+            points int, best_round int, unique_answers int, PK (user_id, game_id))
+```
+
+The in-memory store implements the same `store.Accounts` contract (one shared
+contract test suite runs against both).
+
+### Privacy
+
+Stored: the Google `sub` (an opaque id), the display name Google sent (cut to 16
+characters), the nickname/avatar the user chose to save, timestamps, the stats
+above and one row per finished game (id, time, score numbers). **Not stored:**
+email, profile picture, locale, access/refresh/ID tokens, IP addresses, answers
+or other players' ids. The `profile` scope is requested for the display name
+only. `DELETE /api/me` removes
+everything about the user at once; logging in again with the same Google account
+creates a new, empty one. Room snapshots hold user ids (the player → user links
+and the results of games not recorded yet, the outbox) until the room is gone;
+recording a result of a user who deleted their account meanwhile is skipped
+silently.
+
+**Accepted risk: the guest cookie is the bearer credential of a seat.** Whoever
+holds a player's `tf_guest` cookie can take the seat over (that was already so in
+Phase 1). With accounts the room freezes the player → user link once the player
+took part in a round (see Stats), so a stolen seat cannot be turned into credit
+for rounds already played, but it can still play on in the victim's name, and it
+earns credit for its own account in a game where the victim never took part (a
+seat that has not played yet follows the latest connection). The cookie is
+`HttpOnly`, `SameSite=Lax` and `Secure` over https; there is no revocation short
+of clearing it.
+
+### Limits and requirements
+
+* Login and callback share one bucket per client IP, effectively global behind
+  Traefik: 60/min, burst 30 (a login spends two). Everything else is unchanged.
+* Production needs (Secret `tutti-frutti-secrets`, already wired by the chart):
+  `google-client-id` and `google-client-secret` together (one without the other
+  is a startup error), `session-secret` (≥ 32 bytes) and `PUBLIC_URL`, which the
+  server now **requires when Google is enabled** (`config.Load` fails otherwise).
+  No new environment variable. Without Google credentials the server runs as
+  before: `googleEnabled` is false and the login endpoints answer
+  `404 auth_disabled`. Changing `SESSION_SECRET` logs everybody out (and makes
+  guests new players).
+* **Rollbacks.** Rolling the server back to a release older than Phase 4 is safe
+  for the rooms (the old binary ignores the new snapshot fields) but it forgets
+  the stats outbox: the first snapshot it writes drops the game id and any
+  record still waiting for delivery. Records are normally delivered within
+  seconds of `game_over`, so this only matters when the database was failing at
+  the time; before such a rollback check
+  `tuttifrutti_stats_recorded_total{result="error"}` and the server log. The
+  stats tables themselves are untouched (the migration is additive).
+* Stats are best effort. A finished game is lost without a `dropped` count only
+  when the stats store keeps failing **and** its room closes for good before the
+  record is delivered; the `error` counter and the log still show it.
 
 ## 10. Assumptions / open tunables
 
