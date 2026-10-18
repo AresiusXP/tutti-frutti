@@ -197,6 +197,11 @@ func TestSharedRegistryDoesNotPanic(t *testing.T) {
 	if got := gauge(t, reg, "tuttifrutti_ws_connections_open"); got != 1 {
 		t.Errorf("shared gauge = %v, want 1", got)
 	}
+	a.sendDrop()
+	b.sendDrop()
+	if got := counter(t, reg, sendDropsMetric, nil); got != 2 {
+		t.Errorf("shared send-drop counter = %v, want 2", got)
+	}
 	if newMetrics(nil) != nil {
 		t.Error("nil registerer must disable metrics")
 	}
@@ -206,6 +211,61 @@ func TestSharedRegistryDoesNotPanic(t *testing.T) {
 	none.closed(1)
 	none.frameIn("x")
 	none.frameOut(nil)
+	none.sendDrop()
+}
+
+const sendDropsMetric = "tuttifrutti_ws_send_drops_total"
+
+// A client whose queue overflows is counted once, however many frames the
+// room still tries to send before it closes it; a refusal because the
+// connection is already closing is not an overflow.
+func TestSendDropsAreCountedOncePerConnection(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	h := NewHandler(Deps{Rooms: &fakeRooms{}, Guests: newGuests(), Registerer: reg})
+	fill := func(c *conn) {
+		for i := 0; i < protocol.SendQueueSize; i++ {
+			if !c.Send(stateFrame(i)) {
+				t.Fatalf("Send %d refused before the queue is full", i)
+			}
+		}
+	}
+
+	slow := newConn(h, nil, "p1", "127.0.0.1")
+	fill(slow)
+	if got := counter(t, reg, sendDropsMetric, nil); got != 0 {
+		t.Fatalf("drops = %v with a full but not overflowed queue", got)
+	}
+	for range 3 {
+		if slow.Send(stateFrame(99)) {
+			t.Fatal("Send must refuse when the queue is full")
+		}
+	}
+	if got := counter(t, reg, sendDropsMetric, nil); got != 1 {
+		t.Errorf("drops = %v after three refused frames of one connection, want 1", got)
+	}
+	slow.Close(protocol.ClosePolicy, "slow client")
+	slow.Send(stateFrame(100))
+	if got := counter(t, reg, sendDropsMetric, nil); got != 1 {
+		t.Errorf("drops = %v after Close, want 1", got)
+	}
+
+	other := newConn(h, nil, "p2", "127.0.0.1")
+	fill(other)
+	other.Close(protocol.CloseKicked, "kicked") // closing: Send refuses without overflowing
+	other.Send(stateFrame(1))
+	if got := counter(t, reg, sendDropsMetric, nil); got != 1 {
+		t.Errorf("drops = %v: a refusal on a closing connection is not a drop", got)
+	}
+
+	third := newConn(h, nil, "p3", "127.0.0.1")
+	fill(third)
+	third.Send(stateFrame(1))
+	if got := counter(t, reg, sendDropsMetric, nil); got != 2 {
+		t.Errorf("drops = %v after a second slow connection, want 2", got)
+	}
+	if got := labelValues(t, reg, sendDropsMetric, "code"); len(got) != 0 {
+		t.Errorf("the counter has labels %v, want none", got)
+	}
 }
 
 func TestRegisterConflictingCollectorPanics(t *testing.T) {

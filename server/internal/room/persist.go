@@ -201,6 +201,7 @@ type saver struct {
 	// a snapshot deletion (a save must still be retried: the final snapshot
 	// depends on it).
 	quit       <-chan struct{}
+	m          *metrics
 	onError    func()
 	onStop     func()
 	timeout    time.Duration
@@ -213,6 +214,8 @@ type saver struct {
 
 	mu       sync.Mutex
 	latest   []byte // newest snapshot not yet written; nil when none
+	inflight bool   // a write (or its retry) of a taken snapshot is under way
+	queued   bool   // counted in the snapshot_save_queue gauge
 	seq      uint64 // sequence number of the newest submitted snapshot
 	done     uint64 // every snapshot up to this sequence number is persisted
 	finished bool
@@ -229,6 +232,7 @@ func newSaver(h *Hub, code string) *saver {
 		log:        h.log.With("room", code),
 		ctx:        h.baseCtx,
 		quit:       h.quit,
+		m:          h.m,
 		onError:    h.m.snapshotErrors.Inc,
 		onStop:     func() { h.unretire(code) },
 		timeout:    h.saveTimeout,
@@ -253,6 +257,7 @@ func (s *saver) submit(data []byte) uint64 {
 	s.seq++
 	seq := s.seq
 	s.latest = data
+	s.syncQueueLocked()
 	s.mu.Unlock()
 	select {
 	case s.kick <- struct{}{}:
@@ -296,9 +301,26 @@ func (s *saver) finish(del bool) {
 	s.del = del
 	if del {
 		s.latest = nil
+		s.syncQueueLocked()
 	}
 	s.mu.Unlock()
 	close(s.ctrl)
+}
+
+// syncQueueLocked keeps the snapshot_save_queue gauge equal to the number of
+// savers that have a snapshot to write: one waiting for its turn, being
+// written, or waiting for a retry. s.mu must be held.
+func (s *saver) syncQueueLocked() {
+	want := s.latest != nil || s.inflight
+	if want == s.queued {
+		return
+	}
+	s.queued = want
+	if want {
+		s.m.snapshotQueue.Inc()
+	} else {
+		s.m.snapshotQueue.Dec()
+	}
 }
 
 func (s *saver) broadcastLocked() {
@@ -311,6 +333,8 @@ func (s *saver) run() {
 	defer func() {
 		s.mu.Lock()
 		s.dead = true
+		s.latest, s.inflight = nil, false
+		s.syncQueueLocked()
 		// A room whose snapshot may still be in the store keeps its code
 		// reserved: a new room with the same code would otherwise have its
 		// snapshot deleted by a late retry, or be replaced by the old room
@@ -332,6 +356,8 @@ func (s *saver) run() {
 		finished, del := s.finished, s.del
 		data, seq := s.latest, s.seq
 		s.latest = nil
+		s.inflight = data != nil && !finished
+		s.syncQueueLocked()
 		s.mu.Unlock()
 
 		switch {
@@ -349,11 +375,16 @@ func (s *saver) run() {
 			continue
 		}
 
+		began := s.clock.Now()
 		err := s.write(data)
+		took := s.clock.Now().Sub(began)
 		if err == nil {
+			s.m.snapshotSaved(took, s.clock.Now())
 			backoff = s.minBackoff
 			s.mu.Lock()
 			s.done = max(s.done, seq)
+			s.inflight = false
+			s.syncQueueLocked()
 			s.broadcastLocked()
 			s.mu.Unlock()
 			continue
@@ -361,12 +392,15 @@ func (s *saver) run() {
 		if s.ctx.Err() != nil {
 			return
 		}
+		s.m.snapshotWriteFailed(took)
 		s.onError()
 		s.log.Warn("saving room snapshot failed", "err", err, "retry_in", backoff)
 		s.mu.Lock()
 		if s.latest == nil && !s.del {
 			s.latest = data // retry the same snapshot unless a newer one arrived
 		}
+		s.inflight = false
+		s.syncQueueLocked()
 		s.mu.Unlock()
 		s.sleep(backoff, s.ctrl)
 		backoff = min(backoff*2, s.maxBackoff)
@@ -393,6 +427,7 @@ func (s *saver) remove() bool {
 		cancel()
 		switch {
 		case err == nil:
+			s.m.snapshotsDeleted.WithLabelValues(deletedRoomClosed).Inc()
 			return true
 		case s.ctx.Err() != nil:
 			return false

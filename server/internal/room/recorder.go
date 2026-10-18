@@ -121,6 +121,7 @@ func (q *recorder) enqueue(job statsJob) bool {
 		return false
 	}
 	q.queue = append(q.queue, job)
+	q.m.statsQueue.Set(float64(len(q.queue)))
 	start := !q.started
 	q.started = true
 	q.mu.Unlock()
@@ -176,6 +177,7 @@ func (q *recorder) run() {
 		q.stopped = true
 		left := q.queue
 		q.queue = nil
+		q.m.statsQueue.Set(0)
 		q.mu.Unlock()
 		for _, job := range left {
 			q.finish(job, outcomeStalled)
@@ -214,6 +216,7 @@ func (q *recorder) next() (statsJob, bool) {
 		if len(q.queue) > 0 {
 			job := q.queue[0]
 			q.queue = q.queue[1:]
+			q.m.statsQueue.Set(float64(len(q.queue)))
 			q.mu.Unlock()
 			return job, true
 		}

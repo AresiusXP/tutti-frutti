@@ -76,6 +76,7 @@ type metrics struct {
 	closes *prometheus.CounterVec
 	frames *prometheus.CounterVec
 	open   prometheus.Gauge
+	drops  prometheus.Counter
 }
 
 func newMetrics(reg prometheus.Registerer) *metrics {
@@ -94,6 +95,10 @@ func newMetrics(reg prometheus.Registerer) *metrics {
 		open: register(reg, prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "tuttifrutti_ws_connections_open",
 			Help: "Live WebSocket connections, joined or not (tuttifrutti_connections counts the joined ones).",
+		})),
+		drops: register(reg, prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "tuttifrutti_ws_send_drops_total",
+			Help: "Slow clients closed (1008) because their send queue was full; each one reconnects for a fresh snapshot.",
 		})),
 	}
 }
@@ -128,6 +133,13 @@ func (m *metrics) released() {
 func (m *metrics) closed(code int) {
 	if m != nil {
 		m.closes.WithLabelValues(closeLabel(code)).Inc()
+	}
+}
+
+// sendDrop counts a client whose send queue overflowed (once per connection).
+func (m *metrics) sendDrop() {
+	if m != nil {
+		m.drops.Inc()
 	}
 }
 

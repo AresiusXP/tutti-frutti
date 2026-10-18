@@ -60,6 +60,7 @@ type conn struct {
 	closeReq    chan struct{}
 	grace       *time.Timer // cancels ctx closeGrace after Close
 	restartSeen bool        // an event server_restarting is queued or was sent
+	dropped     bool        // its send queue overflowed (counted once)
 
 	dead     chan struct{} // closed by abort: the transport is gone, stop writing
 	deadOnce sync.Once
@@ -117,6 +118,10 @@ func (c *conn) Send(frame []byte) bool {
 		}
 		return true
 	default:
+		if !c.dropped {
+			c.dropped = true
+			c.h.m.sendDrop()
+		}
 		return false
 	}
 }

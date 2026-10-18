@@ -172,6 +172,7 @@ func (h *Hub) Start(ctx context.Context) (int, error) {
 	h.started = true
 	h.mu.Unlock()
 
+	began := h.clock.Now()
 	rooms, err := h.restore(ctx)
 	if err != nil {
 		return len(rooms), err
@@ -184,6 +185,8 @@ func (h *Hub) Start(ctx context.Context) (int, error) {
 		<-ready
 	}
 	restored := len(rooms)
+	h.m.roomsRestored.Add(float64(restored))
+	h.m.restoreDuration.Set(h.clock.Now().Sub(began).Seconds())
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -216,6 +219,7 @@ func (h *Hub) restore(ctx context.Context) ([]*room, error) {
 		p, g, err := decodePersisted(snap)
 		if err != nil {
 			h.log.Warn("discarding unusable room snapshot", "room", snap.Code, "err", err)
+			h.m.restoreErrors.Inc()
 			if derr := h.store.Delete(ctx, snap.Code); derr != nil {
 				h.log.Warn("deleting unusable room snapshot failed", "room", snap.Code, "err", derr)
 			}
@@ -250,6 +254,7 @@ func (h *Hub) restore(ctx context.Context) ([]*room, error) {
 		if len(h.rooms) >= h.cfg.MaxRooms {
 			h.mu.Unlock()
 			h.log.Warn("not restoring room: too many rooms", "room", snap.Code, "max", h.cfg.MaxRooms)
+			h.m.restoreErrors.Inc()
 			continue
 		}
 		r := h.newRoom(p.Code, g, p.CreatedAt, true)
@@ -296,6 +301,7 @@ func (h *Hub) janitor(ctx context.Context, tick chan struct{}, timer Timer) {
 			h.m.snapshotErrors.Inc()
 			h.log.Warn("snapshot janitor failed", "err", err)
 		case n > 0:
+			h.m.snapshotsDeleted.WithLabelValues(deletedJanitor).Add(float64(n))
 			h.log.Info("snapshot janitor removed stale snapshots", "count", n)
 		}
 	}

@@ -248,6 +248,16 @@ type faultStore struct {
 	gate            chan struct{} // when set, Save blocks until it is closed
 	janitorCutoffs  []time.Time
 	janitorDeletion int64
+	clock           *ManualClock  // when set, Save and LoadAll move it forward by saveTook and loadTook
+	saveTook        time.Duration // how long a Save takes on clock
+	loadTook        time.Duration // how long LoadAll takes on clock
+}
+
+// spend lets d pass on the store's clock, as a slow call would.
+func (f *faultStore) spend(d time.Duration) {
+	if f.clock != nil && d > 0 {
+		f.clock.Set(f.clock.Now().Add(d))
+	}
 }
 
 func newFaultStore() *faultStore { return &faultStore{Memory: store.NewMemory()} }
@@ -259,8 +269,9 @@ func (f *faultStore) Save(ctx context.Context, s store.Snapshot) error {
 	if failing {
 		f.failSaves--
 	}
-	hang, gate := f.hang, f.gate
+	hang, gate, took := f.hang, f.gate, f.saveTook
 	f.mu.Unlock()
+	f.spend(took)
 	if gate != nil {
 		select {
 		case <-gate:
@@ -299,8 +310,9 @@ func (f *faultStore) Delete(ctx context.Context, code string) error {
 
 func (f *faultStore) LoadAll(ctx context.Context) ([]store.Snapshot, error) {
 	f.mu.Lock()
-	failing := f.failLoadAll
+	failing, took := f.failLoadAll, f.loadTook
 	f.mu.Unlock()
+	f.spend(took)
 	if failing {
 		return nil, errStoreDown
 	}
@@ -437,6 +449,7 @@ func newEnv(t *testing.T, mods ...func(*Config)) *env {
 		reg:   prometheus.NewRegistry(),
 		logs:  &logBuf{},
 	}
+	e.store.clock = e.clock
 	cfg := Config{
 		Store:      e.store,
 		Clock:      e.clock,
@@ -767,6 +780,43 @@ func metricValue(t testing.TB, reg *prometheus.Registry, name string, labels ...
 		}
 	}
 	return 0
+}
+
+// histogramOf reads the observation count and sum of an unlabelled histogram.
+func histogramOf(t testing.TB, reg *prometheus.Registry, name string) (count uint64, sum float64) {
+	t.Helper()
+	families, err := reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mf := range families {
+		if mf.GetName() == name && len(mf.GetMetric()) == 1 && mf.GetMetric()[0].Histogram != nil {
+			h := mf.GetMetric()[0].Histogram
+			return h.GetSampleCount(), h.GetSampleSum()
+		}
+	}
+	t.Fatalf("no histogram %s", name)
+	return 0, 0
+}
+
+// bucketBounds returns the upper bounds of an unlabelled histogram.
+func bucketBounds(t testing.TB, reg *prometheus.Registry, name string) []float64 {
+	t.Helper()
+	families, err := reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mf := range families {
+		if mf.GetName() == name && len(mf.GetMetric()) == 1 && mf.GetMetric()[0].Histogram != nil {
+			var out []float64
+			for _, b := range mf.GetMetric()[0].Histogram.GetBucket() {
+				out = append(out, b.GetUpperBound())
+			}
+			return out
+		}
+	}
+	t.Fatalf("no histogram %s", name)
+	return nil
 }
 
 // seriesCount counts the series of a metric family.

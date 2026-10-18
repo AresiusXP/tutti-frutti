@@ -231,6 +231,9 @@ func TestSlowClientIsDisconnected(t *testing.T) {
 	if slowestSend > 100*time.Millisecond {
 		t.Errorf("a Send call took %v: it must never block", slowestSend)
 	}
+	if got := counter(t, e.reg, "tuttifrutti_ws_send_drops_total", nil); got != 1 {
+		t.Errorf("ws_send_drops_total = %v after the queue overflowed, want 1", got)
+	}
 
 	// The room reacts to a refused Send by closing the client.
 	sess.client.Close(protocol.ClosePolicy, "slow client")

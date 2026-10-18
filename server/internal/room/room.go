@@ -163,6 +163,7 @@ type room struct {
 	users       map[string]string
 	gameID      string
 	pending     []store.GameRecord
+	reported    int // len(pending) as the stats_outbox_pending gauge last saw it
 	inflight    map[string]bool
 	legacyFinal bool // restored from a final-phase snapshot of a server without the outbox
 	createdAt   time.Time
@@ -178,6 +179,7 @@ type room struct {
 	lastSaved   time.Time // when the newest snapshot was handed to the saver
 	dirty       bool      // state changed since the last snapshot
 	stopOpen    bool      // a vote to stop was open after the last state change (for the metrics)
+	stopTap     bool      // the events being committed answer the chooser's own stop_letter (for the metrics)
 	stopping    bool      // the hub is shutting down: no more frames
 	closed      bool
 }
@@ -458,6 +460,7 @@ func (r *room) onCommand(now time.Time, s *session, t string, d json.RawMessage)
 		// closed after they were.
 		r.detach(s)
 	}
+	r.stopTap = t == game.CmdStopLetter
 	r.commit(now, prev, events, lobbyChanges[t])
 	if leaving {
 		s.c.Close(protocol.CloseLeft, "left")
@@ -523,7 +526,7 @@ func (r *room) beginShutdown() (seq uint64, ok bool) {
 	data, err := r.encode(now)
 	if err != nil {
 		r.log.Error("encoding the final snapshot failed", "err", err)
-		r.h.m.snapshotErrors.Inc()
+		r.h.m.snapshotEncodeFailed()
 		return 0, false
 	}
 	return r.saver.submit(data), true
@@ -545,6 +548,7 @@ func (r *room) closeRoom(code int, reason string, deleteSnapshot bool) {
 	if deleteSnapshot {
 		r.handOffPending()
 	}
+	r.syncOutbox()
 	r.h.retire(r)
 	r.saver.finish(deleteSnapshot)
 }
@@ -571,13 +575,25 @@ func (r *room) commit(now time.Time, prev game.Phase, events []game.Event, lobby
 
 // countEvents feeds the metrics. A vote to stop that passes is announced as a
 // plain basta event, so it is told from a direct Basta by having been open
-// before the engine call and not having been rejected in it.
+// before the engine call and not having been rejected in it. A letter that was
+// not picked by the chooser's own stop_letter was picked by the engine when
+// the chooser's 10 s ran out (whichever call it noticed that in).
 func (r *room) countEvents(events []game.Event) {
 	rejected := slices.ContainsFunc(events, func(ev game.Event) bool { return ev.Type == game.EventStopRejected })
 	for _, ev := range events {
 		switch ev.Type {
+		case game.EventGameStarted:
+			r.h.m.gamesStarted.Inc()
 		case game.EventRoundStarted:
 			r.h.m.rounds.Inc()
+		case game.EventLetterRevealed:
+			if !r.stopTap {
+				r.h.m.letterAutoStops.Inc()
+			}
+		case game.EventTimeUp:
+			r.h.m.timeUps.Inc()
+		case game.EventGameOver:
+			r.h.m.gameFinished(r.g)
 		case game.EventBasta:
 			r.h.m.basta.Inc()
 			if r.stopOpen && !rejected {
@@ -590,6 +606,7 @@ func (r *room) countEvents(events []game.Event) {
 		}
 	}
 	r.stopOpen = r.g.Round != nil && r.g.Round.StopVote != nil
+	r.stopTap = false
 }
 
 // broadcast sends one event frame per engine event to every joined client,
@@ -790,6 +807,21 @@ func (r *room) addPending(rec store.GameRecord) {
 		}
 		r.pending = slices.Clone(r.pending[over:])
 	}
+	r.syncOutbox()
+}
+
+// syncOutbox keeps the stats_outbox_pending gauge equal to the sum of the
+// rooms' outboxes: call it after every change of r.pending and when the room
+// closes (a closed room's records are the recorder's now, or gone).
+func (r *room) syncOutbox() {
+	n := len(r.pending)
+	if r.closed {
+		n = 0
+	}
+	if d := n - r.reported; d != 0 {
+		r.reported = n
+		r.h.m.statsOutbox.Add(float64(d))
+	}
 }
 
 // offer hands a record to the recorder unless it already has it. It reports
@@ -835,6 +867,7 @@ func (r *room) onStatsDone(id string, o statsOutcome) {
 		return
 	}
 	r.pending = slices.Delete(r.pending, i, i+1)
+	r.syncOutbox()
 	if r.stopping || r.closed {
 		return
 	}
@@ -861,6 +894,7 @@ func (r *room) handOffPending() {
 // restoreStats takes the account state of a restored snapshot.
 func (r *room) restoreStats(p Persisted) {
 	r.users, r.gameID, r.pending = p.Users, p.GameID, p.Pending
+	r.syncOutbox()
 	r.legacyFinal = p.Outbox == 0 && p.GameID != "" && r.g.Phase == game.PhaseFinal && len(p.Pending) == 0
 	for range p.droppedPending {
 		r.h.m.statsRecorded.WithLabelValues(statsDropped).Inc()
@@ -928,7 +962,7 @@ func (r *room) persist(now time.Time) {
 	data, err := r.encode(now)
 	if err != nil {
 		r.log.Error("encoding the snapshot failed", "err", err)
-		r.h.m.snapshotErrors.Inc()
+		r.h.m.snapshotEncodeFailed()
 		return
 	}
 	r.saver.submit(data)
