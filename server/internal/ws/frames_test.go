@@ -53,8 +53,9 @@ func TestVersionMismatch(t *testing.T) {
 		frame string
 		ref   string
 	}{
-		{"newer version", `{"t":"ping","v":2}`, "ping"},
-		{"older version", `{"t":"join","v":0,"d":{"code":"KT7P"}}`, "join"},
+		{"newer version", fmt.Sprintf(`{"t":"ping","v":%d}`, protocol.Version+1), "ping"},
+		{"previous protocol version", `{"t":"join","v":1,"d":{"code":"KT7P"}}`, "join"},
+		{"version zero", `{"t":"join","v":0,"d":{"code":"KT7P"}}`, "join"},
 		{"missing version", `{"t":"ping"}`, "ping"},
 		{"negative", `{"t":"set_answer","v":-1,"d":{}}`, "set_answer"},
 	}
@@ -165,11 +166,11 @@ func TestJoinWithBadPayload(t *testing.T) {
 		name  string
 		frame string
 	}{
-		{"missing d", `{"t":"join","v":1}`},
-		{"d is a number", `{"t":"join","v":1,"d":5}`},
-		{"d is a string", `{"t":"join","v":1,"d":"KT7P"}`},
-		{"d is an array", `{"t":"join","v":1,"d":[]}`},
-		{"code is a number", `{"t":"join","v":1,"d":{"code":5}}`},
+		{"missing d", fmt.Sprintf(`{"t":"join","v":%d}`, protocol.Version)},
+		{"d is a number", fmt.Sprintf(`{"t":"join","v":%d,"d":5}`, protocol.Version)},
+		{"d is a string", fmt.Sprintf(`{"t":"join","v":%d,"d":"KT7P"}`, protocol.Version)},
+		{"d is an array", fmt.Sprintf(`{"t":"join","v":%d,"d":[]}`, protocol.Version)},
+		{"code is a number", fmt.Sprintf(`{"t":"join","v":%d,"d":{"code":5}}`, protocol.Version)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -261,8 +262,8 @@ func TestRoomNotFoundFromTheHub(t *testing.T) {
 
 func TestOversizeFrame(t *testing.T) {
 	pad := func(n int) string {
-		base := `{"t":"set_answer","v":1,"d":{"text":""}}`
-		return `{"t":"set_answer","v":1,"d":{"text":"` + strings.Repeat("a", n-len(base)) + `"}}`
+		head := fmt.Sprintf(`{"t":"set_answer","v":%d,"d":{"text":"`, protocol.Version)
+		return head + strings.Repeat("a", n-len(head)-len(`"}}`)) + `"}}`
 	}
 	t.Run("exactly the limit is accepted", func(t *testing.T) {
 		e := newEnv(t, nil)
@@ -348,7 +349,7 @@ func TestMalformedFrames(t *testing.T) {
 		c := e.dial()
 		ctx, cancel := context.WithTimeout(context.Background(), waitLimit)
 		defer cancel()
-		if err := c.Write(ctx, websocket.MessageBinary, []byte(`{"t":"ping","v":1}`)); err != nil {
+		if err := c.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(`{"t":"ping","v":%d}`, protocol.Version))); err != nil {
 			t.Fatal(err)
 		}
 		expectError(t, c, protocol.ErrBadMessage, "")

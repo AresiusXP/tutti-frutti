@@ -42,6 +42,33 @@ func gameInPhase(t *testing.T, name string) *Game {
 			s.Categories = []CategoryRef{{ID: "pais"}, {Custom: "Cosas rojas"}, {ID: "animal"}}
 		})
 		return g
+	case "lobby in dutch":
+		g := newLobby(t, 3)
+		configure(t, g, func(s *Settings) {
+			s.Lang = LangNL
+			s.Rounds = 23
+			s.Categories = []CategoryRef{{ID: "pais"}, {Custom: "Dingen in de tas"}, {ID: "animal"}}
+		})
+		return g
+	case "review in dutch":
+		g := newLobby(t, 3)
+		configure(t, g, func(s *Settings) {
+			s.Lang = LangNL
+			s.Categories = ids("nombre", "pais", "animal")
+		})
+		apply(t, g, tStart, "p1", StartGame{})
+		apply(t, g, tStart.Add(8*LetterTickDuration), "p1", StopLetter{}) // I
+		fill(t, g, tStart.Add(10*time.Second), "p1", "Ida", "IJsland", "Ijsvogel")
+		fill(t, g, tStart.Add(10*time.Second), "p2", "Ilse", "\u0132sland", "Impala")
+		fill(t, g, tStart.Add(10*time.Second), "p3", "Ivo", "Ysland", "\u0133svogel")
+		now := lockRound(t, g, tStart.Add(11*time.Second), "p1")
+		apply(t, g, now, "p2", VoteReject{Category: 1, Target: "p1"})
+		return g
+	case "final in dutch":
+		g := gameInPhase(t, "review in dutch")
+		apply(t, g, tStart.Add(20*time.Second), "p1", FinishReview{})
+		apply(t, g, tStart.Add(20*time.Second), "p1", EndGame{})
+		return g
 	case "letter":
 		g := newLobby(t, 3)
 		apply(t, g, tStart, "p1", StartGame{})
@@ -93,14 +120,17 @@ func TestJSONRoundTripInEveryPhase(t *testing.T) {
 		phase Phase
 	}{
 		{"lobby", PhaseLobby},
+		{"lobby in dutch", PhaseLobby},
 		{"letter", PhaseLetter},
 		{"playing", PhasePlaying},
 		{"playing with time limit", PhasePlaying},
 		{"grace", PhaseGrace},
 		{"grace by time limit", PhaseGrace},
 		{"review", PhaseReview},
+		{"review in dutch", PhaseReview},
 		{"round_summary", PhaseRoundSummary},
 		{"final", PhaseFinal},
+		{"final in dutch", PhaseFinal},
 		{"after rematch", PhaseLobby},
 	}
 	for _, tt := range phases {

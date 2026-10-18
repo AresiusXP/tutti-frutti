@@ -294,9 +294,15 @@ func TestRoundLimitMatchesAvailableLetters(t *testing.T) {
 }
 
 func TestRematch(t *testing.T) {
+	for _, lang := range Langs() {
+		t.Run(string(lang), func(t *testing.T) { testRematch(t, lang) })
+	}
+}
+
+func testRematch(t *testing.T, lang Lang) {
 	g := newLobby(t, 4)
 	configure(t, g, func(s *Settings) {
-		s.Lang = LangEN
+		s.Lang = lang
 		s.Rounds = 2
 		s.TimeLimitSeconds = 90
 		s.Categories = []CategoryRef{{ID: "pais"}, {Custom: "Cosas rojas"}, {ID: "animal"}}
@@ -335,7 +341,7 @@ func TestRematch(t *testing.T) {
 			t.Errorf("player not reset: %+v", p)
 		}
 	}
-	if g.Settings.Lang != LangEN || g.Settings.Rounds != 2 || g.Settings.TimeLimitSeconds != 90 ||
+	if g.Settings.Lang != lang || g.Settings.Rounds != 2 || g.Settings.TimeLimitSeconds != 90 ||
 		len(g.Settings.Categories) != 3 || g.Settings.Categories[1].Custom != "Cosas rojas" {
 		t.Errorf("settings were not kept: %+v", g.Settings)
 	}

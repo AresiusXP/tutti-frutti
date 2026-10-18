@@ -1,13 +1,14 @@
 package ws
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/AresiusXP/tutti-frutti/server/internal/protocol"
 )
 
-const joinJSON = `{"t":"join","v":1,"d":{"code":"KT7P","name":"Ana","avatar":{"emoji":"🍓","color":"#f06"}}}`
+var joinJSON = fmt.Sprintf(`{"t":"join","v":%d,"d":{"code":"KT7P","name":"Ana","avatar":{"emoji":"🍓","color":"#f06"}}}`, protocol.Version)
 
 // A peer that completes a frame header, sends two payload bytes and stalls
 // leaves the server's reader blocked in the middle of a frame. Neither the
@@ -95,7 +96,7 @@ func TestFrameTimerDoesNotFireForPromptFrames(t *testing.T) {
 	sess := e.rooms.session(t, 0)
 	for i := 0; i < 5; i++ {
 		time.Sleep(80 * time.Millisecond) // longer than the frame timeout in total
-		rc.write(textFrame(`{"t":"set_answer","v":1,"d":{"category":0,"text":"x"}}`))
+		rc.write(textFrame(fmt.Sprintf(`{"t":"set_answer","v":%d,"d":{"category":0,"text":"x"}}`, protocol.Version)))
 	}
 	eventually(t, "frames routed", func() bool { return len(sess.handled()) == 6 })
 	if n := sess.disconnects.Load(); n != 0 {

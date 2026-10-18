@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -215,9 +216,13 @@ func TestCategories(t *testing.T) {
 		{"default is es", "/api/categories", 200, "es"},
 		{"es", "/api/categories?lang=es", 200, "es"},
 		{"en", "/api/categories?lang=en", 200, "en"},
+		{"nl", "/api/categories?lang=nl", 200, "nl"},
 		{"empty lang is default", "/api/categories?lang=", 200, "es"},
 		{"unknown lang", "/api/categories?lang=fr", 400, ""},
 		{"uppercase is not accepted", "/api/categories?lang=EN", 400, ""},
+		{"uppercase nl is not accepted", "/api/categories?lang=NL", 400, ""},
+		{"region tag is not accepted", "/api/categories?lang=nl-NL", 400, ""},
+		{"the language name is not accepted", "/api/categories?lang=dutch", 400, ""},
 		{"junk", "/api/categories?lang=%00", 400, ""},
 	}
 	for _, tt := range tests {
@@ -248,6 +253,29 @@ func TestCategories(t *testing.T) {
 			}
 		})
 	}
+	t.Run("dutch listing", func(t *testing.T) {
+		rec := e.do(http.MethodGet, "/api/categories?lang=nl", "")
+		var got catalog.Listing
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		want := catalog.ForLang("nl")
+		if got.Lang != "nl" || !slices.Equal(got.Groups, want.Groups) || !slices.Equal(got.Categories, want.Categories) {
+			t.Fatalf("listing = %+v", got)
+		}
+		for _, c := range got.Categories {
+			if c.ID == "pais" && (c.Label != "Land" || !c.Default || c.Group != "lugares") {
+				t.Errorf("pais = %+v", c)
+			}
+			if c.ID == "nombre" && c.Label != "Naam" {
+				t.Errorf("nombre = %+v", c)
+			}
+		}
+		if body := rec.Body.String(); !strings.HasPrefix(body, `{"lang":"nl","groups":["personas",`) ||
+			!strings.Contains(body, `{"id":"pais","group":"lugares","label":"Land","default":true}`) {
+			t.Errorf("body = %.200s", body)
+		}
+	})
 	t.Run("needs no deps", func(t *testing.T) {
 		rec := do(newTestServer().Handler(), http.MethodGet, "/api/categories?lang=en")
 		if rec.Code != http.StatusOK {
@@ -312,10 +340,12 @@ func TestCreateRoom(t *testing.T) {
 		}
 	})
 	t.Run("passes the language through", func(t *testing.T) {
-		e := newRESTEnv(t, nil)
-		rec := e.post(`{"name":"Ana","avatar":{"emoji":"🍓","color":"#fff"},"lang":"en"}`)
-		if rec.Code != http.StatusCreated || e.rooms.created[0].Lang != game.LangEN {
-			t.Errorf("= %d, lang %q", rec.Code, e.rooms.created[0].Lang)
+		for _, lang := range game.Langs() {
+			e := newRESTEnv(t, nil)
+			rec := e.post(`{"name":"Ana","avatar":{"emoji":"🍓","color":"#fff"},"lang":"` + string(lang) + `"}`)
+			if rec.Code != http.StatusCreated || e.rooms.created[0].Lang != lang {
+				t.Errorf("%s: = %d, lang %q", lang, rec.Code, e.rooms.created[0].Lang)
+			}
 		}
 	})
 	t.Run("honours the request context", func(t *testing.T) {
@@ -357,6 +387,8 @@ func TestCreateRoomRejections(t *testing.T) {
 		{name: "trailing garbage", body: validBody + " nope", wantCode: 400, wantErr: "bad_request"},
 		{name: "trailing whitespace is fine", body: validBody + "\n  \n", wantCode: 201},
 		{name: "invalid lang", body: `{"name":"Ana","avatar":{"emoji":"x","color":"y"},"lang":"fr"}`, wantCode: 400, wantErr: "invalid_lang"},
+		{name: "uppercase lang", body: `{"name":"Ana","avatar":{"emoji":"x","color":"y"},"lang":"NL"}`, wantCode: 400, wantErr: "invalid_lang"},
+		{name: "region lang", body: `{"name":"Ana","avatar":{"emoji":"x","color":"y"},"lang":"nl-NL"}`, wantCode: 400, wantErr: "invalid_lang"},
 		{name: "body over 4 KiB", body: big, wantCode: 413, wantErr: "payload_too_large"},
 	}
 	for _, tt := range tests {
@@ -507,6 +539,13 @@ func TestRoomInfo(t *testing.T) {
 		})
 	}
 
+	t.Run("info of a Dutch room", func(t *testing.T) {
+		e := newRESTEnv(t, nil)
+		e.rooms.infos["NL4D"] = room.Info{Code: "NL4D", Phase: game.PhaseLobby, Players: 1, MaxPlayers: 10, Lang: game.LangNL, Joinable: true}
+		if body := e.do(http.MethodGet, "/api/rooms/NL4D", "").Body.String(); !strings.Contains(body, `"lang":"nl"`) {
+			t.Errorf("body %s lacks the Dutch language", body)
+		}
+	})
 	t.Run("info JSON shape", func(t *testing.T) {
 		e := newRESTEnv(t, nil)
 		body := e.do(http.MethodGet, "/api/rooms/KT7P", "").Body.String()

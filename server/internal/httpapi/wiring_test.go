@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -131,7 +132,7 @@ func TestWebSocketMountedOnTheRESTServer(t *testing.T) {
 		t.Fatalf("dial /ws: %v", err)
 	}
 	defer c.CloseNow()
-	if err := c.Write(ctx, websocket.MessageText, []byte(`{"t":"join","v":1,"d":{"code":"KT7P","name":"Ana"}}`)); err != nil {
+	if err := c.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(`{"t":"join","v":%d,"d":{"code":"KT7P","name":"Ana"}}`, protocol.Version))); err != nil {
 		t.Fatal(err)
 	}
 	deadline := time.Now().Add(5 * time.Second)
@@ -147,7 +148,7 @@ func TestWebSocketMountedOnTheRESTServer(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	if err := c.Write(ctx, websocket.MessageText, []byte(`{"t":"ping","v":1}`)); err != nil {
+	if err := c.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(`{"t":"ping","v":%d}`, protocol.Version))); err != nil {
 		t.Fatal(err)
 	}
 	if _, data, err := c.Read(ctx); err != nil || !strings.Contains(string(data), `"t":"pong"`) {

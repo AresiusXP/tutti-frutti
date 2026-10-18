@@ -52,6 +52,8 @@ func TestCreateRoomRequestGuards(t *testing.T) {
 		{"name of invisible characters", invisible, nil, 400, game.CodeInvalidName},
 		{"avatar too big", hugeAvatar, nil, 400, game.CodeInvalidAvatar},
 		{"unknown language", `{"name":"Ana","avatar":{"emoji":"🍓","color":"#f06"},"lang":"fr"}`, nil, 400, "invalid_lang"},
+		{"language in capitals", `{"name":"Ana","avatar":{"emoji":"🍓","color":"#f06"},"lang":"NL"}`, nil, 400, "invalid_lang"},
+		{"language with a region", `{"name":"Ana","avatar":{"emoji":"🍓","color":"#f06"},"lang":"nl-NL"}`, nil, 400, "invalid_lang"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -65,7 +67,7 @@ func TestCreateRoomRequestGuards(t *testing.T) {
 		})
 	}
 
-	// The happy paths: Spanish by default, English on request; the caller
+	// The happy paths: Spanish by default, English or Dutch on request; the caller
 	// without a cookie gets one and becomes the host.
 	r := s.do(http.MethodPost, "/api/rooms", []byte(validBody), withCookie(p))
 	var created struct{ Code string }
@@ -169,7 +171,7 @@ func TestCategoriesEndpoint(t *testing.T) {
 	}
 
 	byLang := map[string]listing{}
-	for _, tc := range []struct{ query, lang string }{{"", "es"}, {"?lang=es", "es"}, {"?lang=en", "en"}} {
+	for _, tc := range []struct{ query, lang string }{{"", "es"}, {"?lang=es", "es"}, {"?lang=en", "en"}, {"?lang=nl", "nl"}} {
 		r, l := get(tc.query)
 		if r.status != 200 || l.Lang != tc.lang || len(l.Categories) != 50 || len(l.Groups) == 0 {
 			t.Fatalf("GET /api/categories%s = %d lang %q entries %d", tc.query, r.status, l.Lang, len(l.Categories))
@@ -201,13 +203,15 @@ func TestCategoriesEndpoint(t *testing.T) {
 		}
 		return ""
 	}
-	if label(byLang["es"], "pais") != "País" || label(byLang["en"], "pais") != "Country" ||
-		label(byLang["es"], "nombre") != "Nombre" || label(byLang["en"], "nombre") != "Name" {
-		t.Fatalf("labels es/en: %q %q %q %q", label(byLang["es"], "pais"), label(byLang["en"], "pais"),
-			label(byLang["es"], "nombre"), label(byLang["en"], "nombre"))
+	if label(byLang["es"], "pais") != "País" || label(byLang["en"], "pais") != "Country" || label(byLang["nl"], "pais") != "Land" ||
+		label(byLang["es"], "nombre") != "Nombre" || label(byLang["en"], "nombre") != "Name" || label(byLang["nl"], "nombre") != "Naam" {
+		t.Fatalf("labels es/en/nl: %q %q %q %q %q %q", label(byLang["es"], "pais"), label(byLang["en"], "pais"), label(byLang["nl"], "pais"),
+			label(byLang["es"], "nombre"), label(byLang["en"], "nombre"), label(byLang["nl"], "nombre"))
 	}
-	if r, _ := get("?lang=fr"); r.status != 400 || r.errCode(t) != "invalid_lang" {
-		t.Fatalf("lang=fr = %d %s", r.status, r.body)
+	for _, query := range []string{"?lang=fr", "?lang=NL", "?lang=nl-NL"} {
+		if r, _ := get(query); r.status != 400 || r.errCode(t) != "invalid_lang" {
+			t.Fatalf("%s = %d %s", query, r.status, r.body)
+		}
 	}
 	// Every catalog id is accepted by the engine as a category of a lobby.
 	var ids []game.CategoryRef

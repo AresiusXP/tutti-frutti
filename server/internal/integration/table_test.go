@@ -53,13 +53,20 @@ func newTableGap(t *testing.T, s *stack, gap time.Duration, names ...string) *ta
 // account session cookie): the first one hosts.
 func newTableOf(t *testing.T, s *stack, gap time.Duration, players ...*player) *table {
 	t.Helper()
+	return newTableIn(t, s, "", gap, players...)
+}
+
+// newTableIn is newTableOf for a room created with the given lobby language
+// ("" leaves the default).
+func newTableIn(t *testing.T, s *stack, lang string, gap time.Duration, players ...*player) *table {
+	t.Helper()
 	tb := &table{t: t, s: s, sent: map[int]map[string][]string{}}
 	names := make([]string, len(players))
 	for i, p := range players {
 		tb.seats = append(tb.seats, &seat{p: p})
 		names[i] = p.name
 	}
-	tb.code = s.createRoom(tb.seats[0].p, "")
+	tb.code = s.createRoom(tb.seats[0].p, lang)
 	for i := range tb.seats {
 		if gap > 0 {
 			s.advance(gap)

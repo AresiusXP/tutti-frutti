@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -109,10 +110,13 @@ func TestUnsupportedVersion(t *testing.T) {
 		frame  string
 		ref    string
 	}{
-		{"future version before the join", false, `{"t":"ping","v":2}`, "ping"},
+		{"future version before the join", false, fmt.Sprintf(`{"t":"ping","v":%d}`, protocol.Version+1), "ping"},
+		{"previous protocol version before the join", false, `{"t":"ping","v":1}`, "ping"},
+		{"previous protocol version in the join of an old client", false, `{"t":"join","v":1,"d":{"code":"BCDF","name":"Ana","avatar":{"emoji":"🍓","color":"#f06"}}}`, "join"},
 		{"missing version before the join", false, `{"t":"ping"}`, "ping"},
 		{"negative version before the join", false, `{"t":"join","v":-1,"d":{}}`, "join"},
-		{"future version after the join", true, `{"t":"set_answer","v":2,"d":{"category":0,"text":"x"}}`, "set_answer"},
+		{"future version after the join", true, fmt.Sprintf(`{"t":"set_answer","v":%d,"d":{"category":0,"text":"x"}}`, protocol.Version+1), "set_answer"},
+		{"previous protocol version after the join", true, `{"t":"set_answer","v":1,"d":{"category":0,"text":"x"}}`, "set_answer"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := newStack(t, stackOpts{})
@@ -133,7 +137,7 @@ func TestUnsupportedVersion(t *testing.T) {
 // TestOversizeFrame: a frame over MaxMessageBytes ends the connection with 1009.
 func TestOversizeFrame(t *testing.T) {
 	big := func(n int) string {
-		return `{"t":"set_answer","v":1,"d":{"category":0,"text":"` + strings.Repeat("a", n) + `"}}`
+		return fmt.Sprintf(`{"t":"set_answer","v":%d,"d":{"category":0,"text":"`, protocol.Version) + strings.Repeat("a", n) + `"}}`
 	}
 	for _, tc := range []struct {
 		name      string
@@ -185,11 +189,11 @@ func TestMalformedFramesThreshold(t *testing.T) {
 		func() { c.sendRaw(`{not json`) },
 		func() { c.sendRaw(`[]`) },
 		func() { c.sendRaw(`"join"`) },
-		func() { c.sendRaw(`{"v":1}`) },
-		func() { c.sendRaw(`{"t":"","v":1}`) },
+		func() { c.sendRaw(fmt.Sprintf(`{"v":%d}`, protocol.Version)) },
+		func() { c.sendRaw(fmt.Sprintf(`{"t":"","v":%d}`, protocol.Version)) },
 		func() { c.sendBinary([]byte{1, 2, 3}) },
-		func() { c.sendRaw(`{"t":"join","v":1}`) },            // join without a payload
-		func() { c.sendRaw(`{"t":"join","v":1,"d":"BCDF"}`) }, // payload of the wrong type
+		func() { c.sendRaw(fmt.Sprintf(`{"t":"join","v":%d}`, protocol.Version)) },            // join without a payload
+		func() { c.sendRaw(fmt.Sprintf(`{"t":"join","v":%d,"d":"BCDF"}`, protocol.Version)) }, // payload of the wrong type
 		func() { c.sendRaw(``) },
 	}
 	for i, send := range malformed {

@@ -14,10 +14,16 @@ type Lang string
 const (
 	LangES Lang = "es"
 	LangEN Lang = "en"
+	LangNL Lang = "nl"
 )
 
 // Valid reports whether l is a supported language.
-func (l Lang) Valid() bool { return l == LangES || l == LangEN }
+func (l Lang) Valid() bool { return l == LangES || l == LangEN || l == LangNL }
+
+// Langs returns every supported lobby language. Code that has to treat all of
+// them alike (the duplicate check of custom categories) iterates over this
+// list instead of naming the languages, so a new one cannot be forgotten.
+func Langs() []Lang { return []Lang{LangES, LangEN, LangNL} }
 
 // Timing constants (DESIGN.md sections 3 and 10).
 const (
@@ -53,17 +59,19 @@ const (
 var alphabets = map[Lang][]string{
 	LangES: strings.Split("A B C D E F G H I J K L M N Ñ O P Q R S T U V W X Y Z", " "),
 	LangEN: strings.Split("A B C D E F G H I J K L M N O P Q R S T U V W X Y Z", " "),
+	LangNL: strings.Split("A B C D E F G H I J K L M N O P Q R S T U V W X Y Z", " "),
 }
 
 // hardLetters is the editable table of hard letters per language.
 var hardLetters = map[Lang][]string{
 	LangES: {"K", "Ñ", "Q", "W", "X", "Y", "Z"},
 	LangEN: {"Q", "U", "V", "X", "Y", "Z"},
+	LangNL: {"Q", "X", "Y"},
 }
 
 // Alphabet returns the letters of lang in alphabetical order: A–Z with Ñ
-// after N for Spanish (27 letters), A–Z for English (26). It returns nil for
-// an unknown language.
+// after N for Spanish (27 letters), A–Z for English and Dutch (26). It
+// returns nil for an unknown language.
 func Alphabet(lang Lang) []string { return slices.Clone(alphabets[lang]) }
 
 // HardLetters returns the hard letters of lang.

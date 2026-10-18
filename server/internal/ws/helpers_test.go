@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -249,7 +250,7 @@ func (e *env) dialJoined(opts ...dialOpt) (*websocket.Conn, *fakeSession) {
 
 func send(t *testing.T, c *websocket.Conn, typ, d string) {
 	t.Helper()
-	frame := `{"t":"` + typ + `","v":1`
+	frame := `{"t":"` + typ + `","v":` + strconv.Itoa(protocol.Version)
 	if d != "" {
 		frame += `,"d":` + d
 	}

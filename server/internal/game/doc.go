@@ -64,8 +64,13 @@
 //     marks, ...) removed, trimmed, whitespace collapsed, lower-cased,
 //     NFD-decomposed with every combining mark dropped (so NFC and NFD
 //     spellings agree and any diacritic goes: "Ắng" == "ang"), plus a few
-//     non-decomposable letters folded (ø, đ, ð, ł, ...). In Spanish lobbies
-//     "ñ" (NFC or NFD) is kept as its own letter; in English it folds to "n".
+//     non-decomposable letters folded (ø, đ, ð, ł, ...). The Dutch ligature
+//     "ĳ" / "Ĳ" (U+0133 / U+0132) becomes "ij" in every language, so "Ĳsland",
+//     "ĳsland" and "IJsland" are one answer and start with "I" (never with "Y").
+//     In Spanish lobbies "ñ" (NFC or NFD) is kept as its own letter; in English
+//     and Dutch it folds to "n". The duplicate check of custom categories
+//     normalizes with the lobby language and compares against the built-in
+//     labels of every language.
 //     StartsWithLetter uses the same function for answer and letter. The text
 //     a player types (nickname, custom category label, answer) is stored with
 //     the format characters removed too, so a value made only of them is empty

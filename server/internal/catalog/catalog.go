@@ -6,9 +6,11 @@
 package catalog
 
 import (
+	"bytes"
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"slices"
 )
 
@@ -21,9 +23,10 @@ type Category struct {
 	ID string `json:"id"`
 	// Group is the picker group (personas, lugares, ...).
 	Group string `json:"group"`
-	// ES and EN are the labels in each lobby language.
+	// ES, EN and NL are the labels in each lobby language.
 	ES string `json:"es"`
 	EN string `json:"en"`
+	NL string `json:"nl"`
 	// Default marks the six "Clásicas" categories.
 	Default bool `json:"default"`
 }
@@ -37,13 +40,25 @@ type loaded struct {
 	groups []string
 }
 
+// mustLoad parses and validates the embedded catalog. It is strict on
+// purpose: an unknown field (a label for a language Category does not know)
+// or an empty id, group or label (a language added to the file but missing in
+// one entry) must stop the server at start-up, not show up as a blank button.
 func mustLoad(b []byte) loaded {
 	var all []Category
-	if err := json.Unmarshal(b, &all); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&all); err != nil {
 		panic(fmt.Sprintf("catalog: invalid categories.json: %v", err))
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		panic("catalog: invalid categories.json: data after the top-level array")
 	}
 	l := loaded{all: all, byID: make(map[string]Category, len(all))}
 	for _, c := range all {
+		if c.ID == "" || c.Group == "" || c.ES == "" || c.EN == "" || c.NL == "" {
+			panic(fmt.Sprintf("catalog: entry %+v has an empty id, group or label", c))
+		}
 		l.byID[c.ID] = c
 		if !slices.Contains(l.groups, c.Group) {
 			l.groups = append(l.groups, c.Group)
@@ -75,11 +90,14 @@ func ByID(id string) (Category, bool) {
 // Groups returns the group names in display order.
 func Groups() []string { return slices.Clone(data.groups) }
 
-// Label returns the category label for lang ("en" gives English, anything
-// else gives Spanish).
+// Label returns the category label for lang: "en" gives English, "nl" gives
+// Dutch, anything else gives Spanish.
 func Label(c Category, lang string) string {
-	if lang == "en" {
+	switch lang {
+	case "en":
 		return c.EN
+	case "nl":
+		return c.NL
 	}
 	return c.ES
 }
@@ -99,10 +117,10 @@ type Listing struct {
 	Categories []LocalizedCategory `json:"categories"`
 }
 
-// ForLang renders the whole catalog in lang. Any value other than "en" is
-// treated as "es".
+// ForLang renders the whole catalog in lang. Any value other than "en" and
+// "nl" is treated as "es"; Listing.Lang is the language actually used.
 func ForLang(lang string) Listing {
-	if lang != "en" {
+	if lang != "en" && lang != "nl" {
 		lang = "es"
 	}
 	out := Listing{Lang: lang, Groups: Groups(), Categories: make([]LocalizedCategory, 0, len(data.all))}

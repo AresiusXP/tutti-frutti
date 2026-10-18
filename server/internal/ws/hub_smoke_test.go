@@ -3,6 +3,7 @@ package ws_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -97,7 +98,7 @@ func TestSmokeWithTheRealHub(t *testing.T) {
 		}
 		return env
 	}
-	join := `{"t":"join","v":1,"d":{"code":"` + created.Code + `","name":"Ana","avatar":{"emoji":"🍓","color":"#ff0066"}}}`
+	join := fmt.Sprintf(`{"t":"join","v":%d,"d":{"code":"`, protocol.Version) + created.Code + `","name":"Ana","avatar":{"emoji":"🍓","color":"#ff0066"}}}`
 
 	a := dial()
 	write(a, join)
@@ -108,7 +109,7 @@ func TestSmokeWithTheRealHub(t *testing.T) {
 	if !sawState {
 		t.Fatal("no state frame after join")
 	}
-	write(a, `{"t":"ping","v":1}`)
+	write(a, fmt.Sprintf(`{"t":"ping","v":%d}`, protocol.Version))
 	for {
 		if next(a).T == protocol.TypePong {
 			break

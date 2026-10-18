@@ -487,6 +487,34 @@ func TestUpdateSettings(t *testing.T) {
 			t.Error("the game must not alias the command's slice")
 		}
 	})
+	t.Run("host switches to Dutch", func(t *testing.T) {
+		g := newLobby(t, 2)
+		dutch := DefaultSettings()
+		dutch.Lang = LangNL
+		dutch.Rounds = 23
+		dutch.Categories = []CategoryRef{{ID: "pais"}, {ID: "animal"}, {Custom: "  Dingen   in de   tas "}}
+		apply(t, g, t0.Add(time.Minute), "p1", UpdateSettings{Settings: dutch})
+		if g.Settings.Lang != LangNL || g.Settings.Rounds != 23 || g.Settings.Categories[2].Custom != "Dingen in de tas" {
+			t.Errorf("settings = %+v", g.Settings)
+		}
+		assertStrings(t, "labels", g.View("p2").CategoryLabels, []string{"Land", "Dier", "Dingen in de tas"})
+		// Back to Spanish: 23 rounds no longer fit the 20 playable letters.
+		back := dutch
+		back.Lang = LangES
+		expectErr(t, g, t0.Add(time.Minute), "p1", UpdateSettings{Settings: back}, ErrInvalidSettings)
+		// The Dutch label of a built-in is taken in the Dutch lobby.
+		clash := dutch
+		clash.Categories = append(ids("nombre", "animal"), CategoryRef{Custom: "Country"})
+		expectErr(t, g, t0.Add(time.Minute), "p1", UpdateSettings{Settings: clash}, ErrInvalidSettings)
+	})
+	t.Run("unknown language", func(t *testing.T) {
+		g := newLobby(t, 2)
+		for _, lang := range []Lang{"fr", "", "NL", "nl-NL", "dutch"} {
+			bad := DefaultSettings()
+			bad.Lang = lang
+			expectErr(t, g, t0.Add(time.Minute), "p1", UpdateSettings{Settings: bad}, ErrInvalidSettings)
+		}
+	})
 	t.Run("only the host", func(t *testing.T) {
 		g := newLobby(t, 2)
 		expectErr(t, g, t0.Add(time.Minute), "p2", UpdateSettings{Settings: custom}, ErrNotHost)

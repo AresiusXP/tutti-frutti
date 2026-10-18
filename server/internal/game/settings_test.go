@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/AresiusXP/tutti-frutti/server/internal/catalog"
 )
@@ -60,6 +61,8 @@ func TestSettingsValidate(t *testing.T) {
 	}{
 		{"defaults", DefaultSettings(), true},
 		{"english lobby", with(func(s *Settings) { s.Lang = LangEN }), true},
+		{"dutch lobby", with(func(s *Settings) { s.Lang = LangNL }), true},
+		{"language in capitals", with(func(s *Settings) { s.Lang = "NL" }), false},
 		{"unknown language", with(func(s *Settings) { s.Lang = "fr" }), false},
 		{"empty language", with(func(s *Settings) { s.Lang = "" }), false},
 		{"time limit 60", with(func(s *Settings) { s.TimeLimitSeconds = 60 }), true},
@@ -77,6 +80,12 @@ func TestSettingsValidate(t *testing.T) {
 		{"max rounds en with hard letters", with(func(s *Settings) { s.Lang = LangEN; s.ExcludeHardLetters = false; s.Rounds = 26 }), true},
 		{"too many rounds en with hard letters", with(func(s *Settings) { s.Lang = LangEN; s.ExcludeHardLetters = false; s.Rounds = 27 }), false},
 		{"too many rounds en without hard letters", with(func(s *Settings) { s.Lang = LangEN; s.Rounds = 21 }), false},
+		{"max rounds nl without hard letters", with(func(s *Settings) { s.Lang = LangNL; s.Rounds = 23 }), true},
+		{"too many rounds nl without hard letters", with(func(s *Settings) { s.Lang = LangNL; s.Rounds = 24 }), false},
+		{"max rounds nl with hard letters", with(func(s *Settings) { s.Lang = LangNL; s.ExcludeHardLetters = false; s.Rounds = 26 }), true},
+		{"too many rounds nl with hard letters", with(func(s *Settings) { s.Lang = LangNL; s.ExcludeHardLetters = false; s.Rounds = 27 }), false},
+		{"unlimited rounds nl", with(func(s *Settings) { s.Lang = LangNL; s.Rounds = 0 }), true},
+		{"nl label of a custom category", with(func(s *Settings) { s.Lang = LangNL; s.Categories[0] = CategoryRef{Custom: "Dingen die rond zijn"} }), true},
 		{"negative rounds", with(func(s *Settings) { s.Rounds = -1 }), false},
 		{"3 categories", with(func(s *Settings) { s.Categories = ids("nombre", "pais", "animal") }), true},
 		{"2 categories", with(func(s *Settings) { s.Categories = ids("nombre", "pais") }), false},
@@ -142,6 +151,21 @@ func TestSettingsDuplicateCategoryError(t *testing.T) {
 		{"custom equals built-in in NFD", LangES, append(ids("nombre", "animal"), CategoryRef{Custom: "Pai\u0301s"}), "País"},
 		{"custom equals built-in en label in es lobby", LangES, append(ids("nombre", "animal"), CategoryRef{Custom: "Country"}), "País"},
 		{"custom equals built-in es label in en lobby", LangEN, append(ids("nombre", "animal"), CategoryRef{Custom: "Pais"}), "Country"},
+		{"custom equals built-in nl label in es lobby", LangES, append(ids("nombre", "animal"), CategoryRef{Custom: "Land"}), "País"},
+		{"custom equals built-in nl label in en lobby", LangEN, append(ids("nombre", "animal"), CategoryRef{Custom: "land"}), "Country"},
+		{"custom equals built-in en label in nl lobby", LangNL, append(ids("nombre", "animal"), CategoryRef{Custom: "Country"}), "Land"},
+		{"custom equals built-in es label in nl lobby", LangNL, append(ids("nombre", "animal"), CategoryRef{Custom: "País"}), "Land"},
+		{"custom equals built-in es label without accent in nl lobby", LangNL, append(ids("nombre", "animal"), CategoryRef{Custom: "pais"}), "Land"},
+		{"custom equals built-in nl label in nl lobby", LangNL, append(ids("nombre", "animal"), CategoryRef{Custom: "land"}), "Land"},
+		{"custom equals built-in nl label with spaces and capitals", LangNL, append(ids("nombre", "animal"), CategoryRef{Custom: "  BIJVOEGLIJK   Naamwoord "}), "Bijvoeglijk naamwoord"},
+		{"custom equals built-in nl label with a hyphen", LangNL, append(ids("nombre", "animal"), CategoryRef{Custom: "TV-serie"}), "Tv-serie"},
+		{"custom equals built-in en label in nl lobby that is not selected", LangNL, append(ids("nombre", "animal"), CategoryRef{Custom: "something scary"}), "Iets engs"},
+		{"custom equals built-in nl label in es lobby that is not selected", LangES, append(ids("nombre", "animal"), CategoryRef{Custom: "iets engs"}), "Algo que da miedo"},
+		{"custom equals built-in nl label with invisible characters", LangNL, append(ids("nombre", "animal"), CategoryRef{Custom: "La\u200bnd\u00ad"}), "Land"},
+		{"custom equals built-in es label in NFD in nl lobby", LangNL, append(ids("nombre", "animal"), CategoryRef{Custom: "Pai\u0301s"}), "Land"},
+		{"duplicate id in dutch", LangNL, ids("nombre", "pais", "pais"), "Land"},
+		{"custom equals other custom with the ij ligature", LangNL, append(ids("nombre", "animal"), CategoryRef{Custom: "\u0132sdingen"}, CategoryRef{Custom: "IJsdingen"}), "Ĳsdingen"},
+		{"custom equals other custom with the ij ligature in es", LangES, append(ids("nombre", "animal"), CategoryRef{Custom: "ijsdingen"}, CategoryRef{Custom: "\u0133sdingen"}), "ijsdingen"},
 		{"custom equals built-in that is not selected", LangES, append(ids("nombre", "animal"), CategoryRef{Custom: "algo que da miedo"}), "Algo que da miedo"},
 		{"custom equals other custom", LangES, append(ids("nombre", "animal"), CategoryRef{Custom: "Mi cosa"}, CategoryRef{Custom: "  mi   COSA "}), "Mi cosa"},
 		{"custom equals other custom ignoring accents", LangEN, append(ids("nombre", "animal"), CategoryRef{Custom: "Café"}, CategoryRef{Custom: "cafe"}), "Café"},
@@ -165,6 +189,53 @@ func TestSettingsDuplicateCategoryError(t *testing.T) {
 				t.Errorf("message %q must mention %q", err.Error(), tt.wantLabel)
 			}
 		})
+	}
+}
+
+// Whatever the lobby language, every built-in label of every language is taken:
+// a custom category spelled like one of them is refused, and the error names
+// the built-in label in the lobby language. (A label longer than MaxCustomLen
+// is refused for its length before the duplicate check, so it cannot be a
+// custom category either way.)
+func TestEveryBuiltinLabelIsADuplicateInEveryLobby(t *testing.T) {
+	for _, lobby := range Langs() {
+		for _, c := range catalog.All() {
+			want := catalog.Label(c, string(lobby))
+			for _, labelLang := range Langs() {
+				label := catalog.Label(c, string(labelLang))
+				for _, custom := range []string{label, strings.ToUpper(label), strings.ToLower(label)} {
+					s := DefaultSettings()
+					s.Lang = lobby
+					s.Categories = append(ids("nombre", "animal"), CategoryRef{Custom: custom})
+					err := s.Validate()
+					var dup *DuplicateCategoryError
+					switch {
+					case utf8.RuneCountInString(label) > MaxCustomLen:
+						if !errors.Is(err, ErrInvalidSettings) || errors.As(err, &dup) {
+							t.Errorf("lobby %s, custom %q (%s label of %s): error %v, want the length error", lobby, custom, labelLang, c.ID, err)
+						}
+					case !errors.As(err, &dup) || dup.Label != want:
+						t.Errorf("lobby %s, custom %q (%s label of %s): error %v, want a duplicate of %q", lobby, custom, labelLang, c.ID, err, want)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestBuiltinLabelsCoverEveryLanguage(t *testing.T) {
+	for _, lobby := range Langs() {
+		got := builtinLabels(lobby)
+		// Two entries must never share a normalized label, or the error would name
+		// the wrong built-in.
+		for _, c := range catalog.All() {
+			for _, l := range Langs() {
+				key := Normalize(catalog.Label(c, string(l)), lobby)
+				if got[key] != catalog.Label(c, string(lobby)) {
+					t.Errorf("lobby %s: %q maps to %q, want %q", lobby, key, got[key], catalog.Label(c, string(lobby)))
+				}
+			}
+		}
 	}
 }
 
@@ -192,27 +263,57 @@ func TestSettingsCleanAndLabels(t *testing.T) {
 }
 
 func TestSettingsJSONRoundTrip(t *testing.T) {
-	s := DefaultSettings()
-	s.Lang = LangEN
-	s.Rounds = 0
-	s.TimeLimitSeconds = 90
-	s.Categories = append(s.Categories[:2], CategoryRef{Custom: "Cosas rojas"})
+	for _, lang := range Langs() {
+		t.Run(string(lang), func(t *testing.T) {
+			s := DefaultSettings()
+			s.Lang = lang
+			s.Rounds = 0
+			s.TimeLimitSeconds = 90
+			s.Categories = append(s.Categories[:2], CategoryRef{Custom: "Cosas rojas"})
 
-	b, err := json.Marshal(s)
-	if err != nil {
-		t.Fatal(err)
+			b, err := json.Marshal(s)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, key := range []string{`"lang":"` + string(lang) + `"`, `"excludeHardLetters":true`, `"rounds":0`, `"timeLimitSeconds":90`, `{"id":"nombre"}`, `{"custom":"Cosas rojas"}`} {
+				if !strings.Contains(string(b), key) {
+					t.Errorf("JSON %s is missing %s", b, key)
+				}
+			}
+			var back Settings
+			if err := json.Unmarshal(b, &back); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(s, back) {
+				t.Errorf("round trip changed settings:\n got %+v\nwant %+v", back, s)
+			}
+			if err := back.Validate(); err != nil {
+				t.Errorf("the restored settings are invalid: %v", err)
+			}
+		})
 	}
-	for _, key := range []string{`"lang":"en"`, `"excludeHardLetters":true`, `"rounds":0`, `"timeLimitSeconds":90`, `{"id":"nombre"}`, `{"custom":"Cosas rojas"}`} {
-		if !strings.Contains(string(b), key) {
-			t.Errorf("JSON %s is missing %s", b, key)
+}
+
+func TestSettingsLabelsFollowTheLobbyLanguage(t *testing.T) {
+	for _, tt := range []struct {
+		lang Lang
+		want []string
+	}{
+		{LangES, []string{"Nombre", "País", "Animal", "Comida", "Color", "Marca"}},
+		{LangEN, []string{"Name", "Country", "Animal", "Food", "Color", "Brand"}},
+		{LangNL, []string{"Naam", "Land", "Dier", "Eten", "Kleur", "Merk"}},
+	} {
+		s := DefaultSettings()
+		s.Lang = tt.lang
+		if got := s.Labels(); !slices.Equal(got, tt.want) {
+			t.Errorf("Labels() in %s = %v, want %v", tt.lang, got, tt.want)
 		}
 	}
-	var back Settings
-	if err := json.Unmarshal(b, &back); err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(s, back) {
-		t.Errorf("round trip changed settings:\n got %+v\nwant %+v", back, s)
+	s := DefaultSettings()
+	s.Lang = LangNL
+	s.Categories = []CategoryRef{{ID: "pais"}, {Custom: "Mijn ding"}, {ID: "ghost"}}
+	if got, want := s.Labels(), []string{"Land", "Mijn ding", "ghost"}; !slices.Equal(got, want) {
+		t.Errorf("Labels() = %v, want %v", got, want)
 	}
 }
 

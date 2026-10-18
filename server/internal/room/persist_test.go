@@ -617,6 +617,36 @@ func newPersistedGame(t *testing.T, code string, mod func(*game.Game)) []byte {
 	return b
 }
 
+// Every supported language is a usable snapshot: the room comes back in the
+// language it was saved in.
+func TestRestoreKeepsEveryLanguage(t *testing.T) {
+	e := newEnv(t)
+	codes := map[game.Lang]string{game.LangES: "BBBB", game.LangEN: "CCCC", game.LangNL: "DDDD"}
+	if len(codes) != len(game.Langs()) {
+		t.Fatalf("this test covers %d languages, the engine has %d", len(codes), len(game.Langs()))
+	}
+	for lang, code := range codes {
+		snap := newPersistedGame(t, code, func(g *game.Game) {
+			s := game.DefaultSettings()
+			s.Lang = lang
+			if _, err := g.Apply(t0, "h", game.UpdateSettings{Settings: s}); err != nil {
+				t.Fatal(err)
+			}
+		})
+		if err := e.store.Memory.Save(context.Background(), store.Snapshot{Code: code, State: snap, UpdatedAt: t0}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n, err := e.hub.Start(context.Background()); err != nil || n != len(codes) {
+		t.Fatalf("Start = %d, %v", n, err)
+	}
+	for lang, code := range codes {
+		if info, ok := e.hub.Info(code); !ok || info.Lang != lang {
+			t.Errorf("room %s: Info = %+v, %v; want lang %s", code, info, ok, lang)
+		}
+	}
+}
+
 func TestRestoreHandlesSnapshotWithNilRoundAnswers(t *testing.T) {
 	g := game.NewGame(game.Player{ID: "h", Name: "Host", Avatar: testAvatar}, t0)
 	g.Phase = game.PhaseLetter

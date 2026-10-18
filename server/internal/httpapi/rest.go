@@ -61,17 +61,16 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCategories(w http.ResponseWriter, r *http.Request) {
-	lang := r.URL.Query().Get("lang")
-	switch lang {
-	case "":
-		lang = string(game.LangES)
-	case string(game.LangES), string(game.LangEN):
-	default:
+	lang := game.Lang(r.URL.Query().Get("lang"))
+	switch {
+	case lang == "":
+		lang = game.LangES
+	case !lang.Valid():
 		writeError(w, http.StatusBadRequest, "invalid_lang")
 		return
 	}
 	w.Header().Set("Cache-Control", "public, max-age=3600")
-	writeJSON(w, http.StatusOK, catalog.ForLang(lang))
+	writeJSON(w, http.StatusOK, catalog.ForLang(string(lang)))
 }
 
 func (s *Server) handleCreateRoom(w http.ResponseWriter, r *http.Request) {

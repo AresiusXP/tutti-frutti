@@ -5,7 +5,7 @@
 //
 // Every frame, in both directions, is a JSON text message:
 //
-//	{"t": "<type>", "v": 1, "d": { ...payload... }}
+//	{"t": "<type>", "v": <Version>, "d": { ...payload... }}
 //
 // Client -> server types: the game commands (game.Cmd* constants, whose
 // payloads are the game.* command structs), plus "ping". The first frame of a
@@ -26,7 +26,11 @@ import (
 // different "v" is answered with ErrUnsupportedVersion and the connection is
 // closed with CloseUnsupportedVersion; the web app then asks the user to
 // reload (new version available).
-const Version = 1
+//
+// Version 2 added the Dutch lobby language ("nl"): a version 1 client would
+// not know the language of a room (labels, alphabet, normalization), so it
+// must reload.
+const Version = 2
 
 // Frame types that are not game commands.
 const (

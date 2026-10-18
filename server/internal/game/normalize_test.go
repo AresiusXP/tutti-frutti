@@ -69,6 +69,47 @@ func TestNormalize(t *testing.T) {
 		{"lower NFD enye in es", "n\u0303u", LangES, "ñu"},
 		{"enye after an accented n mark", "n\u0301\u0303", LangES, "ñ"},
 		{"space between n and the tilde", "n \u0303", LangES, "n"},
+
+		// Dutch: the ij ligature (U+0133, capital U+0132) is "ij" in every language.
+		{"nl ij ligature", "\u0133sland", LangNL, "ijsland"},
+		{"nl capital ij ligature", "\u0132sland", LangNL, "ijsland"},
+		{"nl IJ typed as two letters", "IJsland", LangNL, "ijsland"},
+		{"nl Ij and iJ typed as two letters", "Ijsland iJsland", LangNL, "ijsland ijsland"},
+		{"nl ij ligature inside a word", "W\u0133k aan Zee, Zw\u0133ndrecht", LangNL, "wijk aan zee, zwijndrecht"},
+		{"nl capital ij ligature inside a word", "ZW\u0132NDRECHT", LangNL, "zwijndrecht"},
+		{"nl ij ligature alone", "\u0133", LangNL, "ij"},
+		{"nl capital ij ligature alone", "\u0132", LangNL, "ij"},
+		{"nl ij ligatures in a row", "\u0132\u0133", LangNL, "ijij"},
+		{"nl ij ligature after a zero width space", "\u200b\u0132sland", LangNL, "ijsland"},
+		{"nl ij ligature next to format characters", "\u0132\u200b\u00adsland", LangNL, "ijsland"},
+		{"nl ij ligature with a combining mark", "\u0133\u0301sland", LangNL, "ijsland"},
+		{"nl ij ligature between spaces", "  \u0132   \u0133  ", LangNL, "ij ij"},
+		{"es ij ligature", "\u0132sland", LangES, "ijsland"},
+		{"es lower ij ligature", "\u0133sland", LangES, "ijsland"},
+		{"en ij ligature", "\u0132sland", LangEN, "ijsland"},
+		{"en lower ij ligature", "\u0133sland", LangEN, "ijsland"},
+		{"unknown language ij ligature", "\u0132sland", "fr", "ijsland"},
+		{"ij ligature next to an enye in es", "\u0133\u00d1", LangES, "ijñ"},
+		{"nl y stays y", "Ysland", LangNL, "ysland"},
+		{"nl enye folds to n", "\u00d1andú", LangNL, "nandu"},
+		{"nl decomposed enye folds to n", "N\u0303andu", LangNL, "nandu"},
+		{"nl decomposed enye with an accent folds to n", "n\u0303u\u0301", LangNL, "nu"},
+		{"nl acute", "café", LangNL, "cafe"},
+		{"nl acute, decomposed", "cafe\u0301", LangNL, "cafe"},
+		{"nl grave", "Crème brûlée", LangNL, "creme brulee"},
+		{"nl diaeresis on e", "Zoë, Citroën, geërfd", LangNL, "zoe, citroen, geerfd"},
+		{"nl diaeresis on e, decomposed", "Zoe\u0308, Citroe\u0308n", LangNL, "zoe, citroen"},
+		{"nl diaeresis on i", "Ruïne naïef Oost-Indië", LangNL, "ruine naief oost-indie"},
+		{"nl diaeresis on i, decomposed", "Ruı\u0308ne", LangNL, "ruine"},
+		{"nl diaeresis on i, decomposed from i", "Rui\u0308ne", LangNL, "ruine"},
+		{"nl diaeresis on o and u", "coördinatie Müller", LangNL, "coordinatie muller"},
+		{"nl cedilla", "Curaçao Façade", LangNL, "curacao facade"},
+		{"nl cedilla, decomposed", "Cura\u0063\u0327ao", LangNL, "curacao"},
+		{"nl circumflex", "Fêtes", LangNL, "fetes"},
+		{"nl één", "Één", LangNL, "een"},
+		{"nl apostrophe is kept", "'s-Hertogenbosch", LangNL, "'s-hertogenbosch"},
+		{"nl typographic apostrophe is kept", "\u2019s-Hertogenbosch", LangNL, "\u2019s-hertogenbosch"},
+		{"nl spaces and capitals", "  Naam   VAN een  Huisdier ", LangNL, "naam van een huisdier"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -93,6 +134,8 @@ func TestNormalizeNFCAndNFDAgree(t *testing.T) {
 		{"pingüino", "pinguino", "pinguino"},
 		{"Ắng  Việt", "ang viet", "ang viet"},
 		{"  Cañón del Colorado ", "cañon del colorado", "canon del colorado"},
+		{"Citroën Curaçao Oost-Indië", "citroen curacao oost-indie", "citroen curacao oost-indie"},
+		{"coördinatie  Zoë", "coordinatie zoe", "coordinatie zoe"},
 	}
 	for _, w := range words {
 		nfc, nfd := norm.NFC.String(w.word), norm.NFD.String(w.word)
@@ -102,7 +145,7 @@ func TestNormalizeNFCAndNFDAgree(t *testing.T) {
 		for _, tt := range []struct {
 			lang Lang
 			want string
-		}{{LangES, w.es}, {LangEN, w.en}} {
+		}{{LangES, w.es}, {LangEN, w.en}, {LangNL, w.en}} { // nl folds like en: no enye
 			if got := Normalize(nfc, tt.lang); got != tt.want {
 				t.Errorf("Normalize(NFC %q, %s) = %q, want %q", w.word, tt.lang, got, tt.want)
 			}
@@ -137,8 +180,8 @@ func TestStripFormatAndCleanText(t *testing.T) {
 }
 
 func TestNormalizeIdempotent(t *testing.T) {
-	for _, s := range []string{"México", "Ñandú", "  Árbol  frondoso ", "Straße", "Ắng", "Øl Łódź", "N\u0303u", "\u200bMa\u00adrte \u200b x"} {
-		for _, l := range []Lang{LangES, LangEN} {
+	for _, s := range []string{"México", "Ñandú", "  Árbol  frondoso ", "Straße", "Ắng", "Øl Łódź", "N\u0303u", "\u200bMa\u00adrte \u200b x", "\u0132sland \u0133s", "Zoë Curaçao"} {
+		for _, l := range Langs() {
 			once := Normalize(s, l)
 			if twice := Normalize(once, l); twice != once {
 				t.Errorf("Normalize not idempotent for %q (%s): %q -> %q", s, l, once, twice)
@@ -189,6 +232,34 @@ func TestStartsWithLetter(t *testing.T) {
 		{"only format characters is no answer", "\u200b", "P", LangES, false},
 		{"format characters before an enye in es", "\u200bN\u0303u", "\u00d1", LangES, true},
 		{"a plain N is not an NFD enye letter in es", "Nube", "N\u0303", LangES, false},
+
+		{"nl: ij ligature starts with I", "\u0133sland", "I", LangNL, true},
+		{"nl: capital ij ligature starts with I", "\u0132sland", "I", LangNL, true},
+		{"nl: IJ typed as two letters starts with I", "IJsland", "I", LangNL, true},
+		{"nl: lower-case ij starts with I", "ijsland", "I", LangNL, true},
+		{"nl: Ij starts with I", "Ijsvogel", "I", LangNL, true},
+		{"nl: ij ligature in lower-case letter", "\u0132sland", "i", LangNL, true},
+		{"nl: ij ligature after a zero width space", "\u200b\u0132sland", "I", LangNL, true},
+		{"nl: ij ligature with a combining mark", "\u0132\u0301sland", "I", LangNL, true},
+		{"nl: ij ligature is not a Y", "\u0132sland", "Y", LangNL, false},
+		{"nl: IJ typed as two letters is not a Y", "IJsland", "Y", LangNL, false},
+		{"nl: Ysland is not an I", "Ysland", "I", LangNL, false},
+		{"nl: Ysland starts with Y", "Ysland", "Y", LangNL, true},
+		{"nl: ij ligature is not a J", "\u0132sland", "J", LangNL, false},
+		{"es: ij ligature starts with I", "\u0132sland", "I", LangES, true},
+		{"en: ij ligature starts with I", "\u0133sland", "I", LangEN, true},
+		{"unknown language: ij ligature starts with I", "\u0133sland", "I", "fr", true},
+		{"nl: Iets is an I", "Iets", "I", LangNL, true},
+		{"nl: enye folds to n", "\u00d1andú", "N", LangNL, true},
+		{"nl: NFD enye folds to n", "N\u0303andu", "N", LangNL, true},
+		{"nl: acute on the first letter", "\u00c9\u00e9n", "E", LangNL, true},
+		{"nl: NFD acute on the first letter", "E\u0301\u00e9n", "E", LangNL, true},
+		{"nl: diaeresis on the first letter", "\u00cfsland", "I", LangNL, true},
+		{"nl: NFD diaeresis on the first letter", "I\u0308sland", "I", LangNL, true},
+		{"nl: cedilla on the first letter", "\u00c7orlu", "C", LangNL, true},
+		{"nl: umlaut on the first letter", "\u00dcber", "U", LangNL, true},
+		{"nl: o with diaeresis on the first letter", "\u00d6stersund", "O", LangNL, true},
+		{"nl: leading apostrophe is not skipped", "'s-Hertogenbosch", "H", LangNL, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

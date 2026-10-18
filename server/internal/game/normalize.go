@@ -13,9 +13,12 @@ const combiningTilde = '\u0303'
 
 // folded maps lower-case Latin letters that have no canonical decomposition,
 // so stripping combining marks leaves them alone, to their plain spelling.
+// The Dutch ligature ĳ (U+0133, its capital U+0132 lower-cases to it) becomes
+// "ij" in every language: it only exists in Dutch text, where "ĳsland" and
+// "ijsland" are the same word.
 var folded = map[rune]string{
 	'ø': "o", 'đ': "d", 'ð': "d", 'ł': "l", 'ħ': "h", 'ŧ': "t", 'ı': "i",
-	'ß': "ss", 'æ': "ae", 'œ': "oe",
+	'ß': "ss", 'æ': "ae", 'œ': "oe", 'ĳ': "ij",
 }
 
 // stripFormat removes every Unicode format character (category Cf): zero
@@ -102,7 +105,9 @@ func cleanText(s string) string {
 // decomposed (NFD) and stripped of every combining mark, so any diacritic goes
 // and NFC and NFD spellings agree ("México" == "mexico", "Ắng" == "ang",
 // "ü" -> "u"). A few letters that do not decompose are folded too (ø, đ, ð,
-// ł, ...).
+// ł, ...), among them the Dutch ligature ĳ / Ĳ, which becomes "ij" in every
+// language ("Ĳsland" == "IJsland" == "ijsland"; "ij" is two letters, so an
+// answer that starts with it starts with "i", never with "y").
 //
 // In Spanish lobbies "ñ" is a letter of its own and is kept; in every other
 // language it folds to "n".

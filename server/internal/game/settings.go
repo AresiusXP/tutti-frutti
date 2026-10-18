@@ -126,14 +126,15 @@ func (s Settings) Labels() []string {
 	return out
 }
 
-// builtinLabels maps the normalized form of every built-in label, in both
-// languages, to the label shown in lang.
+// builtinLabels maps the normalized form of every built-in label, in every
+// language, to the label shown in lang.
 func builtinLabels(lang Lang) map[string]string {
 	out := map[string]string{}
 	for _, c := range catalog.All() {
 		shown := catalog.Label(c, string(lang))
-		out[Normalize(c.ES, lang)] = shown
-		out[Normalize(c.EN, lang)] = shown
+		for _, l := range Langs() {
+			out[Normalize(catalog.Label(c, string(l)), lang)] = shown
+		}
 	}
 	return out
 }

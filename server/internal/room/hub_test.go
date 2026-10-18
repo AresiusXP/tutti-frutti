@@ -240,7 +240,9 @@ func TestCreateLang(t *testing.T) {
 		{"empty means the default", "", game.DefaultSettings().Lang},
 		{"es", game.LangES, game.LangES},
 		{"en", game.LangEN, game.LangEN},
+		{"nl", game.LangNL, game.LangNL},
 		{"unknown falls back to the default", "fr", game.DefaultSettings().Lang},
+		{"upper case is unknown", "NL", game.DefaultSettings().Lang},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

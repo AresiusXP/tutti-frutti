@@ -212,7 +212,7 @@ func (c *client) trySend(t string, d any) error {
 	return c.writeRaw(b)
 }
 
-// send writes one client frame {"t":t,"v":1,"d":d}.
+// send writes one client frame {"t":t,"v":protocol.Version,"d":d}.
 func (c *client) send(t string, d any) {
 	c.t.Helper()
 	if err := c.trySend(t, d); err != nil {
