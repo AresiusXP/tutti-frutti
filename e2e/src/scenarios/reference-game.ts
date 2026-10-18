@@ -15,10 +15,14 @@ import {
 import type { Locale } from '../messages';
 import { ROOM_CODE } from '../pages/home';
 import type { Player } from '../player';
-import { CLASSIC_CATEGORIES } from '../rules';
+import { CLASSIC_CATEGORIES, playableLetters } from '../rules';
 
 /** The exact words of the Basta call, written out (not read from the message files) on purpose. */
-const OVERLAY: Record<Locale, string> = { es: '¡Basta para mí, basta para todos!', en: 'Stop!' };
+const OVERLAY: Record<Locale, string> = {
+	es: '¡Basta para mí, basta para todos!',
+	en: 'Stop!',
+	nl: 'Stop!'
+};
 
 export type PhaseName = 'lobby' | 'letter' | 'playing' | 'grace' | 'review' | 'summary' | 'final';
 
@@ -30,12 +34,13 @@ export interface ReferenceGameOptions {
 /**
  * The reference game: three players, every phase, every number checked against a hand-computed
  * table. The UI language is `locale`; a room created from a Spanish UI is a Spanish lobby (the
- * six "Clásicas" categories), from an English UI an English one.
+ * six "Clásicas" categories), from an English UI an English one, from a Dutch UI a Dutch one
+ * ("Klassiekers").
  *
  *   category      Ana    Beto   Caro      points (Ana, Beto, Caro)
  *   0 first       Laaa   Laaa   Lbbb      5  5  10   (then Beto and Caro reject Ana's: 0 10 10)
  *   1 second      own    own    own       10 10 10
- *   2 third       Lccc   Lccc   Lccc      5  5  5
+ *   2 third       Lccc   Lccc   Lccc      5  5  5   (Dutch: Lĳst, Lijst, LIJST: the ligature is "ij")
  *   3 fourth      Lddd   Leee   Lddd      5  10 5
  *   4 fifth       Lfff   -      Lggg      10 0  10
  *   5 sixth       own    own    own       10 10 10
@@ -86,7 +91,7 @@ export async function playReferenceGame(
 		for (const guest of [beto, caro]) {
 			await expect(guest.lobby.chips).toHaveText([
 				guest.t(`lobby_lang_${locale}`),
-				guest.t('lobby_summary_hard_on', { count: 20 }),
+				guest.t('lobby_summary_hard_on', { count: playableLetters(locale, true).length }),
 				guest.t('lobby_summary_rounds', { n: 2 }),
 				guest.t('lobby_summary_time_off')
 			]);
@@ -117,20 +122,32 @@ export async function playReferenceGame(
 	});
 
 	const L = letter1;
+	// Dutch: the third category is written three ways that are the same word (the ligature ĳ, "ij", capitals)
+	const third =
+		locale === 'nl'
+			? { Ana: `${L}ĳst`, Beto: `${L}ijst`, Caro: `${L}IJST` }
+			: { Ana: `${L}ccc`, Beto: `${L}ccc`, Caro: `${L}ccc` };
 	const answers: Record<string, (string | null)[]> = {
 		Ana: [
 			`${L}aaa`,
 			answerFor(L, 'Ana', 1),
-			`${L}ccc`,
+			third.Ana,
 			`${L}ddd`,
 			`${L}fff`,
 			answerFor(L, 'Ana', 5)
 		],
-		Beto: [`${L}aaa`, answerFor(L, 'Beto', 1), `${L}ccc`, `${L}eee`, null, answerFor(L, 'Beto', 5)],
+		Beto: [
+			`${L}aaa`,
+			answerFor(L, 'Beto', 1),
+			third.Beto,
+			`${L}eee`,
+			null,
+			answerFor(L, 'Beto', 5)
+		],
 		Caro: [
 			`${L}bbb`,
 			answerFor(L, 'Caro', 1),
-			`${L}ccc`,
+			third.Caro,
 			`${L}ddd`,
 			`${L}ggg`,
 			answerFor(L, 'Caro', 5)
@@ -169,6 +186,14 @@ export async function playReferenceGame(
 		for (const [i, label] of categories.entries()) {
 			if (i > 0) await ana.review.next.click();
 			for (const p of everyone) await p.review.expectCategory(label, i + 1, 6);
+			if (locale === 'nl' && i === 2) {
+				for (const p of everyone) {
+					for (const name of ['Ana', 'Beto', 'Caro'] as const) {
+						await p.review.expectAnswer(name, third[name]); // shown as typed ...
+						await p.review.expectPoints(name, 5); // ... and counted as one answer, shared by three
+					}
+				}
+			}
 		}
 		await expect(ana.review.next).toBeDisabled();
 		await expect(beto.review.next).toHaveCount(0);

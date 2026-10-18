@@ -96,7 +96,7 @@ export class HomePage extends PageObject {
 		await this.joinButton.click();
 	}
 
-	/** Presses ES / EN; from now on the player's labels are looked up in the new language. */
+	/** Presses ES / EN / NL; from now on the player's labels are looked up in the new language. */
 	async switchLanguage(locale: Locale): Promise<void> {
 		const label = locale.toUpperCase();
 		const current = this.page.getByRole('group', { name: this.t('language_label'), exact: true });

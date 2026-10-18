@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import { BASE_URL, ORIGIN } from './env';
 
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 
 /**
  * A cheap player without a browser: its own guest cookie and one WebSocket that joins a room.

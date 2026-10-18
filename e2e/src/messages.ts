@@ -6,10 +6,10 @@ import { WEB_DIR } from './env';
  * The REAL message files of the web app (`web/messages/**`), so that the labels the suite
  * looks for can never drift from what the app renders. `{param}` templates are compiled here.
  */
-export type Locale = 'es' | 'en';
+export type Locale = 'es' | 'en' | 'nl';
 export type Params = Record<string, string | number>;
 
-export const LOCALE_TAGS: Record<Locale, string> = { es: 'es-AR', en: 'en-US' };
+export const LOCALE_TAGS: Record<Locale, string> = { es: 'es-AR', en: 'en-US', nl: 'nl-NL' };
 
 const catalogs = new Map<Locale, Record<string, string>>();
 
@@ -85,9 +85,6 @@ export function msgPattern(
 		.join('');
 	return new RegExp(partial ? source : `^${source}$`);
 }
-
-/** Every Spanish-only character: none of them may ever appear on an English screen. */
-export const SPANISH_CHARS = /[¡¿ñÑáéíóúüÁÉÍÓÚÜ]/u;
 
 export function t(locale: Locale) {
 	return (key: string, params?: Params) => msg(locale, key, params);

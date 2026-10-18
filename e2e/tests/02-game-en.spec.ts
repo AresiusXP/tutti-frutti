@@ -1,5 +1,5 @@
 import { test } from '../src/fixtures';
-import { expectEnglishOnly } from '../src/english-only';
+import { expectEnglishOnly } from '../src/no-spanish';
 import { playReferenceGame } from '../src/scenarios/reference-game';
 
 test('the same game in English says "Stop!" and shows no Spanish anywhere', async ({ app }) => {

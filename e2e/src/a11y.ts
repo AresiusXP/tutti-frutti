@@ -21,8 +21,9 @@ export const KNOWN_VIOLATIONS: Known[] = [
 	},
 	{
 		rule: 'label-content-name-mismatch',
-		target: /^button\[aria-label="(No time limit|Sin límite de tiempo|\d+ (seconds|segundos))"\]$/,
-		why: 'TODO(web, lobby Segmented): the time-limit buttons show "60 s" / "Libre" but are named "60 segundos" / "Sin límite de tiempo" (WCAG 2.5.3). Fix: put the visible text in the name ("60 s", "Libre — sin límite de tiempo") or drop the aria-label.'
+		target:
+			/^button\[aria-label="(No time limit|Sin límite de tiempo|Geen tijdslimiet|\d+ (seconds|segundos|seconden))"\]$/,
+		why: 'TODO(web, lobby Segmented): the time-limit buttons show "60 s" / "Libre" (Dutch: "Uit") but are named "60 segundos" / "Sin límite de tiempo" (Dutch: "60 seconden" / "Geen tijdslimiet"; WCAG 2.5.3). Fix: put the visible text in the name ("60 s", "Libre — sin límite de tiempo") or drop the aria-label.'
 	},
 	{
 		rule: 'label-content-name-mismatch',

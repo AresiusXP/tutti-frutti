@@ -1,5 +1,5 @@
 import { expectAccessible } from '../src/a11y';
-import { expectEnglishOnly } from '../src/english-only';
+import { expectDutchOnly, expectEnglishOnly } from '../src/no-spanish';
 import { expect, test } from '../src/fixtures';
 
 /**
@@ -63,6 +63,39 @@ test.describe('the safety nets', () => {
 		const ben = await app.player('Ben', { locale: 'en' });
 		await ben.home.open();
 		await expectEnglishOnly([ben], 'home');
+	});
+
+	test('the Dutch check fails on a Spanish screen and passes on a Dutch one', async ({ app }) => {
+		const ana = await app.player('Ana', { locale: 'es' });
+		await ana.home.open();
+		await expect(expectDutchOnly([ana], 'home')).rejects.toThrow();
+
+		const daan = await app.player('Daan', { locale: 'nl' });
+		await daan.home.open();
+		await expectDutchOnly([daan], 'home');
+
+		// Dutch spells ë, é, ï: only what Dutch does not have is Spanish
+		await daan.page.evaluate(() =>
+			document.body.insertAdjacentHTML(
+				'beforeend',
+				'<p>Categorieën, één café, reünie, coöperatie</p>'
+			)
+		);
+		await expectDutchOnly([daan], 'home with Dutch accents');
+
+		// each kind of leak is caught by itself (the language of the page is still right)
+		for (const leak of ['¿Dónde está?', 'Mañana', '¡Hola!', 'Basta ya']) {
+			await daan.page.evaluate(
+				(text) => document.body.insertAdjacentHTML('beforeend', `<p id="leak">${text}</p>`),
+				leak
+			);
+			await expect(expectDutchOnly([daan], 'home with a leak'), leak).rejects.toThrow(
+				/Spanish text on Daan's home with a leak screen/
+			);
+			await daan.page.evaluate(() => document.getElementById('leak')?.remove());
+		}
+		await daan.page.evaluate(() => document.documentElement.setAttribute('lang', 'es'));
+		await expect(expectDutchOnly([daan], 'home with the wrong lang')).rejects.toThrow(/lang/);
 	});
 
 	test('the accessibility check fails on a serious violation', async ({ app }) => {

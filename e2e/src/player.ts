@@ -12,6 +12,11 @@ export type ScreenName = 'lobby' | 'letter' | 'playing' | 'review' | 'summary' |
 
 export interface PlayerOptions {
 	locale?: Locale;
+	/**
+	 * The browser's own language tag (`navigator.language`, `Accept-Language`) when it should not be the
+	 * default one of `locale` (es-AR, en-US, nl-NL): the first-visit language detection specs.
+	 */
+	browserLanguage?: string;
 	avatar?: AvatarChoice;
 	/** Proxy the room WebSocket so the connection can be dropped on demand (`player.network`). */
 	network?: boolean;

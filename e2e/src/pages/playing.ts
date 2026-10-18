@@ -36,6 +36,70 @@ export class LetterPage extends PageObject {
 			.getByRole('list', { name: this.t('play_used_letters'), exact: true })
 			.getByRole('listitem');
 	}
+
+	/**
+	 * Records, on the page's own clock, when the letter screen shows up. Call BEFORE the screen can
+	 * appear (before the host starts the game / the next round), then `stopAfter`.
+	 */
+	async watchArrival(): Promise<void> {
+		await this.page.evaluate((label) => {
+			const w = window as unknown as LetterClockWindow;
+			w.__tfLetterObserver?.disconnect();
+			w.__tfLetterAt = undefined;
+			const check = () => {
+				if (w.__tfLetterAt !== undefined) return;
+				const shown = [...document.querySelectorAll('main')].some(
+					(main) => main.getAttribute('aria-label') === label
+				);
+				if (shown) w.__tfLetterAt = performance.now();
+			};
+			w.__tfLetterObserver = new MutationObserver(check);
+			w.__tfLetterObserver.observe(document.documentElement, {
+				childList: true,
+				subtree: true,
+				attributes: true,
+				attributeFilter: ['aria-label']
+			});
+			check();
+		}, this.t('play_letter_screen'));
+	}
+
+	/**
+	 * Taps Stop `afterMs` after the letter screen appeared (see `watchArrival`). The wait and the tap
+	 * run inside the page, so the test's own scheduling cannot add jitter: the server derives the letter
+	 * from the time between the start of the round and the tap, and every letter lasts only 120 ms.
+	 */
+	async stopAfter(afterMs: number): Promise<void> {
+		await this.page.evaluate(
+			({ afterMs, stop }) =>
+				new Promise<void>((resolve, reject) => {
+					const w = window as unknown as LetterClockWindow;
+					const shownAt = w.__tfLetterAt;
+					if (shownAt === undefined) return reject(new Error('watchArrival() was not called'));
+					const button = [...document.querySelectorAll('button')].find(
+						(b) => b.textContent?.trim() === stop
+					);
+					if (!button) return reject(new Error(`no "${stop}" button on the screen`));
+					const due = shownAt + afterMs;
+					const tap = () => {
+						while (performance.now() < due) {
+							// spin the last few milliseconds: timers are not that exact
+						}
+						button.click();
+						resolve();
+					};
+					const early = due - performance.now() - 5;
+					if (early > 0) setTimeout(tap, early);
+					else tap();
+				}),
+			{ afterMs, stop: this.t('letter_stop') }
+		);
+	}
+}
+
+interface LetterClockWindow {
+	__tfLetterAt?: number;
+	__tfLetterObserver?: MutationObserver;
 }
 
 interface SplashWindow {

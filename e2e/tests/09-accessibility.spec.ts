@@ -6,10 +6,10 @@ import type { Locale } from '../src/messages';
 test.describe.configure({ mode: 'parallel' });
 
 /**
- * A small smoke, not an audit: axe on the screens a player spends the game on, in both languages.
+ * A small smoke, not an audit: axe on the screens a player spends the game on, in each screen language.
  * Reduced motion so entrance animations cannot skew the contrast checks.
  */
-for (const locale of ['es', 'en'] as Locale[]) {
+for (const locale of ['es', 'en', 'nl'] as Locale[]) {
 	test(`no serious accessibility violations on the main screens (${locale})`, async ({ app }) => {
 		const ana = await app.player('Ana', { locale, reducedMotion: true });
 		const beto = await app.player('Beto', { locale, reducedMotion: true });

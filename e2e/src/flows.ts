@@ -70,6 +70,14 @@ export async function chooserStops(
 	everyone: Player[],
 	{ delayMs = 0 }: { delayMs?: number } = {}
 ): Promise<Player> {
+	const chooser = await findChooser(everyone);
+	if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+	await chooser.letter.stop();
+	await Promise.all(everyone.map((p) => p.expectScreen('playing')));
+	return chooser;
+}
+
+async function findChooser(everyone: Player[]): Promise<Player> {
 	await expect
 		.poll(
 			async () =>
@@ -81,8 +89,18 @@ export async function chooserStops(
 	const flags = await Promise.all(everyone.map((p) => p.letter.stopButton.isVisible()));
 	const chooser = everyone[flags.indexOf(true)];
 	if (!chooser) throw new Error('nobody can stop the letter');
-	if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
-	await chooser.letter.stop();
+	return chooser;
+}
+
+/**
+ * The chooser taps Stop `afterMs` after the letter screen appeared on THEIR phone, timed inside the
+ * page (`everyone` must have called `letter.watchArrival()` before the round started). That is how a
+ * test aims at one letter: the server shows `letters[floor(elapsed / 120 ms) mod n]`. Leave at least
+ * ~700 ms: finding the chooser takes a moment.
+ */
+export async function chooserStopsAfter(everyone: Player[], afterMs: number): Promise<Player> {
+	const chooser = await findChooser(everyone);
+	await chooser.letter.stopAfter(afterMs);
 	await Promise.all(everyone.map((p) => p.expectScreen('playing')));
 	return chooser;
 }
@@ -114,19 +132,17 @@ export async function bastaBy(caller: Player, others: Player[]): Promise<void> {
 }
 
 /**
- * A fast round for tests that only need to get through it: the chooser stops, the caller writes
- * unique answers in every field and calls Basta, the host skips through the review and
- * lands on the summary. Returns the letter played.
+ * The rest of a fast round for tests that only need to get through it: the caller writes unique
+ * answers in every field and calls Basta, the host skips through the review and lands on the
+ * summary. Starts on the playing screen. Returns the letter played.
  */
-export async function quickRound(opts: {
+export async function playOutRound(opts: {
 	host: Player;
 	everyone: Player[];
 	caller: Player;
 	fields: number;
-	delayMs?: number;
-}): Promise<{ letter: string; round: number; chooser: Player }> {
-	const { host, everyone, caller, fields, delayMs } = opts;
-	const chooser = await chooserStops(everyone, { delayMs });
+}): Promise<{ letter: string; round: number }> {
+	const { host, everyone, caller, fields } = opts;
 	const { letter, round } = await caller.playing.roundInfo();
 	await fillAnswers(caller, uniqueAnswers(letter, caller, fields));
 	const others = everyone.filter((p) => p !== caller);
@@ -134,5 +150,17 @@ export async function quickRound(opts: {
 	await Promise.all(everyone.map((p) => p.expectScreen('review')));
 	await host.review.finish({ anyway: true });
 	await Promise.all(everyone.map((p) => p.expectScreen('summary')));
-	return { letter, round, chooser };
+	return { letter, round };
+}
+
+/** A whole fast round: the chooser stops (after `delayMs`), then `playOutRound`. */
+export async function quickRound(opts: {
+	host: Player;
+	everyone: Player[];
+	caller: Player;
+	fields: number;
+	delayMs?: number;
+}): Promise<{ letter: string; round: number; chooser: Player }> {
+	const chooser = await chooserStops(opts.everyone, { delayMs: opts.delayMs });
+	return { ...(await playOutRound(opts)), chooser };
 }

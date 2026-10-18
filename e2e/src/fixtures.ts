@@ -66,7 +66,7 @@ export class App {
 	async player(name: string, options: PlayerOptions = {}): Promise<Player> {
 		const locale = options.locale ?? 'es';
 		const context = await this.browser.newContext({
-			locale: LOCALE_TAGS[locale],
+			locale: options.browserLanguage ?? LOCALE_TAGS[locale],
 			timezoneId: 'America/Argentina/Buenos_Aires',
 			permissions: [],
 			...(options.reducedMotion ? { reducedMotion: 'reduce' as const } : {})
