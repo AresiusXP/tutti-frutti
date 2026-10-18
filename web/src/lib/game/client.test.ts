@@ -159,6 +159,56 @@ describe('derived state', () => {
 	});
 });
 
+describe('vote to stop', () => {
+	const stopVote = {
+		callerId: 'p2',
+		endsAt: '2026-03-01T12:00:15Z',
+		voters: ['p1'],
+		yes: []
+	};
+
+	it('keeps the open vote of the state (and drops it with the next state)', async () => {
+		const h = await connected({}, playingView(['', '', '']));
+		const view = playingView(['', '', '']);
+		view.round!.stopVote = stopVote;
+		h.sock().state(view);
+		expect(h.session.view?.round?.stopVote).toEqual(stopVote);
+		h.sock().state(playingView(['', '', '']));
+		expect(h.session.view?.round?.stopVote).toBeUndefined();
+	});
+
+	it('records stop_asked and stop_rejected like any event, and survives an unknown one', async () => {
+		const h = await connected({}, playingView(['', '', '']));
+		h.sock().receive('event', { type: 'stop_asked', playerId: 'p2', name: 'Beto' });
+		h.sock().receive('event', {
+			type: 'stop_rejected',
+			playerId: 'p2',
+			name: 'Beto',
+			reason: 'declined'
+		});
+		h.sock().receive('event', { type: 'something_from_the_future', playerId: 'p2' });
+		expect(h.session.events.map((e) => e.type)).toEqual([
+			'stop_asked',
+			'stop_rejected',
+			'something_from_the_future'
+		]);
+		expect(h.session.events[1]).toMatchObject({ playerId: 'p2', reason: 'declined' });
+		expect(h.session.status).toBe('connected');
+		expect(h.session.closedReason).toBeNull();
+	});
+
+	it.each(['stop_vote_disabled', 'stop_vote_pending', 'no_stop_vote', 'stop_not_needed'])(
+		'reports the %s error of the command it answers',
+		async (code) => {
+			const h = await connected({}, playingView(['', '', '']));
+			h.session.askStop();
+			h.sock().receive('error', { code, ref: 'ask_stop' });
+			expect(h.session.lastError).toMatchObject({ code, ref: 'ask_stop' });
+			expect(h.session.status).toBe('connected');
+		}
+	);
+});
+
 describe('events', () => {
 	it('keeps the last 20 with local seq and arrival time', async () => {
 		const h = await connected();
@@ -703,6 +753,9 @@ describe('commands', () => {
 		['startGame', (h) => h.session.startGame(), 'start_game', undefined],
 		['stopLetter', (h) => h.session.stopLetter(), 'stop_letter', undefined],
 		['basta', (h) => h.session.basta(), 'basta', undefined],
+		['askStop', (h) => h.session.askStop(), 'ask_stop', undefined],
+		['voteStop yes', (h) => h.session.voteStop(true), 'vote_stop', { yes: true }],
+		['voteStop no', (h) => h.session.voteStop(false), 'vote_stop', { yes: false }],
 		[
 			'voteReject',
 			(h) => h.session.voteReject(2, 'p2'),
@@ -915,6 +968,35 @@ describe('answers', () => {
 		await h.advance(500);
 		expect(h.sock().raw).toHaveLength(before + 3);
 		expect(h.sock().types.filter((t) => t === 'basta')).toHaveLength(1);
+	});
+
+	it('askStop() flushes pending answers first, like basta, and is sent once', async () => {
+		const h = await connected({}, playingView(['', '', '']));
+		h.session.setAnswer(0, 'F');
+		h.session.setAnswer(0, 'Fa');
+		h.session.setAnswer(2, 'Fo');
+		h.session.setAnswer(2, 'Foc');
+		const before = h.sock().raw.length;
+		h.session.askStop();
+		const frames = h.sock().frames.slice(before);
+		expect(frames.map((f) => f.t)).toEqual(['set_answer', 'set_answer', 'ask_stop']);
+		expect(frames.slice(0, 2).map((f) => f.d)).toEqual([
+			{ category: 0, text: 'Fa' },
+			{ category: 2, text: 'Foc' }
+		]);
+		await h.advance(500);
+		expect(h.sock().types.filter((t) => t === 'ask_stop')).toHaveLength(1);
+	});
+
+	it('askStop() and voteStop() offline report not_connected and send nothing', async () => {
+		const h = await connected({}, playingView(['', '', '']));
+		h.sock().serverClose(1006);
+		const sent = h.sockets[0].raw.length;
+		h.session.askStop();
+		expect(h.session.lastError).toMatchObject({ code: 'not_connected', ref: 'ask_stop' });
+		h.session.voteStop(true);
+		expect(h.session.lastError).toMatchObject({ code: 'not_connected', ref: 'vote_stop' });
+		expect(h.sockets[0].raw).toHaveLength(sent);
 	});
 
 	it('other commands are not delayed by answer throttling', async () => {

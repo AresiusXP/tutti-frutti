@@ -5,7 +5,7 @@
  *   const v = makeView({ youId: 'p1', hostId: 'p1', players: [player('p1','Ana'), player('p2','Beto')] });
  *   const playing = makeView({ phase: 'playing', round: makeRound({ letter: 'F' }) });
  */
-import type { Phase, Player, RoundView, Settings, View } from '$lib/protocol';
+import type { Phase, Player, RoundView, Settings, StopVoteView, View } from '$lib/protocol';
 
 export const DEFAULT_CATEGORY_IDS = ['nombre', 'pais', 'animal', 'comida', 'color', 'marca'];
 export const DEFAULT_CATEGORY_LABELS = ['Nombre', 'País', 'Animal', 'Comida', 'Color', 'Marca'];
@@ -32,6 +32,18 @@ export function makeSettings(over: Partial<Settings> = {}): Settings {
 		rounds: 5,
 		categories: DEFAULT_CATEGORY_IDS.map((id) => ({ id })),
 		timeLimitSeconds: 0,
+		stopVote: true,
+		...over
+	};
+}
+
+/** An open vote to stop (`round.stopVote`); `voters` default to everybody connected but the asker. */
+export function makeStopVote(over: Partial<StopVoteView> = {}): StopVoteView {
+	return {
+		callerId: 'p1',
+		endsAt: '2026-01-01T12:00:15Z',
+		voters: ['p2', 'p3'],
+		yes: [],
 		...over
 	};
 }

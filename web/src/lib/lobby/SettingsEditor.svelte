@@ -15,6 +15,7 @@
 		withExcludeHard,
 		withLang,
 		withRounds,
+		withStopVote,
 		withTimeLimit
 	} from './settings';
 
@@ -186,6 +187,35 @@
 			onchange={(seconds) => onchange(withTimeLimit(settings, seconds))}
 		/>
 	</div>
+
+	<button
+		type="button"
+		role="switch"
+		aria-checked={settings.stopVote}
+		aria-labelledby="stop-label"
+		aria-describedby="stop-desc"
+		onclick={() => onchange(withStopVote(settings, !settings.stopVote))}
+		class="flex min-h-14 items-center gap-3 rounded-2xl bg-night px-3 py-2 text-left ring-2 ring-night-3"
+	>
+		<span class="flex min-w-0 flex-1 flex-col">
+			<span id="stop-label" class="font-extrabold">{m.lobby_stop_label()}</span>
+			<span id="stop-desc" class="text-sm text-cream-muted">
+				{settings.stopVote ? m.lobby_stop_on() : m.lobby_stop_off()}
+			</span>
+		</span>
+		<span
+			aria-hidden="true"
+			class="relative h-8 w-14 shrink-0 rounded-full transition-colors {settings.stopVote
+				? 'bg-lime'
+				: 'bg-night-3'}"
+		>
+			<span
+				class="absolute top-1 size-6 rounded-full bg-cream shadow transition-all {settings.stopVote
+					? 'left-7'
+					: 'left-1'}"
+			></span>
+		</span>
+	</button>
 
 	<div class="flex flex-col gap-2">
 		<div class="flex items-baseline justify-between gap-2 px-1">

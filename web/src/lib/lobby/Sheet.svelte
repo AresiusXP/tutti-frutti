@@ -5,7 +5,9 @@
 	/**
 	 * Modal bottom sheet: `role="dialog"` + `aria-modal`, focus trapped inside,
 	 * Escape / backdrop / close button dismiss it, focus returns to whatever
-	 * opened it, and the page behind does not scroll.
+	 * opened it, and the page behind does not scroll. `role="alertdialog"` is for
+	 * short confirmations: `initialFocus` (a selector inside the panel) picks the
+	 * safe button to start on and `describedby` points at the text it explains.
 	 */
 	interface Props {
 		title: string;
@@ -14,8 +16,22 @@
 		footer?: Snippet;
 		/** `full` fills the screen (the category picker); `sheet` hugs its content. */
 		size?: 'sheet' | 'full';
+		role?: 'dialog' | 'alertdialog';
+		/** Id of the element that describes the dialog (alert dialogs). */
+		describedby?: string;
+		/** CSS selector, inside the panel, of the element that gets the focus first. */
+		initialFocus?: string;
 	}
-	let { title, onclose, children, footer, size = 'sheet' }: Props = $props();
+	let {
+		title,
+		onclose,
+		children,
+		footer,
+		size = 'sheet',
+		role = 'dialog',
+		describedby,
+		initialFocus
+	}: Props = $props();
 
 	const titleId = `sheet-title-${Math.random().toString(36).slice(2, 8)}`;
 	let panel = $state<HTMLElement>();
@@ -59,7 +75,11 @@
 		const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		const overflow = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
-		(focusables()[0] ?? panel)?.focus();
+		(
+			(initialFocus ? panel?.querySelector<HTMLElement>(initialFocus) : null) ??
+			focusables()[0] ??
+			panel
+		)?.focus();
 		return () => {
 			document.body.style.overflow = overflow;
 			if (opener?.isConnected) opener.focus();
@@ -78,9 +98,10 @@
 >
 	<div
 		bind:this={panel}
-		role="dialog"
+		{role}
 		aria-modal="true"
 		aria-labelledby={titleId}
+		aria-describedby={describedby}
 		tabindex="-1"
 		class="flex w-full max-w-md animate-bounce-in flex-col rounded-t-3xl bg-night-2 shadow-pop ring-1 ring-night-3 outline-none {size ===
 		'full'
@@ -88,12 +109,12 @@
 			: 'max-h-[92dvh]'}"
 	>
 		<div class="flex items-center justify-between gap-2 pt-2 pr-2 pl-5">
-			<h2 id={titleId} class="text-xl font-black">{title}</h2>
+			<h2 id={titleId} class="min-w-0 text-xl font-black">{title}</h2>
 			<button
 				type="button"
 				aria-label={m.lobby_close()}
 				onclick={onclose}
-				class="flex size-12 items-center justify-center rounded-xl text-xl text-cream-muted hover:text-cream"
+				class="flex size-12 shrink-0 items-center justify-center rounded-xl text-xl text-cream-muted hover:text-cream"
 			>
 				<span aria-hidden="true">✕</span>
 			</button>

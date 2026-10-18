@@ -41,9 +41,18 @@ export const scenarios: Record<string, Scenario> = {
 	'lobby-host-slow-server': scenario(() => ({}), { server: { latencyMs: 1200 } }),
 	'lobby-host-rejected': scenario(() => ({}), { server: { rejectSettings: true } }),
 	'lobby-guest': scenario(() => ({ you: 'p2', settings: { timeLimitSeconds: 90 } })),
+	'lobby-host-stopvote-off': scenario(() => ({ settings: { stopVote: false } })),
+	'lobby-guest-stopvote-off': scenario(() => ({
+		you: 'p2',
+		settings: { timeLimitSeconds: 90, stopVote: false }
+	})),
 	'lobby-full': scenario(() => ({ players: 10 })),
 	'lobby-english': scenario(() => ({
 		settings: { lang: 'en', rounds: 0, timeLimitSeconds: 120 }
+	})),
+	'lobby-english-guest': scenario(() => ({
+		you: 'p2',
+		settings: { lang: 'en', timeLimitSeconds: 90 }
 	})),
 	'lobby-dutch': scenario(() => ({
 		settings: { lang: 'nl', rounds: 0, timeLimitSeconds: 120 }

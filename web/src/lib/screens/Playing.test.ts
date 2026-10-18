@@ -25,6 +25,8 @@ interface Setup {
 	mine?: string[];
 	round?: Partial<RoundView>;
 	players?: Player[];
+	/** These tests cover the classic rules (Basta only with everything filled); `StopVote.test.ts` the vote. */
+	stopVote?: boolean;
 }
 
 function makePlayers(): Player[] {
@@ -41,7 +43,8 @@ function makePlayingView(setup: Setup = {}): View {
 	const settings = makeSettings({
 		lang,
 		rounds: 5,
-		categories: [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+		categories: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+		stopVote: setup.stopVote ?? false
 	});
 	const answers: Record<string, string[]> = {};
 	if (mine) answers[youId] = mine;

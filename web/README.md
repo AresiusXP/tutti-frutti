@@ -34,6 +34,7 @@ generated Paraglide module is not committed.
 ```bash
 npx vitest run src/lib/game          # network layer: fake WebSocket, fake fetch, fake timers
 npx vitest run src/lib/components "src/routes"   # gate, banner, closed screens, Home, room route
+npx vitest run src/lib/screens/StopVote.test.ts  # vote to stop: button matrix, sheet, banner, prompt, toasts, es/en/nl
 ```
 
 The network tests (`src/lib/game/*.test.ts`, helpers in `net.testkit.ts`) script a `FakeSocket`, a
@@ -67,7 +68,7 @@ src/lib/game/client.svelte.ts    WsRoomSession: WebSocket, join, reconnect, hear
 src/lib/game/backoff.ts          exponential backoff with full jitter
 src/lib/game/transport.ts        socket interface, wss URL, frame encode/decode
 src/lib/game/roomMark.ts         sessionStorage flag "this tab is in room X"
-src/lib/game/fake.svelte.ts      FakeSession: scriptable double for tests and the playground
+src/lib/game/fake.svelte.ts      FakeSession: scriptable double for tests and the playground (records askStop / voteStop too)
 src/lib/game/fixtures.ts         makeView / makeRound / player / makeSettings
 src/lib/api.ts                   REST client + typed ApiError
 src/lib/errors.ts                error code -> translated sentence (err_* messages)
@@ -127,8 +128,8 @@ Every attempt: `GET /api/session` (once per session; sets the guest cookie) → 
   coalesces bursts to at most one frame per category per 100 ms (server limit: 20 frames/s, burst
   40). Offline, the latest text is kept and flushed right after the next `state` that follows a
   join — unless it became stale (other round or phase, not a participant) or the server already has it.
-  `basta()` flushes pending answers first and is never delayed; every other command while not
-  connected sets `lastError = not_connected` and is dropped.
+  `basta()` and `askStop()` flush pending answers first and are never delayed; every other command while
+  not connected sets `lastError = not_connected` and is dropped.
 - `destroy()` (called by the route's `onDestroy`) closes the socket and clears every timer and
   listener; it does not leave the room (`leave()` does).
 
@@ -150,6 +151,42 @@ Every attempt: `GET /api/session` (once per session; sets the guest cookie) → 
    for `room_gone`, `kicked`, `left` and `join_rejected`.
 5. Every new `session.lastError` becomes a translated toast (`err_<code>`, fallback `err_unknown`);
    errors that end the session are not toasted, the closed screen says it.
+
+## Vote to stop (protocol 3)
+
+A player who has NOT filled every category can ask everyone to stop (lobby setting `stopVote`, on by
+default, switch in the lobby editor). The wire contract: commands `ask_stop` / `vote_stop {yes}`,
+`round.stopVote {callerId, endsAt, voters, yes}` (playing phase only), events `stop_asked` /
+`stop_rejected {reason: declined | timeout | ended}`, error codes `stop_vote_disabled`,
+`stop_vote_pending`, `no_stop_vote`, `stop_not_needed`. A passed vote is announced as the usual `basta`
+event (the asker is the caller). The UI is driven by **state** (`round.stopVote`); events only add the
+asker's toast.
+
+```
+src/lib/play/stopvote.ts            stopVoteInfo(view, participant): key, role (asker | voter | voted | onlooker), yes/total
+src/lib/play/StopConfirmSheet.svelte  "Ask everyone to stop?": role=alertdialog on lobby/Sheet (focus starts on "keep playing")
+src/lib/play/StopWaitBanner.svelte    the asker's banner (waiting, n of total, 15 s timer)
+src/lib/play/StopVotePrompt.svelte    the voters' NON-modal prompt (Yes, stop / No, keep going) and its "waiting (n/total)" state
+```
+
+Playing screen states (all in the sticky footer stack, above the main button, so they never hide a field;
+`Screen` publishes the footer height as `--footer-h` and the fields scroll clear of it):
+
+| Viewer                                                       | Main button (label `¡BASTA!` / `Stop!`)                                            | Extra                                                                                                                      |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| participant, online, everything valid                        | enabled, pulses, calls `basta` (as always)                                         | none                                                                                                                       |
+| participant, online, `stopVote` on, no vote, answers missing | enabled, secondary look (no pulse), hint "Te faltan 2 · tocá para pedir que paren" | tap → confirm sheet (missing / wrong counts, 15 s rule) → flush drafts, `askStop()`                                        |
+| `stopVote` off, or offline                                   | disabled with the old hint                                                         | none                                                                                                                       |
+| the asker, vote open                                         | disabled ("Seguí completando mientras esperás"); fields editable                   | banner "Esperando a los demás", `n de total`, live countdown from `endsAt` (server clock); toast on `declined` / `timeout` |
+| a voter who has not answered                                 | disabled unless everything is valid (then `basta` still works)                     | prompt "{name} pide parar. ¿Parar?" + countdown; assertive announcement + vibration (not with reduced motion)              |
+| a voter who said yes                                         | same                                                                               | "Esperando a los demás (n/total)"; "No" just removes the prompt                                                            |
+| spectator, or a participant outside the electorate           | none / disabled                                                                    | info line "{name} pidió parar…"                                                                                            |
+
+`askStop` / `voteStop` go through `OnceCommand` (a double tap sends one command; a new error for the
+command re-arms it; there is no cooldown after a failed vote). A reconnect clears the local choice: the
+next snapshot says whether the viewer already voted. Every `Settings` builder carries `stopVote`
+(`lobby/settings.ts`: `withStopVote`, `sameSettings`); an `update_settings` without it would turn the
+feature off.
 
 ## Accounts (Phase 4)
 
@@ -188,7 +225,17 @@ redirects home). Each area registers its scenarios in `src/lib/dev/scenarios.<ar
 `play-<name>` (Spanish lobby), `play-en-<name>`, `play-nl-<name>` (Dutch lobby: `play-nl-playing-ij` shows
 the IJ digraph), `review-*` / `summary-*` / `final-*` (Spanish lobby) and the same with an `-en` / `-nl`
 suffix, `lobby-english`, `lobby-dutch`,
-`lobby-dutch-guest`, `lobby-dutch-long` (the longest Dutch category labels).
+`lobby-dutch-guest`, `lobby-dutch-long` (the longest Dutch category labels), `lobby-english-guest`,
+`lobby-host-stopvote-off`, `lobby-guest-stopvote-off` (the vote-to-stop switch / chip off).
+
+Vote-to-stop scenarios (each exists as `play-`, `play-en-` and `play-nl-` + name): `stopvote-incomplete`
+(secondary button + hint), `stopvote-confirm` / `stopvote-confirm-wrong` / `stopvote-confirm-long` (the
+confirmation sheet, opened by itself), `stopvote-waiting` (asker, 1 of 3 yes), `stopvote-asker-long`,
+`stopvote-voter` (prompt), `stopvote-voter-long` (a very long Dutch name + the longest category labels),
+`stopvote-voted` (waiting 2/3), `stopvote-spectator`, `stopvote-offline`, `stopvote-off` (setting off),
+`stopvote-complete` (everything valid: plain Basta) and `live-stopvote-waiting` / `live-stopvote-voter`
+(real clock). The playground does not answer commands: a scenario that must start "tapped" sets
+`session.devTap` (a `data-testid`) and `/dev` clicks it once the screen is up.
 
 ## i18n (Paraglide JS)
 
@@ -236,6 +283,11 @@ literal (add a file to its allowlist only with a justification) or when an occur
 English and Dutch screens say only **"Stop!"** (`basta_button`, `basta_overlay`, `letter_stop`, no
 Spanish subtitle, no "Basta" anywhere); Spanish says **¡BASTA!**, "¡Basta para mí, basta para todos!"
 and "¡STOP!".
+
+The vote to stop is "pedir que paren" (es), "ask everyone to stop" (en) and "vraag iedereen om te stoppen" (nl);
+its messages live in `messages/play/` (`play_ask_*`, `play_vote_*`, `play_stop_*`, `play_hint_ask_*`),
+`messages/lobby/` (`lobby_stop_*`, `lobby_summary_stop_*`) and `messages/net/` (the four `err_*` codes).
+`StopVote.test.ts` and `messages.test.ts` fail on any Spanish character or the word "basta" in en/nl.
 
 ### Dutch (`nl`)
 

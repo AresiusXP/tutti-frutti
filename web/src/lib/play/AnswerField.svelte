@@ -37,7 +37,7 @@
 	}
 </script>
 
-<div class="flex scroll-mt-44 scroll-mb-36 flex-col gap-1">
+<div class="flex scroll-mt-44 scroll-mb-[calc(var(--footer-h,8rem)+1rem)] flex-col gap-1">
 	<div class="flex flex-wrap items-baseline justify-between gap-x-3 px-1">
 		<label for={id} class="text-base font-extrabold text-cream">{label}</label>
 		{#if status === 'wrong_letter'}
@@ -69,7 +69,7 @@
 		maxlength={MAX_ANSWER_LEN}
 		aria-invalid={status === 'wrong_letter' ? 'true' : undefined}
 		aria-describedby={status === 'empty' ? undefined : `${id}-status`}
-		class="h-14 w-full rounded-2xl border-2 bg-night-2 px-4 text-xl font-semibold text-cream placeholder:text-cream-muted disabled:opacity-60 {status ===
+		class="h-14 w-full scroll-mb-[calc(var(--footer-h,8rem)+1rem)] rounded-2xl border-2 bg-night-2 px-4 text-xl font-semibold text-cream placeholder:text-cream-muted disabled:opacity-60 {status ===
 		'valid'
 			? 'border-lime'
 			: status === 'wrong_letter'

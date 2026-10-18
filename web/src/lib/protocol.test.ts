@@ -15,6 +15,7 @@ import type {
 	RoundView,
 	State,
 	Status,
+	StopVoteView,
 	View
 } from './protocol';
 
@@ -46,6 +47,8 @@ const commands: Record<Cmd, true> = {
 	stop_letter: true,
 	set_answer: true,
 	basta: true,
+	ask_stop: true,
+	vote_stop: true,
 	vote_reject: true,
 	propose_merge: true,
 	vote_merge: true,
@@ -101,7 +104,8 @@ const lobbyState = {
 				{ id: 'marca' },
 				{ custom: 'Superhéroe' }
 			],
-			timeLimitSeconds: 0
+			timeLimitSeconds: 0,
+			stopVote: true
 		},
 		categoryLabels: ['Nombre', 'País', 'Animal', 'Comida', 'Color', 'Marca', 'Superhéroe'],
 		usedLetters: [],
@@ -111,8 +115,22 @@ const lobbyState = {
 } satisfies State;
 
 describe('protocol constants', () => {
-	it('is protocol version 2 (Dutch lobbies)', () => {
-		expect(proto.Version).toBe(2);
+	it('is protocol version 3 (vote to stop)', () => {
+		expect(proto.Version).toBe(3);
+	});
+
+	it('has the vote-to-stop constants', () => {
+		expect(proto.CmdAskStop).toBe('ask_stop');
+		expect(proto.CmdVoteStop).toBe('vote_stop');
+		expect(proto.EventStopAsked).toBe('stop_asked');
+		expect(proto.EventStopRejected).toBe('stop_rejected');
+		expect(proto.StopVoteDuration).toBe(15_000);
+		expect([
+			proto.CodeStopVoteDisabled,
+			proto.CodeStopVotePending,
+			proto.CodeNoStopVote,
+			proto.CodeStopNotNeeded
+		]).toEqual(['stop_vote_disabled', 'stop_vote_pending', 'no_stop_vote', 'stop_not_needed']);
 	});
 
 	it('has the WebSocket close codes', () => {
@@ -173,6 +191,8 @@ describe('protocol constants', () => {
 			proto.CmdStopLetter,
 			proto.CmdSetAnswer,
 			proto.CmdBasta,
+			proto.CmdAskStop,
+			proto.CmdVoteStop,
 			proto.CmdVoteReject,
 			proto.CmdProposeMerge,
 			proto.CmdVoteMerge,
@@ -193,6 +213,8 @@ describe('protocol constants', () => {
 			proto.EventRoundStarted,
 			proto.EventLetterRevealed,
 			proto.EventBasta,
+			proto.EventStopAsked,
+			proto.EventStopRejected,
 			proto.EventTimeUp,
 			proto.EventRoundLocked,
 			proto.EventRoundScored,
@@ -208,6 +230,8 @@ describe('protocol constants', () => {
 			'round_started',
 			'letter_revealed',
 			'basta',
+			'stop_asked',
+			'stop_rejected',
 			'time_up',
 			'round_locked',
 			'round_scored',
@@ -294,6 +318,38 @@ describe('wire shapes', () => {
 		expect(playing.round?.callerId).toBeUndefined();
 		expect(playing.round?.graceEndsAt).toBeUndefined();
 		expect(playing.round?.timeLimitEndsAt).toBe('2026-10-18T12:03:00Z');
+	});
+
+	it('types the open vote to stop of a playing round and the events around it', () => {
+		const stopVote: StopVoteView = {
+			callerId: 'guest-ana',
+			endsAt: '2026-10-18T12:00:15Z',
+			voters: ['guest-beto'],
+			yes: []
+		};
+		const round: RoundView = {
+			number: 1,
+			letter: 'M',
+			participants: ['guest-ana', 'guest-beto'],
+			answers: {},
+			filled: {},
+			stopVote,
+			reviewCategory: 0,
+			rejectVotes: [],
+			proposals: []
+		};
+		const rejected = {
+			type: proto.EventStopRejected,
+			playerId: 'guest-ana',
+			name: 'Ana',
+			reason: 'declined'
+		} satisfies Event;
+		const vote = { yes: true } satisfies proto.VoteStop;
+		expect(round.stopVote?.voters).toEqual(['guest-beto']);
+		expect(lobbyState.view.settings.stopVote).toBe(true);
+		expect(rejected.reason).toBe('declined');
+		expect(JSON.stringify(vote)).toBe('{"yes":true}');
+		expect(JSON.stringify({} satisfies proto.AskStop)).toBe('{}');
 	});
 
 	it('types the frames of both directions', () => {

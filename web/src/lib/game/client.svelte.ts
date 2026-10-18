@@ -22,6 +22,7 @@ import {
 	CloseRoomClosed,
 	CloseServiceRestart,
 	CloseUnsupportedVersion,
+	CmdAskStop,
 	CmdBasta,
 	CmdEndGame,
 	CmdFinishReview,
@@ -38,6 +39,7 @@ import {
 	CmdUpdateSettings,
 	CmdVoteMerge,
 	CmdVoteReject,
+	CmdVoteStop,
 	CodeInternal,
 	CodeKicked,
 	ErrRateLimited,
@@ -68,7 +70,8 @@ import {
 	type UpdateSettings,
 	type View,
 	type VoteMerge,
-	type VoteReject
+	type VoteReject,
+	type VoteStop
 } from '$lib/protocol';
 import { Backoff } from './backoff';
 import type {
@@ -274,6 +277,15 @@ export class WsRoomSession implements RoomSession {
 		if (!this.#ready(CmdBasta)) return;
 		this.#flushAnswersNow();
 		this.#sendFrame(CmdBasta);
+	}
+	askStop() {
+		if (!this.#ready(CmdAskStop)) return;
+		this.#flushAnswersNow();
+		this.#sendFrame(CmdAskStop);
+	}
+	voteStop(yes: boolean) {
+		const d: VoteStop = { yes };
+		this.#command(CmdVoteStop, d);
 	}
 	voteReject(category: number, targetPlayer: string, withdraw?: boolean) {
 		const d: VoteReject =

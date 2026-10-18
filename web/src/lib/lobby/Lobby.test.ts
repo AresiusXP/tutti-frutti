@@ -210,6 +210,35 @@ describe('Lobby', () => {
 			expect(screen.getByText('Name')).toBeTruthy();
 		});
 
+		it('sees whether asking everyone to stop is allowed, read-only', () => {
+			const { unmount } = render(Lobby, { session: guest(makeSettings({ stopVote: true })) });
+			expect(screen.getByText('Se puede pedir que paren')).toBeTruthy();
+			expect(screen.queryByRole('switch')).toBeNull();
+			expect(screen.queryByText('Permitir pedir que paren')).toBeNull();
+			unmount();
+			render(Lobby, { session: guest(makeSettings({ stopVote: false })) });
+			expect(screen.getByText('Sin pedir que paren')).toBeTruthy();
+			expect(screen.queryByText('Se puede pedir que paren')).toBeNull();
+		});
+
+		it('sees it in English and Dutch', () => {
+			i18n.set('en');
+			const { unmount } = render(Lobby, { session: guest(makeSettings({ stopVote: true })) });
+			expect(screen.getByText('Can ask everyone to stop')).toBeTruthy();
+			unmount();
+			i18n.set('nl');
+			render(Lobby, { session: guest(makeSettings({ stopVote: false })) });
+			expect(screen.getByText('Vragen om te stoppen uit')).toBeTruthy();
+		});
+
+		it('follows the host turning it off', async () => {
+			const session = guest();
+			render(Lobby, { session });
+			session.setView({ ...session.view!, settings: makeSettings({ stopVote: false }) });
+			await tick();
+			expect(screen.getByText('Sin pedir que paren')).toBeTruthy();
+		});
+
 		it('sees a Dutch lobby: language chip, 23 letters and Dutch category labels', () => {
 			const settings = makeSettings({ lang: 'nl' });
 			render(Lobby, { session: guest(settings) });
@@ -458,6 +487,59 @@ describe('Lobby', () => {
 					.getByRole('switch', { name: 'Excluir letras difíciles' })
 					.getAttribute('aria-checked')
 			).toBe('true');
+		});
+
+		it('has a switch to allow asking everyone to stop, on by default, with its hint', () => {
+			render(Lobby, { session: host() });
+			const toggle = screen.getByRole('switch', { name: 'Permitir pedir que paren' });
+			expect(toggle.getAttribute('aria-checked')).toBe('true');
+			expect(toggle.className).toContain('min-h-14');
+			expect(toggle.getAttribute('aria-describedby')).toBe('stop-desc');
+			expect(document.getElementById('stop-desc')?.textContent?.trim()).toBe(
+				'Quien no terminó puede pedir que paren; todos tienen que aceptar.'
+			);
+		});
+
+		it('turns the vote to stop off and on again, sending the WHOLE settings each time', async () => {
+			const settings = makeSettings({ lang: 'nl', rounds: 7, timeLimitSeconds: 90 });
+			const session = host(3, settings);
+			render(Lobby, { session });
+			await fireEvent.click(screen.getByRole('switch', { name: 'Permitir pedir que paren' }));
+			expect(updates(session)).toEqual([
+				{ cmd: 'updateSettings', args: [{ ...settings, stopVote: false }] }
+			]);
+			await waitFor(() =>
+				expect(
+					screen
+						.getByRole('switch', { name: 'Permitir pedir que paren' })
+						.getAttribute('aria-checked')
+				).toBe('false')
+			);
+			expect(screen.getByText('Solo se puede cantar ¡BASTA! con todo completo.')).toBeTruthy();
+			await fireEvent.click(screen.getByRole('switch', { name: 'Permitir pedir que paren' }));
+			expect(updates(session)[1].args[0]).toEqual(settings);
+		});
+
+		it('keeps the vote to stop when another setting changes', async () => {
+			const session = host(3, makeSettings({ stopVote: false, rounds: 7 }));
+			render(Lobby, { session });
+			await fireEvent.click(screen.getByRole('button', { name: 'Una ronda más' }));
+			expect(updates(session)[0].args[0]).toEqual(makeSettings({ stopVote: false, rounds: 8 }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Inglés' }));
+			expect((updates(session)[1].args[0] as Settings).stopVote).toBe(false);
+		});
+
+		it('says it in English and Dutch without any Spanish', () => {
+			i18n.set('en');
+			const { unmount } = render(Lobby, { session: host() });
+			expect(screen.getByRole('switch', { name: 'Allow asking everyone to stop' })).toBeTruthy();
+			expect(document.body.textContent).not.toMatch(/basta/i);
+			unmount();
+			i18n.set('nl');
+			render(Lobby, { session: host(3, makeSettings({ stopVote: false })) });
+			expect(screen.getByRole('switch', { name: 'Vragen om te stoppen toestaan' })).toBeTruthy();
+			expect(screen.getByText('Stop! kan alleen als alles is ingevuld.')).toBeTruthy();
+			expect(document.body.textContent).not.toMatch(/basta/i);
 		});
 
 		it('shows the English hard letters', () => {

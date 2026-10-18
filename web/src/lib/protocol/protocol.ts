@@ -31,8 +31,12 @@ Server -> client types: TypeState, TypeEvent, TypeError, TypePong.
  * Version 2 added the Dutch lobby language ("nl"): a version 1 client would
  * not know the language of a room (labels, alphabet, normalization), so it
  * must reload.
+ * Version 3 added the vote to stop: the commands ask_stop and vote_stop, the
+ * lobby setting Settings.StopVote, RoundView.StopVote and the events stop_asked
+ * and stop_rejected. A version 2 client would show a vote it cannot answer and
+ * never offer the setting, so it must reload.
  */
-export const Version = 2;
+export const Version = 3;
 /**
  * TypePing is sent by clients every PingInterval (empty payload).
  */

@@ -37,6 +37,8 @@ export class FakeSession implements RoomSession {
 	frozenNow: number | null = null;
 	/** Added to `Date.now()` when `frozenNow` is null. */
 	clockOffset = 0;
+	/** Dev playground only: `data-testid` of the element the page taps once the screen is up (e.g. an open sheet). */
+	devTap: string | null = null;
 
 	#seq = 0;
 
@@ -104,6 +106,12 @@ export class FakeSession implements RoomSession {
 	}
 	basta() {
 		this.#record('basta', []);
+	}
+	askStop() {
+		this.#record('askStop', []);
+	}
+	voteStop(yes: boolean) {
+		this.#record('voteStop', [yes]);
 	}
 	voteReject(category: number, targetPlayer: string, withdraw?: boolean) {
 		this.#record(

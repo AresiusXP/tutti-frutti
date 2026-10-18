@@ -191,3 +191,62 @@ describe('Dutch wording', () => {
 		}
 	});
 });
+
+describe('vote to stop wording', () => {
+	const keys = Object.keys(readArea('play/', 'es')).filter((key) =>
+		/^play_(ask|vote|stop|hint_ask)_/.test(key)
+	);
+	const lobbyKeys = Object.keys(readArea('lobby/', 'es')).filter((key) =>
+		/^lobby_(stop|summary_stop)_/.test(key)
+	);
+	const errorKeys = [
+		'err_stop_vote_disabled',
+		'err_stop_vote_pending',
+		'err_no_stop_vote',
+		'err_stop_not_needed'
+	];
+
+	it('exists in the right area folders for all three languages', () => {
+		expect(keys).toHaveLength(22);
+		expect(lobbyKeys).toHaveLength(5);
+		for (const locale of ['es', 'en', 'nl'] as const) {
+			for (const key of keys)
+				expect(readArea('play/', locale), `${locale}.${key}`).toHaveProperty(key);
+			for (const key of lobbyKeys)
+				expect(readArea('lobby/', locale), `${locale}.${key}`).toHaveProperty(key);
+			for (const key of errorKeys)
+				expect(readArea('net/', locale), `${locale}.${key}`).toHaveProperty(key);
+		}
+	});
+
+	it('calls it "pedir que paren", "ask everyone to stop" and "vraag iedereen om te stoppen"', () => {
+		expect(es.play_ask_title).toBe('¿Pedir que paren?');
+		expect(es.lobby_stop_label).toBe('Permitir pedir que paren');
+		expect(es.play_hint_ask_many).toContain('pedir que paren');
+		expect(en.play_ask_title).toBe('Ask everyone to stop?');
+		expect(en.play_hint_ask_many).toContain('ask everyone to stop');
+		expect(nl.play_ask_title).toBe('Vraag iedereen om te stoppen?');
+		expect(nl.play_hint_ask_many).toContain('iedereen te vragen om te stoppen');
+	});
+
+	it('only Spanish says ¡BASTA!; English and Dutch say Stop! and nothing Spanish', () => {
+		for (const key of [...keys, ...lobbyKeys, ...errorKeys]) {
+			expect(en[key], `en.${key}`).not.toMatch(/[¡¿ñáéíóúü]|basta/i);
+			expect(nl[key], `nl.${key}`).not.toMatch(/[¡¿ñ]|basta/i);
+		}
+		expect(es.lobby_stop_off).toContain('¡BASTA!');
+		expect(en.lobby_stop_off).toContain('Stop!');
+		expect(nl.lobby_stop_off).toContain('Stop!');
+	});
+
+	it('stays short enough for a 360 px phone (hints and buttons)', () => {
+		for (const catalog of [es, en, nl]) {
+			for (const key of ['play_vote_yes', 'play_vote_no', 'play_ask_confirm', 'play_ask_keep']) {
+				expect(catalog[key].length, key).toBeLessThanOrEqual(20);
+			}
+			for (const key of ['play_hint_ask_one', 'play_hint_ask_many']) {
+				expect(catalog[key].length, key).toBeLessThanOrEqual(60);
+			}
+		}
+	});
+});

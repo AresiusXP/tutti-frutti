@@ -1,6 +1,7 @@
 import { FakeSession } from '$lib/game/fake.svelte';
-import { makeRound, makeSettings, makeView, player } from '$lib/game/fixtures';
-import type { Phase, Player, RoundView, View } from '$lib/protocol';
+import { makeRound, makeSettings, makeStopVote, makeView, player } from '$lib/game/fixtures';
+import { labelsFor } from '$lib/lobby/fixtures';
+import type { CategoryRef, Phase, Player, RoundView, View } from '$lib/protocol';
 import type { Scenario } from './scenarios';
 
 /**
@@ -133,7 +134,21 @@ interface Setup {
 	mine?: string[];
 	status?: FakeSession['status'];
 	frozen?: boolean;
+	/** Lobby setting "ask everyone to stop" (default on, like the server). */
+	stopVote?: boolean;
+	/** Dutch-sized category names: the longest labels of the catalog. */
+	longLabels?: boolean;
 }
+
+/** The six longest category labels (Dutch: "Iets wat je meeneemt naar het strand"). */
+const LONG_IDS = [
+	'algo_playa',
+	'excusa_tarde',
+	'adjetivo',
+	'lugar_turistico',
+	'mascota',
+	'ropa_accesorio'
+];
 
 function build(setup: Setup): FakeSession {
 	const {
@@ -148,11 +163,17 @@ function build(setup: Setup): FakeSession {
 		usedLetters = ['A', 'M'],
 		roundNum = 3
 	} = setup;
+	const refs: CategoryRef[] = (setup.longLabels ? LONG_IDS : IDS.slice(0, categories)).map(
+		(id) => ({
+			id
+		})
+	);
 	const settings = makeSettings({
 		lang,
 		rounds,
 		timeLimitSeconds,
-		categories: IDS.slice(0, categories).map((id) => ({ id }))
+		categories: refs,
+		...(setup.stopVote === undefined ? {} : { stopVote: setup.stopVote })
 	});
 	const participants = setup.round?.participants ?? players.slice(0, 5).map((p) => p.id);
 	const hasLetter = phase !== 'letter';
@@ -165,7 +186,7 @@ function build(setup: Setup): FakeSession {
 		youId,
 		hostId: 'p1',
 		settings,
-		categoryLabels: LABELS[lang].slice(0, categories),
+		categoryLabels: setup.longLabels ? labelsFor(lang, refs) : LABELS[lang].slice(0, categories),
 		usedLetters: hasLetter ? [...usedLetters, 'F'] : usedLetters,
 		roundNum,
 		chooserId,
@@ -193,6 +214,22 @@ function expose(session: FakeSession): FakeSession {
 }
 
 const half = (lang: Lang) => [GOOD[lang][0], GOOD[lang][1], GOOD[lang][2], '', '', ''];
+
+/** An open vote to stop asked by p1 (the viewer in the asker scenarios), 15 s left on the frozen clock. */
+const vote = (yes: string[] = [], over: Partial<ReturnType<typeof makeStopVote>> = {}) =>
+	makeStopVote({
+		callerId: 'p1',
+		endsAt: iso(15_000),
+		voters: ['p2', 'p4', 'p5'],
+		yes,
+		...over
+	});
+
+/** Opens the confirmation by itself (the playground taps the main button). */
+function tapping(session: FakeSession, testId: string): FakeSession {
+	session.devTap = testId;
+	return session;
+}
 
 const defs: Record<string, Def> = {
 	'letter-chooser': (lang) => build({ lang, phase: 'letter', youId: 'p1', chooserId: 'p1' }),
@@ -293,6 +330,110 @@ const defs: Record<string, Def> = {
 				filled: { p1: 2, p2: 3, p3: 6, p4: 1, p5: 0 }
 			}
 		}),
+
+	// --- vote to stop (lobby setting `stopVote`, on by default) ---------------------------------
+	// Answers missing: the button asks everyone (secondary look, hint under it).
+	'stopvote-incomplete': (lang) => build({ lang, phase: 'playing', mine: half(lang) }),
+	// ... and tapping it opens the confirmation sheet.
+	'stopvote-confirm': (lang) =>
+		tapping(build({ lang, phase: 'playing', mine: half(lang) }), 'basta-button'),
+	// One wrong letter and two empty: the sheet counts both.
+	'stopvote-confirm-wrong': (lang) =>
+		tapping(
+			build({
+				lang,
+				phase: 'playing',
+				mine: [GOOD[lang][0], WRONG_LETTER[lang][0], GOOD[lang][2], '', '', '']
+			}),
+			'basta-button'
+		),
+	// The asker, 1 of 3 said yes, 15 s on the clock.
+	'stopvote-waiting': (lang) =>
+		build({
+			lang,
+			phase: 'playing',
+			mine: half(lang),
+			round: { stopVote: vote(['p2']) }
+		}),
+	// A voter (p2): the non-modal prompt with the two big buttons.
+	'stopvote-voter': (lang) =>
+		build({
+			lang,
+			phase: 'playing',
+			youId: 'p2',
+			mine: half(lang),
+			round: { stopVote: vote() }
+		}),
+	// The worst case for width: a very long Dutch name and the longest category labels.
+	'stopvote-voter-long': (lang) =>
+		build({
+			lang,
+			phase: 'playing',
+			youId: 'p2',
+			longLabels: true,
+			players: roster(5, {
+				p1: { name: 'Maximiliaan-Bartholomeus' },
+				p3: { connected: false }
+			}),
+			mine: ['', '', '', '', '', ''],
+			round: { stopVote: vote() }
+		}),
+	'stopvote-asker-long': (lang) =>
+		build({
+			lang,
+			phase: 'playing',
+			longLabels: true,
+			mine: ['', '', '', '', '', ''],
+			round: { stopVote: vote(['p2']) }
+		}),
+	'stopvote-confirm-long': (lang) =>
+		tapping(
+			build({ lang, phase: 'playing', longLabels: true, mine: ['', '', '', '', '', ''] }),
+			'basta-button'
+		),
+	// The voter already said yes: waiting for the others (2 of 3).
+	'stopvote-voted': (lang) =>
+		build({
+			lang,
+			phase: 'playing',
+			youId: 'p2',
+			mine: half(lang),
+			round: { stopVote: vote(['p2', 'p4']) }
+		}),
+	// A spectator only sees a small line.
+	'stopvote-spectator': (lang) =>
+		build({
+			lang,
+			phase: 'playing',
+			players: roster(6),
+			youId: 'p6',
+			round: {
+				participants: ['p1', 'p2', 'p3', 'p4', 'p5'],
+				stopVote: vote([], { voters: ['p2', 'p3', 'p4', 'p5'] })
+			}
+		}),
+	// Offline: the old disabled button, whatever the setting says.
+	'stopvote-offline': (lang) =>
+		build({ lang, phase: 'playing', mine: half(lang), status: 'reconnecting' }),
+	// The host turned it off in the lobby: the old behaviour.
+	'stopvote-off': (lang) => build({ lang, phase: 'playing', mine: half(lang), stopVote: false }),
+	// Everything valid: Basta as always (pulse), no confirmation.
+	'stopvote-complete': (lang) => build({ lang, phase: 'playing', mine: GOOD[lang].slice(0, 6) }),
+	// The real clock: watch the 15 s run out (the dev playground does not answer the commands).
+	'live-stopvote-waiting': (lang) => {
+		const session = build({ lang, phase: 'playing', frozen: false, mine: half(lang) });
+		session.view!.round!.stopVote = vote(['p2'], {
+			endsAt: new Date(Date.now() + 15_000).toISOString()
+		});
+		return session;
+	},
+	'live-stopvote-voter': (lang) => {
+		const session = build({ lang, phase: 'playing', frozen: false, youId: 'p2', mine: half(lang) });
+		session.view!.round!.stopVote = vote([], {
+			endsAt: new Date(Date.now() + 15_000).toISOString()
+		});
+		return session;
+	},
 
 	// The caller's grace, 2 s left: straight to the banner (the splash only plays in the first 0.9 s).
 	'grace-basta': (lang) =>

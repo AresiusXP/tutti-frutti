@@ -24,7 +24,7 @@ describe('errorMessage', () => {
 	});
 
 	it('never falls back to the generic message for a known code, in both languages', () => {
-		for (const locale of ['es', 'en']) {
+		for (const locale of ['es', 'en', 'nl']) {
 			i18n.set(locale);
 			for (const code of KNOWN_ERROR_CODES) {
 				const text = errorMessage(code);
@@ -33,6 +33,25 @@ describe('errorMessage', () => {
 			}
 		}
 		i18n.set('es');
+	});
+
+	it('explains the four vote-to-stop codes in every language, never with the generic sentence', () => {
+		const codes = ['stop_vote_disabled', 'stop_vote_pending', 'no_stop_vote', 'stop_not_needed'];
+		for (const locale of ['es', 'en', 'nl']) {
+			i18n.set(locale);
+			const texts = codes.map((code) => errorMessage(code));
+			expect(new Set(texts).size, locale).toBe(codes.length);
+			for (const text of texts) expect(text, locale).not.toBe(m.err_unknown());
+			// Stop! in en/nl, ¡BASTA! in es: never the Spanish word on another screen
+			if (locale !== 'es')
+				for (const text of texts) expect(text, locale).not.toMatch(/basta|[¡¿ñ]/i);
+		}
+		i18n.set('en');
+		expect(errorMessage('stop_not_needed')).toContain('Stop!');
+		i18n.set('nl');
+		expect(errorMessage('stop_not_needed')).toContain('Stop!');
+		i18n.set('es');
+		expect(errorMessage('stop_not_needed')).toContain('¡BASTA!');
 	});
 
 	it('falls back to err_unknown for anything else and follows the language', () => {

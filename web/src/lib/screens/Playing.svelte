@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import Screen from '$lib/components/Screen.svelte';
 	import type { RoomSession } from '$lib/game/session';
 	import { m } from '$lib/paraglide/messages';
@@ -7,11 +7,15 @@
 	import BastaSplash from '$lib/play/BastaSplash.svelte';
 	import GraceBanner from '$lib/play/GraceBanner.svelte';
 	import PlayHeader from '$lib/play/PlayHeader.svelte';
+	import StopConfirmSheet from '$lib/play/StopConfirmSheet.svelte';
+	import StopVotePrompt from '$lib/play/StopVotePrompt.svelte';
+	import StopWaitBanner from '$lib/play/StopWaitBanner.svelte';
 	import { fieldStatus } from '$lib/play/answer';
 	import { AnswerDrafts, DEBOUNCE_MS, GRACE_DEBOUNCE_MS } from '$lib/play/drafts.svelte';
 	import { OnceCommand } from '$lib/play/once.svelte';
 	import { badgeAvatar, playerProgress } from '$lib/play/progress';
 	import { roundLabel } from '$lib/play/round';
+	import { STOP_VOTE_SECONDS, stopVoteInfo } from '$lib/play/stopvote';
 	import {
 		GRACE_MS,
 		SPLASH_MS,
@@ -23,6 +27,7 @@
 		timerTone
 	} from '$lib/play/time';
 	import { createWakeLock } from '$lib/play/wakelock';
+	import { toasts } from '$lib/toast.svelte';
 
 	let { session }: { session: RoomSession } = $props();
 
@@ -90,6 +95,7 @@
 	const filledCount = $derived(statuses.filter((s) => s !== 'empty').length);
 	const wrongLabels = $derived(labels.filter((_, i) => statuses[i] === 'wrong_letter'));
 	const emptyCount = $derived(statuses.filter((s) => s === 'empty').length);
+	const wrongCount = $derived(statuses.filter((s) => s === 'wrong_letter').length);
 	const allValid = $derived(total > 0 && statuses.every((s) => s === 'valid'));
 
 	// --- time limit -----------------------------------------------------------
@@ -128,7 +134,7 @@
 
 	// --- announcements, splash, reveal ----------------------------------------
 	// What the assertive live region says. Kept as data (not text) so a language switch re-renders it.
-	let announced = $state<'' | 'letter' | 'basta' | 'time_up'>('');
+	let announced = $state<'' | 'letter' | 'basta' | 'time_up' | 'stop_vote'>('');
 	let announcedCaller = $state('');
 	const announcement = $derived(
 		announced === 'letter'
@@ -137,20 +143,26 @@
 				? `${announcedCaller}: ${m.basta_overlay()}`
 				: announced === 'time_up'
 					? m.play_time_up()
-					: ''
+					: announced === 'stop_vote'
+						? m.play_vote_title({ name: announcedCaller })
+						: ''
 	);
 	let splash = $state(false);
 	let splashTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function vibrate(pattern: number[]) {
+		try {
+			navigator.vibrate?.(pattern);
+		} catch {
+			// vibration is optional (permissions, desktop browsers)
+		}
+	}
 
 	function startSplash() {
 		announcedCaller = caller?.name ?? m.play_someone();
 		announced = timeUp ? 'time_up' : 'basta';
 		splash = true;
-		try {
-			navigator.vibrate?.([200, 100, 200]);
-		} catch {
-			// vibration is optional (permissions, desktop browsers)
-		}
+		vibrate([200, 100, 200]);
 		clearTimeout(splashTimer);
 		splashTimer = setTimeout(() => (splash = false), SPLASH_MS);
 	}
@@ -200,23 +212,49 @@
 		};
 	});
 
-	// --- basta ----------------------------------------------------------------
+	// --- basta and the vote to stop -------------------------------------------
 	const basta = new OnceCommand(['basta'], 4000);
+	const ask = new OnceCommand(['ask_stop'], 4000);
+	const vote = new OnceCommand(['vote_stop'], 4000);
 	const online = $derived(session.status === 'connected');
-	const canBasta = $derived(
-		participant && phase === 'playing' && allValid && online && !basta.locked
+	const stopVoteOn = $derived(view?.settings.stopVote === true);
+	const info = $derived(stopVoteInfo(view, participant));
+	const voteSeconds = $derived(
+		info?.endsAt != null ? Math.min(STOP_VOTE_SECONDS, secondsLeft(info.endsAt, now)) : 0
 	);
+	const playingNow = $derived(participant && phase === 'playing');
+	// The asker may call Basta as soon as everything is filled in: it ends their own vote.
+	const canBasta = $derived(playingNow && allValid && online && !basta.locked);
+	/** Answers missing: tapping the button asks everyone to stop (after a confirmation). */
+	const canAsk = $derived(
+		playingNow && stopVoteOn && online && !info && !allValid && total > 0 && !ask.locked
+	);
+	const asking = $derived((info?.role === 'asker' || (ask.locked && !info)) && !allValid);
 	const hint = $derived(
 		!online
 			? m.play_hint_offline()
-			: wrongLabels.length > 0
-				? m.play_hint_wrong({ categories: wrongLabels.join(', ') })
-				: emptyCount > 0
-					? m.play_hint_fill()
-					: m.play_hint_ready()
+			: asking
+				? m.play_hint_ask_wait()
+				: canAsk
+					? wrongLabels.length > 0
+						? m.play_hint_ask_wrong({ categories: wrongLabels.join(', ') })
+						: emptyCount === 1
+							? m.play_hint_ask_one()
+							: m.play_hint_ask_many({ count: emptyCount })
+					: wrongLabels.length > 0
+						? m.play_hint_wrong({ categories: wrongLabels.join(', ') })
+						: emptyCount > 0
+							? m.play_hint_fill()
+							: m.play_hint_ready()
 	);
 	$effect(() => basta.failed(session.lastError));
-	$effect(() => () => basta.dispose());
+	$effect(() => ask.failed(session.lastError));
+	$effect(() => vote.failed(session.lastError));
+	$effect(() => () => {
+		basta.dispose();
+		ask.dispose();
+		vote.dispose();
+	});
 
 	function callBasta() {
 		if (!canBasta) return;
@@ -225,6 +263,136 @@
 			session.basta();
 		});
 	}
+
+	let confirmOpen = $state(false);
+	let mainButton = $state<HTMLButtonElement>();
+
+	function onMain() {
+		if (canBasta) callBasta();
+		else if (canAsk) confirmOpen = true;
+	}
+
+	/** The confirmation is stale as soon as asking is no longer possible (someone else's vote, a Basta, offline...). */
+	$effect(() => {
+		if (confirmOpen && !canAsk) confirmOpen = false;
+	});
+
+	function keepPlaying() {
+		confirmOpen = false;
+		void tick().then(() => mainButton?.focus());
+	}
+
+	function confirmAsk() {
+		confirmOpen = false;
+		if (!canAsk) return;
+		ask.fire(session.lastError?.seq ?? 0, () => {
+			drafts.flushAll();
+			session.askStop();
+		});
+	}
+
+	// The vote itself is state (`round.stopVote`); the tap only remembers what this viewer answered
+	// until the next snapshot says so.
+	let choice = $state<'yes' | 'no' | null>(null);
+	let openVote = '';
+	let wasOpen = false;
+	let wasOnline = untrack(() => online);
+	$effect(() => {
+		const now = online;
+		untrack(() => {
+			// A command sent just before the socket dropped may be lost, and a reconnecting voter has
+			// not voted yet: the next snapshot says where things stand.
+			if (now && !wasOnline) {
+				vote.unlock();
+				ask.unlock();
+				choice = null;
+			}
+			wasOnline = now;
+		});
+	});
+	$effect(() => {
+		const key = info?.key ?? '';
+		untrack(() => {
+			if (key !== openVote) {
+				openVote = key;
+				vote.unlock();
+				choice = null;
+			}
+			// Asking again must be possible right after a vote ended (there is no cooldown).
+			if (wasOpen && !info) ask.unlock();
+			wasOpen = !!info;
+		});
+	});
+
+	const prompt = $derived.by<'ask' | 'waiting' | null>(() => {
+		if (info?.role === 'voted') return 'waiting';
+		if (info?.role !== 'voter') return null;
+		if (!vote.locked) return 'ask';
+		return choice === 'yes' ? 'waiting' : null;
+	});
+	const promptYes = $derived(
+		(info?.yes ?? 0) + (info?.role === 'voter' && choice === 'yes' ? 1 : 0)
+	);
+	const asker = $derived(view?.players.find((p) => p.id === info?.callerId));
+
+	function castVote(yes: boolean) {
+		if (info?.role !== 'voter' || !online) return;
+		vote.fire(session.lastError?.seq ?? 0, () => {
+			choice = yes ? 'yes' : 'no';
+			if (yes) drafts.flushAll();
+			session.voteStop(yes);
+		});
+	}
+
+	// A new vote for this viewer: said aloud and felt, like the Basta call.
+	let announcedVote = '';
+	$effect(() => {
+		const current = info;
+		untrack(() => {
+			if (!current) {
+				announcedVote = '';
+				if (announced === 'stop_vote') announced = '';
+				return;
+			}
+			if (current.role !== 'voter' || current.key === announcedVote) return;
+			announcedVote = current.key;
+			announcedCaller = asker?.name ?? m.play_someone();
+			announced = 'stop_vote';
+			if (!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+				vibrate([120, 80, 120]);
+			}
+		});
+	});
+
+	// Only the asker hears about a failed vote (and why); the others just see the prompt go away.
+	let seenEvent = untrack(() => session.events.at(-1)?.seq ?? 0);
+	$effect(() => {
+		const events = session.events;
+		untrack(() => {
+			for (const event of events) {
+				if (event.seq <= seenEvent) continue;
+				seenEvent = event.seq;
+				if (event.type !== 'stop_rejected' || event.playerId !== view?.youId) continue;
+				ask.unlock();
+				if (event.reason === 'declined') toasts.show(m.play_stop_declined());
+				else if (event.reason === 'timeout') toasts.show(m.play_stop_timeout());
+			}
+		});
+	});
+
+	// The footer grows with the banner or the prompt: keep the field being typed in clear of it.
+	let scrollTimer: ReturnType<typeof setTimeout> | undefined;
+	$effect(() => {
+		const marker = info ? `${info.key}|${info.role}|${prompt}` : '';
+		if (!marker) return;
+		untrack(() => {
+			const active = document.activeElement;
+			if (!(active instanceof HTMLInputElement) || !inputs.includes(active)) return;
+			clearTimeout(scrollTimer);
+			scrollTimer = setTimeout(() => active.scrollIntoView?.({ block: 'nearest' }), 80);
+		});
+	});
+	$effect(() => () => clearTimeout(scrollTimer));
 
 	// --- fields ---------------------------------------------------------------
 	let inputs = $state<(HTMLInputElement | null | undefined)[]>([]);
@@ -249,17 +417,47 @@
 	/>
 {/snippet}
 
-{#snippet bastaButton()}
+{#snippet onlooker()}
+	<p
+		data-testid="stop-vote-onlooker"
+		class="rounded-2xl bg-night-2 px-4 py-2 text-base font-bold text-banana ring-1 ring-night-3"
+	>
+		{m.play_vote_onlooker({ name: asker?.name ?? m.play_someone() })}
+	</p>
+{/snippet}
+
+{#snippet footerStack()}
+	{#if info?.role === 'asker'}
+		<StopWaitBanner seconds={voteSeconds} yes={info.yes} total={info.total} />
+	{:else if prompt && info}
+		<StopVotePrompt
+			avatar={asker ? badgeAvatar(asker.avatar) : undefined}
+			name={asker?.name ?? m.play_someone()}
+			mode={prompt}
+			seconds={voteSeconds}
+			yes={promptYes}
+			total={info.total}
+			disabled={!online}
+			onvote={castVote}
+		/>
+	{:else if info?.role === 'onlooker'}
+		{@render onlooker()}
+	{/if}
 	<p id="basta-hint" class="min-h-5 text-center text-sm font-bold text-cream-muted">{hint}</p>
 	<button
+		bind:this={mainButton}
 		type="button"
-		disabled={!canBasta}
+		data-testid="basta-button"
+		disabled={!canBasta && !canAsk}
 		class:basta-ready={canBasta}
 		aria-describedby="basta-hint"
-		onclick={callBasta}
+		aria-haspopup={canAsk ? 'dialog' : undefined}
+		onclick={onMain}
 		class="h-[4.5rem] w-full touch-manipulation rounded-[1.75rem] text-4xl font-black tracking-wide shadow-pop transition select-none active:translate-y-1 active:shadow-none disabled:bg-night-3 disabled:text-cream-muted disabled:shadow-none [@media(max-height:520px)]:h-14 [@media(max-height:520px)]:text-2xl {canBasta
 			? 'bg-strawberry text-night'
-			: ''}"
+			: canAsk
+				? 'bg-night-3 text-cream ring-2 ring-strawberry'
+				: ''}"
 	>
 		{m.basta_button()}
 	</button>
@@ -268,7 +466,7 @@
 {#if view && round}
 	<Screen
 		label={m.play_screen_label({ n: round.number, letter })}
-		footer={participant && phase === 'playing' ? bastaButton : undefined}
+		footer={participant && phase === 'playing' ? footerStack : undefined}
 	>
 		<PlayHeader
 			{letter}
@@ -305,6 +503,7 @@
 				<span class="text-4xl" aria-hidden="true">👀</span>
 				<span>{m.play_spectator()}</span>
 			</p>
+			{#if info}{@render onlooker()}{/if}
 		{/if}
 	</Screen>
 
@@ -321,6 +520,17 @@
 				{letter}
 			</span>
 		</div>
+	{/if}
+
+	{#if confirmOpen}
+		<StopConfirmSheet
+			{letter}
+			empty={emptyCount}
+			wrong={wrongCount}
+			seconds={STOP_VOTE_SECONDS}
+			onconfirm={confirmAsk}
+			oncancel={keepPlaying}
+		/>
 	{/if}
 
 	{#if splash}

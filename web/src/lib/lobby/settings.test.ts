@@ -17,6 +17,7 @@ import {
 	withExcludeHard,
 	withLang,
 	withRounds,
+	withStopVote,
 	withTimeLimit
 } from './settings';
 
@@ -62,6 +63,36 @@ describe('scalar settings', () => {
 		expect(withTimeLimit(s, 90).timeLimitSeconds).toBe(90);
 		expect(withTimeLimit(s, 45)).toBe(s);
 		expect(withTimeLimit(s, 0)).toBe(s);
+	});
+});
+
+describe('stopVote', () => {
+	it('toggles the vote to stop and is a no-op (same object) when unchanged', () => {
+		const s = makeSettings();
+		expect(s.stopVote).toBe(true);
+		expect(withStopVote(s, true)).toBe(s);
+		expect(withStopVote(s, false)).toEqual({ ...s, stopVote: false });
+		expect(withStopVote(withStopVote(s, false), true)).toEqual(s);
+	});
+
+	it('every other edit carries it along (an update_settings without it would turn the feature off)', () => {
+		for (const stopVote of [true, false]) {
+			const s = makeSettings({ stopVote, excludeHardLetters: false, rounds: 27 });
+			const edits = [
+				withLang(s, 'en'),
+				withLang(s, 'nl'),
+				withExcludeHard(s, true),
+				withRounds(s, 3),
+				withTimeLimit(s, 90),
+				withCategories(s, [{ id: 'nombre' }, { id: 'pais' }, { id: 'animal' }]),
+				addBuiltin(s, 'ciudad'),
+				addCustom(s, 'Algo'),
+				removeCategoryAt(s, 0),
+				toggleBuiltin(s, 'nombre'),
+				moveCategory(s, 0, 1)
+			];
+			for (const edit of edits) expect(edit.stopVote, JSON.stringify(edit)).toBe(stopVote);
+		}
 	});
 });
 
@@ -133,6 +164,7 @@ describe('sameSettings', () => {
 		expect(sameSettings(a, makeSettings({ lang: 'en' }))).toBe(false);
 		expect(sameSettings(a, makeSettings({ excludeHardLetters: false }))).toBe(false);
 		expect(sameSettings(a, makeSettings({ timeLimitSeconds: 60 }))).toBe(false);
+		expect(sameSettings(a, makeSettings({ stopVote: false }))).toBe(false);
 		expect(sameSettings(a, moveCategory(a, 0, 1))).toBe(false);
 		expect(sameSettings(a, addBuiltin(a, 'ciudad'))).toBe(false);
 		expect(sameSettings(addCustom(a, 'X'), addCustom(a, 'X'))).toBe(true);

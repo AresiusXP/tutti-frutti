@@ -30,7 +30,8 @@
 			: m.lobby_summary_rounds({ n: settings.rounds }),
 		settings.timeLimitSeconds === 0
 			? m.lobby_summary_time_off()
-			: m.lobby_summary_time({ n: settings.timeLimitSeconds })
+			: m.lobby_summary_time({ n: settings.timeLimitSeconds }),
+		settings.stopVote ? m.lobby_summary_stop_on() : m.lobby_summary_stop_off()
 	]);
 </script>
 

@@ -12,6 +12,7 @@
 	 *   /dev?s=lobby-host         -> that scenario
 	 *   /dev?s=...&lang=en        -> in English (es | en | nl)
 	 *   /dev?s=...&bare=1         -> without the debug panel (for screenshots)
+	 * A scenario can set `session.devTap` (a data-testid) to open a sheet by itself.
 	 * Only available in `vite dev`; in a production build `+page.ts` redirects home
 	 * and the scenarios are not bundled.
 	 */
@@ -25,6 +26,17 @@
 
 	$effect(() => {
 		if (lang) i18n.set(lang);
+	});
+
+	// Scenarios that start with something tapped (a confirmation sheet open): tap it once the screen is up.
+	$effect(() => {
+		const testId = session?.devTap;
+		if (!testId) return;
+		const timer = setTimeout(
+			() => document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.click(),
+			50
+		);
+		return () => clearTimeout(timer);
 	});
 </script>
 

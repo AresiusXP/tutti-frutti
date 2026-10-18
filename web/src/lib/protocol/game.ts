@@ -11,6 +11,10 @@ export const CodeNotYourTurn = "not_your_turn";
 export const CodeLobbyFull = "lobby_full";
 export const CodeInvalidSettings = "invalid_settings";
 export const CodeBastaNotAllowed = "basta_not_allowed";
+export const CodeStopVoteDisabled = "stop_vote_disabled";
+export const CodeStopVotePending = "stop_vote_pending";
+export const CodeNoStopVote = "no_stop_vote";
+export const CodeStopNotNeeded = "stop_not_needed";
 export const CodeUnknownPlayer = "unknown_player";
 export const CodeNotParticipant = "not_participant";
 export const CodeNotEnoughPlayers = "not_enough_players";
@@ -36,7 +40,7 @@ export const CodeInternal = "internal";
  * Wire error codes: the stable snake_case value of each sentinel error above
  * (what ErrorCode returns and what clients map to messages).
  */
-export type Code = typeof CodeNotHost | typeof CodeWrongPhase | typeof CodeNotYourTurn | typeof CodeLobbyFull | typeof CodeInvalidSettings | typeof CodeBastaNotAllowed | typeof CodeUnknownPlayer | typeof CodeNotParticipant | typeof CodeNotEnoughPlayers | typeof CodeKicked | typeof CodeCannotKickSelf | typeof CodeInvalidName | typeof CodeInvalidAvatar | typeof CodeInvalidCategory | typeof CodeAnswerTooLong | typeof CodeSelfVote | typeof CodeEmptyAnswer | typeof CodeAlreadySame | typeof CodeProposalExists | typeof CodeInvalidMerge | typeof CodeUnknownProposal | typeof CodeUnknownCommand | typeof CodeBadPayload | typeof CodeInternal;
+export type Code = typeof CodeNotHost | typeof CodeWrongPhase | typeof CodeNotYourTurn | typeof CodeLobbyFull | typeof CodeInvalidSettings | typeof CodeBastaNotAllowed | typeof CodeStopVoteDisabled | typeof CodeStopVotePending | typeof CodeNoStopVote | typeof CodeStopNotNeeded | typeof CodeUnknownPlayer | typeof CodeNotParticipant | typeof CodeNotEnoughPlayers | typeof CodeKicked | typeof CodeCannotKickSelf | typeof CodeInvalidName | typeof CodeInvalidAvatar | typeof CodeInvalidCategory | typeof CodeAnswerTooLong | typeof CodeSelfVote | typeof CodeEmptyAnswer | typeof CodeAlreadySame | typeof CodeProposalExists | typeof CodeInvalidMerge | typeof CodeUnknownProposal | typeof CodeUnknownCommand | typeof CodeBadPayload | typeof CodeInternal;
 
 //////////
 // source: command.go
@@ -49,6 +53,8 @@ export const CmdStartGame = "start_game";
 export const CmdStopLetter = "stop_letter";
 export const CmdSetAnswer = "set_answer";
 export const CmdBasta = "basta";
+export const CmdAskStop = "ask_stop";
+export const CmdVoteStop = "vote_stop";
 export const CmdVoteReject = "vote_reject";
 export const CmdProposeMerge = "propose_merge";
 export const CmdVoteMerge = "vote_merge";
@@ -63,7 +69,7 @@ export const CmdRematch = "rematch";
  * not be able to flip its own connected flag, so the room layer reports them
  * through Game.SetConnected instead.
  */
-export type Cmd = typeof CmdJoin | typeof CmdLeave | typeof CmdUpdateSettings | typeof CmdKick | typeof CmdStartGame | typeof CmdStopLetter | typeof CmdSetAnswer | typeof CmdBasta | typeof CmdVoteReject | typeof CmdProposeMerge | typeof CmdVoteMerge | typeof CmdReviewNav | typeof CmdFinishReview | typeof CmdNextRound | typeof CmdEndGame | typeof CmdRematch;
+export type Cmd = typeof CmdJoin | typeof CmdLeave | typeof CmdUpdateSettings | typeof CmdKick | typeof CmdStartGame | typeof CmdStopLetter | typeof CmdSetAnswer | typeof CmdBasta | typeof CmdAskStop | typeof CmdVoteStop | typeof CmdVoteReject | typeof CmdProposeMerge | typeof CmdVoteMerge | typeof CmdReviewNav | typeof CmdFinishReview | typeof CmdNextRound | typeof CmdEndGame | typeof CmdRematch;
 /**
  * Command is an intent sent by a player. Commands are passed to Game.Apply by
  * value.
@@ -169,6 +175,20 @@ export interface EndGame {
  */
 export interface Rematch {
 }
+/**
+ * AskStop asks every other connected participant to stop the round although
+ * the actor has not filled every category (playing phase, Settings.StopVote).
+ * When every category is filled the actor calls Basta instead.
+ */
+export interface AskStop {
+}
+/**
+ * VoteStop answers the open vote to stop. Any "no" rejects the vote at once;
+ * it passes when every other connected participant voted yes.
+ */
+export interface VoteStop {
+  yes: boolean;
+}
 
 //////////
 // source: event.go
@@ -193,6 +213,19 @@ export const EventLetterRevealed: EventType = "letter_revealed";
  * EventBasta: a player called Basta (PlayerID, Name).
  */
 export const EventBasta: EventType = "basta";
+/**
+ * EventStopAsked: a player without every category filled asked everyone
+ * to stop (PlayerID, Name). The state carries the open vote.
+ */
+export const EventStopAsked: EventType = "stop_asked";
+/**
+ * EventStopRejected: the vote to stop failed (PlayerID, Name = who asked;
+ * Reason "declined" when a voter said no, "timeout" when 15 s passed,
+ * "ended" when the round locked or someone called Basta first, or the
+ * asker left or lost their connection). A vote that passes is announced
+ * as EventBasta (PlayerID = who asked), without a stop_rejected.
+ */
+export const EventStopRejected: EventType = "stop_rejected";
 /**
  * EventTimeUp: the round time limit expired (no caller).
  */
@@ -222,6 +255,23 @@ export const EventGameOver: EventType = "game_over";
  */
 export const EventRematch: EventType = "rematch";
 /**
+ * StopReasonDeclined: a voter said no.
+ */
+export const StopReasonDeclined = "declined";
+/**
+ * StopReasonTimeout: StopVoteDuration passed without agreement.
+ */
+export const StopReasonTimeout = "timeout";
+/**
+ * StopReasonEnded: the round moved on without the vote (Basta by someone
+ * else, the time limit) or its asker left or lost their connection.
+ */
+export const StopReasonEnded = "ended";
+/**
+ * Reasons of EventStopRejected (Event.Reason).
+ */
+export type StopReason = typeof StopReasonDeclined | typeof StopReasonTimeout | typeof StopReasonEnded;
+/**
  * Event is something the room layer should announce to clients in addition to
  * the state snapshot. Only the fields documented on the event type are set.
  */
@@ -232,6 +282,11 @@ export interface Event {
   letter?: string;
   round?: number /* int */;
   winners?: string[];
+  /**
+   * Reason is set on EventStopRejected: StopReasonDeclined,
+   * StopReasonTimeout or StopReasonEnded.
+   */
+  reason?: string;
 }
 
 //////////
@@ -318,6 +373,20 @@ export interface MergeProposal {
   votes: MergeVote[];
 }
 /**
+ * StopVote is a player's request that everybody stops although they have not
+ * filled every category. The voters are the connected participants other than
+ * the asker, evaluated live like the review votes.
+ */
+export interface StopVote {
+  callerId: string;
+  endsAt: string /* RFC 3339 / ISO 8601 */;
+  /**
+   * Yes holds the ids that voted yes (a "no" ends the vote at once, so no
+   * "no" is ever stored).
+   */
+  yes: string[];
+}
+/**
  * Round is the state of the round in progress (or the last finished one).
  */
 export interface Round {
@@ -352,6 +421,10 @@ export interface Round {
    * GraceEndsAt is the instant inputs lock (zero before basta/time-up).
    */
   graceEndsAt?: string /* RFC 3339 / ISO 8601 */;
+  /**
+   * StopVote is the open vote to stop the round (nil when there is none).
+   */
+  stopVote?: StopVote;
   /**
    * ReviewCategory is the category index shown in the review.
    */
@@ -429,6 +502,11 @@ export const ChooserTimeout = 10 * 1000 /* ms */;
  * GraceDuration is the countdown between a Basta call and the input lock.
  */
 export const GraceDuration = 3 * 1000 /* ms */;
+/**
+ * StopVoteDuration is how long a "ask everyone to stop" vote stays open
+ * before it counts as rejected.
+ */
+export const StopVoteDuration = 15 * 1000 /* ms */;
 /**
  * LateUpdateAllowance is how long after the lock answer updates are still
  * accepted (network lag allowance).
@@ -613,6 +691,12 @@ export interface Settings {
    * TimeLimitSeconds is the round time limit; 0 means off.
    */
   timeLimitSeconds: number /* int */;
+  /**
+   * StopVote lets a player who has not filled every category ask everyone
+   * to stop (a vote that needs every other connected participant to say
+   * yes). On by default.
+   */
+  stopVote: boolean;
 }
 
 //////////
@@ -683,6 +767,10 @@ export interface RoundView {
   graceEndsAt?: string /* RFC 3339 / ISO 8601 */;
   reviewCategory: number /* int */;
   /**
+   * StopVote is the open vote to stop (playing phase only).
+   */
+  stopVote?: StopVoteView;
+  /**
    * RejectVotes and Proposals are only filled during the review.
    */
   rejectVotes: RejectVote[];
@@ -692,6 +780,21 @@ export interface RoundView {
    * summary and final phases; nil before the review.
    */
   result?: RoundResult;
+}
+/**
+ * StopVoteView is the open vote to stop with its live electorate.
+ */
+export interface StopVoteView {
+  callerId: string;
+  endsAt: string /* RFC 3339 / ISO 8601 */;
+  /**
+   * Voters are the connected participants other than the asker right now.
+   */
+  voters: string[];
+  /**
+   * Yes are the voters that already said yes.
+   */
+  yes: string[];
 }
 /**
  * ProposalView is a merge proposal with its live tally.

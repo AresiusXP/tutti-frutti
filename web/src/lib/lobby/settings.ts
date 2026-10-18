@@ -31,6 +31,10 @@ export function withTimeLimit(s: Settings, timeLimitSeconds: number): Settings {
 	return timeLimitSeconds === s.timeLimitSeconds ? s : { ...s, timeLimitSeconds };
 }
 
+export function withStopVote(s: Settings, stopVote: boolean): Settings {
+	return stopVote === s.stopVote ? s : { ...s, stopVote };
+}
+
 export function withCategories(s: Settings, categories: CategoryRef[]): Settings {
 	return { ...s, categories };
 }
@@ -101,6 +105,7 @@ export function sameSettings(a: Settings, b: Settings): boolean {
 		a.excludeHardLetters === b.excludeHardLetters &&
 		a.rounds === b.rounds &&
 		a.timeLimitSeconds === b.timeLimitSeconds &&
+		a.stopVote === b.stopVote &&
 		a.categories.length === b.categories.length &&
 		a.categories.every(
 			(ref, i) =>

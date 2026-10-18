@@ -100,6 +100,14 @@ export interface RoomSession {
 	setAnswer(category: number, text: string): void;
 	/** Calls Basta; allowed only when every category holds a valid answer. */
 	basta(): void;
+	/**
+	 * Asks every other connected participant to stop although some answers are
+	 * missing (needs `settings.stopVote` and no open vote). Pending answers are
+	 * flushed first; the vote itself arrives as `view.round.stopVote`.
+	 */
+	askStop(): void;
+	/** Answers the open vote to stop (never the asker's own). Any "no" rejects it at once. */
+	voteStop(yes: boolean): void;
 	/** Votes to reject `targetPlayer`'s answer in `category` (review). `withdraw` removes the vote. */
 	voteReject(category: number, targetPlayer: string, withdraw?: boolean): void;
 	/** Proposes that two answers of a category are the same (review). */

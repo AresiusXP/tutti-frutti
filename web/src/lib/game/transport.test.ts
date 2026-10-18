@@ -18,7 +18,7 @@ describe('frames', () => {
 			v: Version,
 			d: { playerId: 'p2' }
 		});
-		expect(Version).toBe(2);
+		expect(Version).toBe(3);
 		expect(encodeFrame('ping')).toBe(`{"t":"ping","v":${Version}}`);
 	});
 
