@@ -1,10 +1,19 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { account } from '$lib/account';
+import type { FakeAccount } from '$lib/account/fake.svelte';
 import { ApiError, type RoomInfo } from '$lib/api';
 import { i18n } from '$lib/i18n.svelte';
 import { profile } from '$lib/profile.svelte';
 import JoinGate from './JoinGate.svelte';
+
+vi.mock('$lib/account', async (importOriginal) => {
+	const { FakeAccount } = await import('$lib/account/fake.svelte');
+	return { ...(await importOriginal<typeof import('$lib/account')>()), account: new FakeAccount() };
+});
+const fake = account as unknown as FakeAccount;
 
 const typeInto = (input: HTMLElement, value: string) =>
 	fireEvent.input(input, { target: { value } });
@@ -28,6 +37,7 @@ describe('JoinGate', () => {
 	beforeEach(() => {
 		i18n.set('es');
 		profile.setNickname('Ana');
+		fake.reset();
 	});
 
 	it('checks the room first, then shows code, players, nickname, avatar and Join', async () => {
@@ -138,5 +148,80 @@ describe('JoinGate', () => {
 		expect(await screen.findByText('3 of 10 players')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Join the room' })).toBeTruthy();
 		i18n.set('es');
+	});
+
+	describe('account', () => {
+		const signIn = () => screen.queryByRole('button', { name: /Iniciar sesión|Sign in/ });
+
+		it('asks the account store for the session once', async () => {
+			gate(() => Promise.resolve(info()));
+			await screen.findByText('3 de 10 jugadores');
+			expect(fake.initCalls).toBe(1);
+		});
+
+		it('a guest can sign in and come straight back to this invite (returnTo = /CODE)', async () => {
+			gate(() => Promise.resolve(info()));
+			await screen.findByText('3 de 10 jugadores');
+			const button = screen.getByRole('button', { name: 'Iniciar sesión con Google' });
+			expect(button.textContent?.trim()).toBe('Iniciar sesión');
+			await fireEvent.click(button);
+			expect(fake.loginCalls).toEqual(['/KT7P']);
+		});
+
+		it('is translated', async () => {
+			i18n.set('en');
+			gate(() => Promise.resolve(info()));
+			await screen.findByText('3 of 10 players');
+			const button = screen.getByRole('button', { name: 'Sign in with Google' });
+			expect(button.textContent?.trim()).toBe('Sign in');
+			i18n.set('es');
+		});
+
+		it('offers nothing when Google is not configured or while the session loads', async () => {
+			fake.googleEnabled = false;
+			gate(() => Promise.resolve(info()));
+			await screen.findByText('3 de 10 jugadores');
+			expect(signIn()).toBeNull();
+			fake.googleEnabled = true;
+			fake.status = 'loading';
+			await tick();
+			expect(signIn()).toBeNull();
+			fake.status = 'ready';
+			await tick();
+			expect(signIn()).not.toBeNull();
+		});
+
+		it('a signed-in user sees who they are instead, and no sign-in action', async () => {
+			fake.signIn({ id: 'u1', name: 'Ana García', profile: null });
+			gate(() => Promise.resolve(info()));
+			await screen.findByText('3 de 10 jugadores');
+			expect(screen.getByText('Ana García')).toBeTruthy();
+			expect(signIn()).toBeNull();
+		});
+
+		it('prefills nickname and avatar from the saved profile once it is adopted', async () => {
+			gate(() => Promise.resolve(info()));
+			await screen.findByText('3 de 10 jugadores');
+			profile.setNickname('Anita');
+			profile.setAvatar({ emoji: '🍇', color: 'grape' });
+			await tick();
+			expect((screen.getByLabelText('Tu apodo') as HTMLInputElement).value).toBe('Anita');
+			expect(screen.getByRole('button', { name: '🍇' }).getAttribute('aria-pressed')).toBe('true');
+			// typing is not fought
+			const input = screen.getByLabelText('Tu apodo') as HTMLInputElement;
+			await typeInto(input, 'Anitaa ');
+			await tick();
+			expect(input.value).toBe('Anitaa ');
+		});
+
+		it.each([
+			['not found', () => Promise.reject(new ApiError(404, 'room_not_found'))],
+			['full', () => Promise.resolve(info({ players: 10, joinable: false }))],
+			['unavailable', () => Promise.reject(new ApiError(503, 'server_busy'))]
+		])('the %s screens have no sign-in action', async (_, load) => {
+			gate(load);
+			await screen.findByRole('link', { name: 'Ir al inicio' });
+			expect(signIn()).toBeNull();
+		});
 	});
 });

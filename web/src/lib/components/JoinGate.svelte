@@ -1,6 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
+	import { account } from '$lib/account';
+	import AccountChip from '$lib/account/AccountChip.svelte';
+	import GoogleButton from '$lib/account/GoogleButton.svelte';
 	import { ApiError, api, type RoomInfo } from '$lib/api';
 	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
 	import AvatarPicker from '$lib/components/AvatarPicker.svelte';
@@ -8,7 +11,7 @@
 	import LanguageSwitch from '$lib/components/LanguageSwitch.svelte';
 	import Screen from '$lib/components/Screen.svelte';
 	import Wordmark from '$lib/components/Wordmark.svelte';
-	import { capNickname, NICKNAME_MAX } from '$lib/nickname';
+	import { capNickname, NICKNAME_MAX, normalizeNickname } from '$lib/nickname';
 	import { m } from '$lib/paraglide/messages';
 	import { profile } from '$lib/profile.svelte';
 
@@ -57,7 +60,14 @@
 	}
 	onMount(() => {
 		void run();
+		void account.init();
 		return () => attempt++;
+	});
+
+	// The saved profile of a signed-in user is adopted into the shared store after load: follow it.
+	$effect(() => {
+		const saved = profile.nickname;
+		if (normalizeNickname(untrack(() => draft)) !== saved) draft = saved;
 	});
 
 	const canJoin = $derived(profile.nickname.length > 0);
@@ -116,8 +126,17 @@
 {:else}
 	<Screen label={m.gate_title()}>
 		{#snippet header()}
-			<div class="flex w-full justify-end">
-				<LanguageSwitch />
+			<div class="flex w-full items-center justify-between gap-2">
+				{#if account.status === 'ready'}
+					{#if account.loggedIn}
+						<AccountChip />
+					{:else if account.googleEnabled}
+						<GoogleButton variant="compact" returnTo="/{code}" />
+					{/if}
+				{/if}
+				<div class="ml-auto">
+					<LanguageSwitch />
+				</div>
 			</div>
 			<Wordmark />
 		{/snippet}

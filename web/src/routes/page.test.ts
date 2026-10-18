@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { goto } from '$app/navigation';
+import { goto, replaceState } from '$app/navigation';
+import { account } from '$lib/account';
+import type { FakeAccount } from '$lib/account/fake.svelte';
 import { ApiError, api, type RoomInfo } from '$lib/api';
 import { hasRoomMark, clearRoomMark } from '$lib/game/roomMark';
 import { i18n } from '$lib/i18n.svelte';
@@ -9,7 +12,22 @@ import { profile } from '$lib/profile.svelte';
 import { toasts } from '$lib/toast.svelte';
 import Home from './+page.svelte';
 
-vi.mock('$app/navigation', () => ({ goto: vi.fn(() => Promise.resolve()) }));
+const route = vi.hoisted(() => ({ url: new URL('http://localhost/'), state: {} }));
+
+// SvelteKit runs `afterNavigate` callbacks when the page mounts (type "enter").
+vi.mock('$app/navigation', async () => {
+	const { onMount } = await import('svelte');
+	return {
+		goto: vi.fn(() => Promise.resolve()),
+		replaceState: vi.fn(),
+		afterNavigate: (callback: () => void) => onMount(() => callback())
+	};
+});
+vi.mock('$app/state', () => ({ page: route }));
+vi.mock('$lib/account', async (importOriginal) => {
+	const { FakeAccount } = await import('$lib/account/fake.svelte');
+	return { ...(await importOriginal<typeof import('$lib/account')>()), account: new FakeAccount() };
+});
 vi.mock('$lib/api', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/api')>()),
 	api: { createRoom: vi.fn(), getRoom: vi.fn(), ensureSession: vi.fn() }
@@ -24,6 +42,8 @@ const info = (over: Partial<RoomInfo> = {}): RoomInfo => ({
 	joinable: true,
 	...over
 });
+
+const fake = account as unknown as FakeAccount;
 
 const create = () => screen.getByRole('button', { name: /Creá una partida|Creando/ });
 const join = () => screen.getByRole('button', { name: /Unite a una partida|Entrando/ });
@@ -50,7 +70,10 @@ describe('Home actions', () => {
 		profile.setAvatar({ emoji: '🍓', color: 'strawberry' });
 		toasts.items = [];
 		clearRoomMark('KT7P');
+		fake.reset();
+		route.url = new URL('http://localhost/');
 		vi.mocked(goto).mockClear();
+		vi.mocked(replaceState).mockClear();
 		vi.mocked(api.createRoom).mockReset();
 		vi.mocked(api.getRoom).mockReset();
 	});
@@ -188,9 +211,145 @@ describe('Home actions', () => {
 		});
 	});
 
-	it('the Google login stays "coming soon"', async () => {
-		render(Home);
-		await fireEvent.click(screen.getByRole('link', { name: 'Ingresá con Google' }));
-		expect(toastTexts()).toEqual(['Próximamente']);
+	describe('account', () => {
+		const googleButton = () =>
+			screen.queryByRole('button', { name: /Iniciar sesión con Google|Sign in with Google/ });
+		const statsLink = () => screen.queryByRole('link', { name: /Mis estadísticas|My stats/ });
+		const signOut = () => screen.queryByRole('button', { name: /Cerrar sesión|Sign out/ });
+
+		it('asks the account store for the session once, when it opens', () => {
+			render(Home);
+			expect(fake.initCalls).toBe(1);
+		});
+
+		describe.each([
+			['es', 'Iniciar sesión con Google', 'Mis estadísticas', 'Cerrar sesión', 'Cerraste sesión.'],
+			['en', 'Sign in with Google', 'My stats', 'Sign out', 'You signed out.']
+		] as const)('in %s', (lang, signIn, stats, out, signedOut) => {
+			beforeEach(() => i18n.set(lang));
+
+			it('guest with Google enabled: the sign-in action starts a real login that returns Home', async () => {
+				render(Home);
+				await fireEvent.click(screen.getByRole('button', { name: signIn }));
+				expect(fake.loginCalls).toEqual(['/']);
+				expect(statsLink()).toBeNull();
+				expect(signOut()).toBeNull();
+			});
+
+			it('guest with Google disabled: no account controls at all (no dead link)', () => {
+				fake.googleEnabled = false;
+				render(Home);
+				expect(googleButton()).toBeNull();
+				expect(statsLink()).toBeNull();
+				expect(signOut()).toBeNull();
+				expect(screen.queryByText(/Google/)).toBeNull();
+			});
+
+			it('signed in: who you are, My stats (-> /stats) and Sign out; no sign-in action', async () => {
+				fake.signIn({ id: 'u1', name: 'Ana García', profile: null });
+				render(Home);
+				expect(screen.getByText('Ana García')).toBeTruthy();
+				expect(screen.getByRole('link', { name: stats }).getAttribute('href')).toBe('/stats');
+				expect(googleButton()).toBeNull();
+
+				await fireEvent.click(screen.getByRole('button', { name: out }));
+				expect(fake.logoutCalls).toBe(1);
+				await waitFor(() => expect(toastTexts()).toEqual([signedOut]));
+				// back to a guest: the sign-in action returns
+				expect(screen.getByRole('button', { name: signIn })).toBeTruthy();
+				expect(statsLink()).toBeNull();
+			});
+		});
+
+		it('a failed sign-out stays signed in and says why', async () => {
+			fake.signIn();
+			fake.onLogout = () => Promise.resolve({ ok: false, code: 'network' });
+			render(Home);
+			await fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+			await waitFor(() =>
+				expect(toastTexts()).toEqual([
+					'No hay conexión con el servidor. Revisá tu internet y probá de nuevo.'
+				])
+			);
+			expect(screen.getByRole('link', { name: 'Mis estadísticas' })).toBeTruthy();
+		});
+
+		it('shows progress while signing out and ignores a second tap', async () => {
+			fake.signIn();
+			const pending = deferred<{ ok: true }>();
+			fake.onLogout = () => pending.promise;
+			render(Home);
+			await fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+			const busy = await screen.findByRole('button', { name: 'Cerrando sesión…' });
+			expect(busy.getAttribute('aria-busy')).toBe('true');
+			await fireEvent.click(busy);
+			expect(fake.logoutCalls).toBe(1);
+			pending.resolve({ ok: true });
+			await waitFor(() => expect(toastTexts()).toEqual(['Cerraste sesión.']));
+		});
+
+		it('while the session loads nothing flickers: no controls, space reserved, then the right variant', async () => {
+			fake.status = 'loading';
+			const { container } = render(Home);
+			expect(googleButton()).toBeNull();
+			expect(statsLink()).toBeNull();
+			expect(signOut()).toBeNull();
+			expect(container.querySelector('.h-12[aria-hidden="true"]')).not.toBeNull();
+			fake.status = 'ready';
+			await tick();
+			expect(googleButton()).not.toBeNull();
+			expect(container.querySelector('.h-12[aria-hidden="true"]')).toBeNull();
+		});
+
+		it('follows the saved profile adopted after load without fighting the typing', async () => {
+			render(Home);
+			const input = screen.getByLabelText(/Tu apodo/) as HTMLInputElement;
+			expect(input.value).toBe('Ana');
+			profile.setNickname('Anita');
+			profile.setAvatar({ emoji: '🍇', color: 'grape' });
+			await tick();
+			expect(input.value).toBe('Anita');
+			expect(screen.getByRole('button', { name: '🍇' }).getAttribute('aria-pressed')).toBe('true');
+
+			await fireEvent.input(input, { target: { value: 'Anitaa ' } }); // trailing space while typing
+			await tick();
+			expect(input.value).toBe('Anitaa ');
+			expect(profile.nickname).toBe('Anitaa');
+		});
+	});
+
+	describe('?login= result from the OAuth callback', () => {
+		it.each([
+			['failed', 'es', 'No pudimos iniciar sesión. Probá de nuevo.'],
+			['cancelled', 'es', 'Cancelaste el inicio de sesión.'],
+			['failed', 'en', "We couldn't sign you in. Try again."],
+			['cancelled', 'en', 'Sign-in cancelled.']
+		] as const)(
+			'%s (%s): a translated toast, then the parameter is removed',
+			(reason, lang, text) => {
+				i18n.set(lang);
+				route.url = new URL(`http://localhost/?login=${reason}`);
+				render(Home);
+				expect(toastTexts()).toEqual([text]);
+				expect(replaceState).toHaveBeenCalledTimes(1);
+				expect(replaceState).toHaveBeenCalledWith('/', route.state);
+			}
+		);
+
+		it('keeps every other query parameter and the hash', () => {
+			route.url = new URL('http://localhost/?x=1&login=failed&y=2#top');
+			render(Home);
+			expect(replaceState).toHaveBeenCalledWith('/?x=1&y=2#top', route.state);
+		});
+
+		it.each(['', '?login=', '?login=pwned', '?login=FAILED', '?other=1'])(
+			'%j: nothing to say, nothing to clean',
+			(query) => {
+				route.url = new URL(`http://localhost/${query}`);
+				render(Home);
+				expect(toastTexts()).toEqual([]);
+				expect(replaceState).not.toHaveBeenCalled();
+			}
+		);
 	});
 });

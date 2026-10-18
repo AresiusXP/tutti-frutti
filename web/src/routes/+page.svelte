@@ -1,6 +1,11 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { onMount, untrack } from 'svelte';
+	import { afterNavigate, goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { account, accountErrorMessage } from '$lib/account';
+	import AccountChip from '$lib/account/AccountChip.svelte';
+	import GoogleButton from '$lib/account/GoogleButton.svelte';
 	import { ApiError, api, type RoomInfo } from '$lib/api';
 	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
 	import AvatarPicker from '$lib/components/AvatarPicker.svelte';
@@ -11,7 +16,7 @@
 	import { errorMessage } from '$lib/errors';
 	import { markRoom } from '$lib/game/roomMark';
 	import { i18n } from '$lib/i18n.svelte';
-	import { capNickname, NICKNAME_MAX } from '$lib/nickname';
+	import { capNickname, NICKNAME_MAX, normalizeNickname } from '$lib/nickname';
 	import { m } from '$lib/paraglide/messages';
 	import { profile } from '$lib/profile.svelte';
 	import { isCompleteRoomCode } from '$lib/roomCode';
@@ -22,6 +27,8 @@
 	/** The action in flight: its button shows progress and everything else is disabled meanwhile. */
 	let busy = $state<'create' | 'join' | null>(null);
 
+	let signingOut = $state(false);
+
 	const canCreate = $derived(profile.nickname.length > 0 && busy === null);
 	const canJoin = $derived(canCreate && isCompleteRoomCode(code));
 
@@ -30,8 +37,32 @@
 		profile.setNickname(draft);
 	}
 
-	function comingSoon() {
-		toasts.show(m.coming_soon());
+	// The saved profile of a signed-in user is adopted into the shared store after load: follow it.
+	$effect(() => {
+		const saved = profile.nickname;
+		if (normalizeNickname(untrack(() => draft)) !== saved) draft = saved;
+	});
+
+	onMount(() => void account.init());
+
+	// `/?login=failed|cancelled`: the OAuth callback could not sign the user in. Say so once, then
+	// clean the URL (the router is only ready after the first navigation).
+	afterNavigate(() => {
+		const reason = page.url.searchParams.get('login');
+		if (reason !== 'failed' && reason !== 'cancelled') return;
+		toasts.show(reason === 'failed' ? m.account_login_failed() : m.account_login_cancelled());
+		const rest = new URL(page.url);
+		rest.searchParams.delete('login');
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved path plus the remaining query/hash
+		replaceState(resolve('/') + rest.search + rest.hash, page.state);
+	});
+
+	async function signOut() {
+		if (signingOut) return;
+		signingOut = true;
+		const result = await account.logout();
+		signingOut = false;
+		toasts.show(result.ok ? m.account_signed_out() : accountErrorMessage(result.code));
 	}
 
 	function notJoinable(info: RoomInfo): string {
@@ -96,8 +127,11 @@
 	class="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-3 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] tall:gap-4"
 >
 	<header class="flex flex-col items-center gap-1 text-center">
-		<div class="flex w-full justify-end">
-			<LanguageSwitch />
+		<div class="flex w-full items-center justify-between gap-2">
+			<AccountChip />
+			<div class="ml-auto">
+				<LanguageSwitch />
+			</div>
 		</div>
 		<Wordmark />
 		<p class="max-w-xs text-base leading-snug text-cream-muted tall:text-lg">{m.tagline()}</p>
@@ -176,16 +210,28 @@
 			{/if}
 		</Button>
 
-		<a
-			href="/api/auth/google/login?returnTo=%2F"
-			rel="external"
-			onclick={(event) => {
-				event.preventDefault();
-				comingSoon();
-			}}
-			class="flex h-12 items-center justify-center rounded-2xl px-4 font-bold text-cream underline decoration-2 underline-offset-4 ring-1 ring-night-3"
-		>
-			{m.sign_in_google()}
-		</a>
+		<!-- Account slot: reserved while the session loads so nothing jumps; empty when Google is off. -->
+		{#if account.status === 'loading'}
+			<div class="h-12" aria-hidden="true"></div>
+		{:else if account.loggedIn}
+			<div class="grid grid-cols-2 gap-2">
+				<a
+					href={resolve('/stats')}
+					class="flex h-12 items-center justify-center rounded-2xl px-2 text-center font-bold text-cream ring-1 ring-night-3 transition active:bg-night-3"
+				>
+					{m.account_stats_link()}
+				</a>
+				<button
+					type="button"
+					aria-busy={signingOut}
+					onclick={signOut}
+					class="flex h-12 items-center justify-center rounded-2xl px-2 font-bold text-cream ring-1 ring-night-3 transition active:bg-night-3"
+				>
+					{signingOut ? m.account_sign_out_pending() : m.account_sign_out()}
+				</button>
+			</div>
+		{:else if account.googleEnabled}
+			<GoogleButton returnTo="/" />
+		{/if}
 	</section>
 </main>

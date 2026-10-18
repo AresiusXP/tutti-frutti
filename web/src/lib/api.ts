@@ -117,7 +117,12 @@ export function createApi(
 
 	return {
 		async ensureSession(opts = {}) {
-			await request('/api/session', { signal: opts.signal });
+			const res = await request('/api/session', { signal: opts.signal });
+			// Only the Set-Cookie matters. Release the body so closing the room right
+			// afterwards does not abort an already answered request (net::ERR_ABORTED).
+			// Started, not awaited: the answer is already here and a caller must not
+			// wait a stream tick for it.
+			res.body?.cancel().catch(() => undefined);
 		},
 		async getRoom(code, opts = {}) {
 			let res: Response;

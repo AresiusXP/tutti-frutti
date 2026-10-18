@@ -9,7 +9,8 @@
 			"./messages/net/{locale}.json",
 			"./messages/lobby/{locale}.json",
 			"./messages/play/{locale}.json",
-			"./messages/review/{locale}.json"
+			"./messages/review/{locale}.json",
+			"./messages/account/{locale}.json"
 		]
 	}
 }

@@ -5,8 +5,8 @@ SvelteKit 2 + Svelte 5 (runes) + TypeScript (strict) + Tailwind CSS v4, built wi
 `index.html`) and shipped as an installable PWA. See `../docs/DESIGN.md`.
 
 Status: **Phase 3** — the whole game UI (Home, invite gate, Lobby, Letter, Playing, Review,
-Summary, Final) talks to the Go server over REST + one WebSocket per room. Accounts (Google login)
-arrive in Phase 4: that link still shows a "coming soon" toast.
+Summary, Final) talks to the Go server over REST + one WebSocket per room. **Phase 4** adds the
+account UI (Google sign-in, saved profile, lifetime stats): see "Accounts" below.
 
 ## Scripts
 
@@ -76,6 +76,8 @@ src/lib/screens/RoomScreen.svelte  phase -> screen router (Lobby, Letter, Playin
 src/routes/+page.svelte          Home: create / join
 src/routes/[code=roomcode]/      room route: gate -> connecting -> screens (+ banner) -> closed
 src/lib/components/{JoinGate,ConnectingScreen,ConnectionBanner,ClosedScreen}.svelte
+src/lib/account/                 account store, REST client, GoogleButton, AccountChip (Phase 4)
+src/routes/stats/                the stats screen (+ delete-account dialog)
 ```
 
 ### The session contract
@@ -149,6 +151,33 @@ Every attempt: `GET /api/session` (once per session; sets the guest cookie) → 
 5. Every new `session.lastError` becomes a translated toast (`err_<code>`, fallback `err_unknown`);
    errors that end the session are not toasted, the closed screen says it.
 
+## Accounts (Phase 4)
+
+Google sign-in is optional: the app is a complete guest app and the account UI appears only when
+`GET /api/session` says `googleEnabled`. Design and rules: `../docs/DESIGN.md` → "Accounts UI (Phase 4)".
+
+```
+src/lib/account/store.svelte.ts  AccountStore + the `account` singleton: session, user, stats, profile sync
+src/lib/account/api.ts           REST calls (/api/session, /api/me, /api/me/profile, /api/me/stats, logout)
+src/lib/account/types.ts         re-exports the generated wire types (lib/protocol/api.ts) + Outcome
+src/lib/account/returnTo.ts      `/` | `/<ROOMCODE>` allow-list + the login URL
+src/lib/account/fake.svelte.ts   FakeAccount: scriptable double for component tests
+src/lib/account/account.testkit.ts  routable fake fetch, fake event targets, memory profile
+```
+
+- **Using it:** `import { account } from '$lib/account'`; call `account.init()` on mount (idempotent) and read
+  `account.status | googleEnabled | loggedIn | user | stats` in templates. `account.login('/')` /
+  `account.login('/KT7P')` navigate away to Google; `logout()`, `deleteAccount()` and `loadStats()` return
+  `{ ok: true } | { ok: false, code }` and show errors with `accountErrorMessage(code)`.
+- **Tests:** logic with a fake `fetch` (`rig()` in `account.testkit.ts`); screens with
+  `vi.mock('$lib/account', …)` returning a `FakeAccount` (see `src/routes/stats/page.test.ts`). The store tests
+  need `// @vitest-environment jsdom`: in the node environment Svelte compiles for SSR and `$effect` does nothing.
+- **Without a server:** in `npm run dev`, intercept the API in the browser (Playwright
+  `page.route('**/api/**', …)`) answering `/api/session` `{guest:true, googleEnabled:true, loggedIn:true}`,
+  `/api/me` `{id, name, profile}` and `/api/me/stats`; or run the Go server with Google configured
+  (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, redirect URI `<PUBLIC_URL>/api/auth/google/callback`).
+- **Messages:** `messages/account/{es,en}.json` (`account_*`, `stats_*`; the REST failures are `account_err_*`).
+
 ## Dev playground
 
 `npm run dev`, then `http://localhost:5173/dev` lists scenarios; `/dev?s=<scenario>&lang=es|en&bare=1`
@@ -163,7 +192,7 @@ redirects home). Each area registers its scenarios in `src/lib/dev/scenarios.<ar
   exist in **both** files with the same `{parameters}` (a test enforces it).
 - **Message areas**: besides the core `messages/{es,en}.json`, every feature owns a folder
   (`messages/net/` for the network/Home/gate/closed/error strings, `messages/lobby/`,
-  `messages/play/`, `messages/review/`) with its own key prefix (`net_`, `err_`, `gate_`, `closed_`,
+  `messages/play/`, `messages/review/`, `messages/account/`) with its own key prefix (`net_`, `err_`, `gate_`, `closed_`,
   `home_` for `net/`). They are listed in `project.inlang/settings.json` (`pathPattern`) and
   merged by Paraglide; a key may exist in ONE area only (`src/lib/messages.test.ts` fails on
   duplicates). English never contains `¡¿ñáéíóúü` and says only "Stop!".
@@ -202,7 +231,7 @@ are in `src/app.css`; the `tall:` variant (viewport height >= 800px) relaxes the
 
 The Home screen is thumb-friendly: logo, nickname, avatar picker (one row of emoji + one row of
 colours), **Create game** and the room-code input with its **Join** button all fit without
-scrolling at 390 × 844 and 360 × 740 (the Google link and ES/EN switch too); the actions are
+scrolling at 390 × 844 and 360 × 740 (the account slot — Google button, or My stats + Sign out — and the ES/EN switch too); the actions are
 anchored to the bottom. Keep it that way when you touch the layout.
 
 Room codes (`src/lib/roomCode.ts`): alphabet `BCDFGHJKLMNPQRSTVWXZ23456789`, 4 characters, ASCII-only
@@ -215,9 +244,23 @@ characters, `ß`-style Unicode expansions) is ignored and the already typed valu
 
 `@vite-pwa/sveltekit`, `registerType: 'prompt'`, Workbox `generateSW`. `UpdatePrompt.svelte`
 registers the service worker through `virtual:pwa-register` and shows the localized
-"Nueva versión disponible → Recargar" banner. The service worker never answers or caches
-`/api/*`, `/ws`, `/healthz`, `/readyz`, `/metrics` (navigation fallback denylist + `NetworkOnly`).
-The service worker is disabled in `npm run dev`.
+"Nueva versión disponible → Recargar" banner: a new version waits until the player clicks (no
+`clientsClaim`, no automatic `skipWaiting`, so a game is never reloaded by itself).
+The service worker never answers or caches `/api/*`, `/ws`, `/healthz`, `/readyz`, `/metrics`
+(navigation fallback denylist + `NetworkOnly`). It is disabled in `npm run dev`.
+
+- The manifest lives in `scripts/pwa-manifest.ts` (built from `BRAND`; colours, icons, screenshots and
+  the iOS tags are checked by `src/lib/pwa.test.ts`). Colours: `--color-night` = `theme-color` meta =
+  `theme_color` = `background_color`.
+- Install-dialog screenshots: `static/screenshots/*.png` (540×960, from the dev playground scenarios
+  listed in `scripts/screenshots.json`), never precached (`workbox.globIgnores`). Regenerate with
+  `npm run dev -- --port 5173` and, in another terminal, `node scripts/screenshots.mjs` (needs a
+  Chromium and `playwright-core`, which are not dependencies: see the header of the script).
+- Check installability in Chromium: DevTools → Application → Manifest, or CDP
+  `Page.getInstallabilityErrors` (must be empty; use a non-incognito profile).
+- Test an update locally: build two images with a visible change in between, serve one on a port,
+  open the app, replace the container with the other image on the same port and call
+  `(await navigator.serviceWorker.getRegistration()).update()`.
 
 ## Docker
 
@@ -232,5 +275,19 @@ Multi-stage (`node:22-alpine` → `nginxinc/nginx-unprivileged:stable-alpine`), 
 `/_app/immutable/`), `/healthz`, a JSON 404 (`{"error":"not_found"}`) for the whole backend
 namespace (`/api`, `/api/...`, `/ws`, `/ws/...`; routes such as `/apix` are still SPA routes),
 and includes `nginx-security-headers.conf` in every
-location that sets `add_header` (nginx does not inherit headers otherwise). A strict CSP
-is planned for Phase 5.
+location that sets `add_header` (nginx does not inherit headers otherwise).
+
+### Security headers (Phase 5)
+
+Every response carries a strict Content-Security-Policy (no `unsafe-inline`/`unsafe-eval`),
+`Permissions-Policy`, COOP/CORP `same-origin`, `X-Frame-Options`, `nosniff`, `Referrer-Policy` and, on
+https requests only, HSTS. The policy is in `nginx-security-headers.conf`; the hashes of the shell's
+inline bootstrap script and static `style` attributes are generated at build time (`scripts/csp.mjs`, run
+by `svelte.config.js` after `adapter-static`, written to `.svelte-kit/nginx/csp-hashes.conf` and copied
+into the image). **`npm run build` fails** when the shell or a template gains inline code the policy
+would block (an inline `<script>`, an event-handler attribute, a static `style="…"`): use external files
+and Svelte's `style:prop={…}` directive (CSSOM, not restricted). `src/lib/security.test.ts` covers the
+generator, the policy and the nginx structure. Details, the debugging recipe and the verification:
+`../docs/DESIGN.md`, "Security headers and PWA (Phase 5)".
+
+Check a running stack: `curl -sI http://localhost:8000/ | grep -iE 'content-security|permissions|cross-origin'`.

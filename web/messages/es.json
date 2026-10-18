@@ -23,12 +23,10 @@
 	"code_label": "Código de la partida",
 	"code_hint": "4 caracteres, sin vocales",
 	"code_char_label": "Carácter {n} de {total}",
-	"sign_in_google": "Ingresá con Google",
 	"language_label": "Idioma",
 	"share_text": "¡Jugá {brand} conmigo! Código {code}",
 	"update_available": "Nueva versión disponible",
 	"reload": "Recargar",
 	"offline": "Estás sin conexión",
-	"coming_soon": "Próximamente",
 	"toast_dismiss": "Cerrar"
 }

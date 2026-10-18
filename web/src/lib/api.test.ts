@@ -34,6 +34,23 @@ describe('api.ensureSession', () => {
 			signal: undefined
 		});
 	});
+
+	it('releases the response body instead of leaving it to be aborted later', async () => {
+		const res = json({ guest: true });
+		const cancel = vi.spyOn(res.body as ReadableStream, 'cancel');
+		const { api: a } = api(() => res);
+		await a.ensureSession();
+		expect(cancel).toHaveBeenCalledOnce();
+	});
+
+	it('still succeeds when the body cannot be cancelled or is missing', async () => {
+		const locked = json({ guest: true });
+		locked.body?.getReader(); // a locked stream rejects cancel()
+		await expect(api(() => locked).api.ensureSession()).resolves.toBeUndefined();
+		await expect(
+			api(() => new Response(null, { status: 204 })).api.ensureSession()
+		).resolves.toBeUndefined();
+	});
 });
 
 describe('api.getRoom', () => {

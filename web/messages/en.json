@@ -23,12 +23,10 @@
 	"code_label": "Game code",
 	"code_hint": "4 characters, no vowels",
 	"code_char_label": "Character {n} of {total}",
-	"sign_in_google": "Sign in with Google",
 	"language_label": "Language",
 	"share_text": "Play {brand} with me! Code {code}",
 	"update_available": "New version available",
 	"reload": "Reload",
 	"offline": "You're offline",
-	"coming_soon": "Coming soon",
 	"toast_dismiss": "Dismiss"
 }
