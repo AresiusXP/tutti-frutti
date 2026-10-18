@@ -34,6 +34,9 @@ const (
 	ChooserTimeout = 10 * time.Second
 	// GraceDuration is the countdown between a Basta call and the input lock.
 	GraceDuration = 3 * time.Second
+	// StopVoteDuration is how long a "ask everyone to stop" vote stays open
+	// before it counts as rejected.
+	StopVoteDuration = 15 * time.Second
 	// LateUpdateAllowance is how long after the lock answer updates are still
 	// accepted (network lag allowance).
 	LateUpdateAllowance = 500 * time.Millisecond

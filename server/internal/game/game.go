@@ -70,6 +70,17 @@ type MergeProposal struct {
 	Votes      []MergeVote `json:"votes"`
 }
 
+// StopVote is a player's request that everybody stops although they have not
+// filled every category. The voters are the connected participants other than
+// the asker, evaluated live like the review votes.
+type StopVote struct {
+	CallerID string    `json:"callerId"`
+	EndsAt   time.Time `json:"endsAt"`
+	// Yes holds the ids that voted yes (a "no" ends the vote at once, so no
+	// "no" is ever stored).
+	Yes []string `json:"yes"`
+}
+
 // Round is the state of the round in progress (or the last finished one).
 type Round struct {
 	Number int `json:"number"`
@@ -89,6 +100,8 @@ type Round struct {
 	PlayingEndsAt time.Time `json:"playingEndsAt,omitzero"`
 	// GraceEndsAt is the instant inputs lock (zero before basta/time-up).
 	GraceEndsAt time.Time `json:"graceEndsAt,omitzero"`
+	// StopVote is the open vote to stop the round (nil when there is none).
+	StopVote *StopVote `json:"stopVote,omitempty"`
 	// ReviewCategory is the category index shown in the review.
 	ReviewCategory int             `json:"reviewCategory"`
 	RejectVotes    []RejectVote    `json:"rejectVotes"`
@@ -169,9 +182,9 @@ func (g *Game) apply(now time.Time, actor string, cmd Command) ([]Event, error) 
 	}
 	switch c := cmd.(type) {
 	case Leave:
-		return g.dropPlayer(p.ID, false), nil
+		return g.dropPlayer(now, p.ID, false), nil
 	case Kick:
-		return g.kick(p, c)
+		return g.kick(now, p, c)
 	case UpdateSettings:
 		return nil, g.updateSettings(p, c)
 	case StartGame:
@@ -182,6 +195,10 @@ func (g *Game) apply(now time.Time, actor string, cmd Command) ([]Event, error) 
 		return nil, g.setAnswer(p, c)
 	case Basta:
 		return g.basta(now, p)
+	case AskStop:
+		return g.askStop(now, p)
+	case VoteStop:
+		return g.voteStop(now, p, c)
 	case VoteReject:
 		return nil, g.voteReject(p, c)
 	case ProposeMerge:
@@ -224,9 +241,14 @@ func (g *Game) Tick(now time.Time) []Event {
 			avail := AvailableLetters(g.Settings.Lang, g.Settings.ExcludeHardLetters, g.UsedLetters)
 			events = append(events, g.revealLetter(deadline, LetterAt(avail, ChooserTimeout))...)
 		case PhasePlaying:
+			if v := g.Round.StopVote; v != nil && (g.Round.PlayingEndsAt.IsZero() || v.EndsAt.Before(g.Round.PlayingEndsAt)) {
+				events = append(events, g.endStopVote(StopReasonTimeout)...)
+				continue
+			}
 			// Time limit: enter grace with no caller; inputs are already
 			// locked at the deadline, so the phase only lasts for the
-			// late-update allowance.
+			// late-update allowance. An open vote to stop ends with the round.
+			events = append(events, g.endStopVote(StopReasonEnded)...)
 			g.Phase = PhaseGrace
 			g.Round.CallerID = ""
 			g.Round.GraceEndsAt = g.Round.PlayingEndsAt
@@ -243,7 +265,8 @@ func (g *Game) Tick(now time.Time) []Event {
 // if any, so the room layer can arm a single timer:
 //
 //   - letter: LetterStartedAt + ChooserTimeout
-//   - playing: the time-limit deadline, when a limit is set
+//   - playing: the time-limit deadline, when a limit is set, or the end of
+//     the open vote to stop, whichever comes first
 //   - grace: GraceEndsAt + LateUpdateAllowance
 func (g *Game) NextDeadline() (time.Time, bool) {
 	if g.Round == nil {
@@ -253,9 +276,11 @@ func (g *Game) NextDeadline() (time.Time, bool) {
 	case PhaseLetter:
 		return g.Round.LetterStartedAt.Add(ChooserTimeout), true
 	case PhasePlaying:
-		if !g.Round.PlayingEndsAt.IsZero() {
-			return g.Round.PlayingEndsAt, true
+		limit := g.Round.PlayingEndsAt
+		if v := g.Round.StopVote; v != nil && (limit.IsZero() || v.EndsAt.Before(limit)) {
+			return v.EndsAt, true
 		}
+		return limit, !limit.IsZero()
 	case PhaseGrace:
 		return g.Round.GraceEndsAt.Add(LateUpdateAllowance), true
 	}

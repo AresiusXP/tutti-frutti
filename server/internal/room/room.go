@@ -177,6 +177,7 @@ type room struct {
 	nextSnap    time.Time // when the next periodic snapshot is due
 	lastSaved   time.Time // when the newest snapshot was handed to the saver
 	dirty       bool      // state changed since the last snapshot
+	stopOpen    bool      // a vote to stop was open after the last state change (for the metrics)
 	stopping    bool      // the hub is shutting down: no more frames
 	closed      bool
 }
@@ -445,6 +446,11 @@ func (r *room) onCommand(now time.Time, s *session, t string, d json.RawMessage)
 		return
 	}
 	r.h.m.command(t, resultOK)
+	if t == game.CmdAskStop && r.g.Round.StopVote == nil {
+		// Nobody was left to ask: the vote passed at once (see countEvents).
+		r.h.m.stopVote(stopAsked)
+		r.h.m.stopVote(stopPassed)
+	}
 
 	_, leaving := cmd.(game.Leave)
 	if leaving {
@@ -563,15 +569,27 @@ func (r *room) commit(now time.Time, prev game.Phase, events []game.Event, lobby
 	r.rearm()
 }
 
+// countEvents feeds the metrics. A vote to stop that passes is announced as a
+// plain basta event, so it is told from a direct Basta by having been open
+// before the engine call and not having been rejected in it.
 func (r *room) countEvents(events []game.Event) {
+	rejected := slices.ContainsFunc(events, func(ev game.Event) bool { return ev.Type == game.EventStopRejected })
 	for _, ev := range events {
 		switch ev.Type {
 		case game.EventRoundStarted:
 			r.h.m.rounds.Inc()
 		case game.EventBasta:
 			r.h.m.basta.Inc()
+			if r.stopOpen && !rejected {
+				r.h.m.stopVote(stopPassed)
+			}
+		case game.EventStopAsked:
+			r.h.m.stopVote(stopAsked)
+		case game.EventStopRejected:
+			r.h.m.stopVote(ev.Reason)
 		}
 	}
+	r.stopOpen = r.g.Round != nil && r.g.Round.StopVote != nil
 }
 
 // broadcast sends one event frame per engine event to every joined client,

@@ -30,7 +30,12 @@ import (
 // Version 2 added the Dutch lobby language ("nl"): a version 1 client would
 // not know the language of a room (labels, alphabet, normalization), so it
 // must reload.
-const Version = 2
+//
+// Version 3 added the vote to stop: the commands ask_stop and vote_stop, the
+// lobby setting Settings.StopVote, RoundView.StopVote and the events stop_asked
+// and stop_rejected. A version 2 client would show a vote it cannot answer and
+// never offer the setting, so it must reload.
+const Version = 3
 
 // Frame types that are not game commands.
 const (

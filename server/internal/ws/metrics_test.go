@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -65,6 +66,23 @@ func TestMetricsFrames(t *testing.T) {
 	}
 }
 
+func TestStopVoteFramesHaveTheirOwnLabel(t *testing.T) {
+	e := newEnv(t, nil)
+	c, sess := e.dialJoined()
+	send(t, c, "ask_stop", "")
+	send(t, c, "vote_stop", `{"yes":true}`)
+	send(t, c, "vote_stop", `{"yes":false}`)
+	eventually(t, "the frames to reach the room", func() bool { return len(sess.handled()) >= 4 })
+	for typ, n := range map[string]float64{"ask_stop": 1, "vote_stop": 2} {
+		if got := counter(t, e.reg, framesMetric, map[string]string{"dir": "in", "type": typ}); got != n {
+			t.Errorf("frames{dir=in,type=%s} = %v, want %v", typ, got, n)
+		}
+	}
+	if got := counter(t, e.reg, framesMetric, map[string]string{"dir": "in", "type": "other"}); got != 0 {
+		t.Errorf("the new commands were counted as other: %v", got)
+	}
+}
+
 func TestMetricsCloses(t *testing.T) {
 	e := newEnv(t, nil)
 
@@ -82,7 +100,7 @@ func TestMetricsCloses(t *testing.T) {
 	}
 	// 4003 and 1009 from protocol violations, 1008 from the rate limit.
 	c3 := e.dial()
-	sendRaw(t, c3, `{"t":"ping","v":3}`)
+	sendRaw(t, c3, fmt.Sprintf(`{"t":"ping","v":%d}`, protocol.Version+1))
 	expectClose(t, c3)
 	c4 := e.dial()
 	sendRaw(t, c4, strings.Repeat("a", protocol.MaxMessageBytes+10))

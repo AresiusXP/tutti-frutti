@@ -79,6 +79,12 @@ func gameInPhase(t *testing.T, name string) *Game {
 		return g
 	case "playing with time limit":
 		return newPlaying(t, 3, func(s *Settings) { s.TimeLimitSeconds = 60; threeCategories(s) })
+	case "playing with a vote to stop":
+		g := newPlaying(t, 3, threeCategories)
+		fill(t, g, tStart.Add(time.Second), "p1", "Ana", "Argentina")
+		apply(t, g, tStart.Add(2*time.Second), "p1", AskStop{})
+		apply(t, g, tStart.Add(3*time.Second), "p3", VoteStop{Yes: true})
+		return g
 	case "grace":
 		g := newPlaying(t, 3, threeCategories)
 		fill(t, g, tStart.Add(time.Second), "p1", "Ana", "Argentina", "Alce")
@@ -124,6 +130,7 @@ func TestJSONRoundTripInEveryPhase(t *testing.T) {
 		{"letter", PhaseLetter},
 		{"playing", PhasePlaying},
 		{"playing with time limit", PhasePlaying},
+		{"playing with a vote to stop", PhasePlaying},
 		{"grace", PhaseGrace},
 		{"grace by time limit", PhaseGrace},
 		{"review", PhaseReview},

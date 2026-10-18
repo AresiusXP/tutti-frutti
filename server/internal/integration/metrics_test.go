@@ -144,7 +144,7 @@ func TestMetricsAfterAGame(t *testing.T) {
 	}
 	commandTypes := map[string]bool{"unknown": true}
 	for _, c := range []string{game.CmdJoin, game.CmdLeave, game.CmdUpdateSettings, game.CmdKick, game.CmdStartGame, game.CmdStopLetter,
-		game.CmdSetAnswer, game.CmdBasta, game.CmdVoteReject, game.CmdProposeMerge, game.CmdVoteMerge, game.CmdReviewNav,
+		game.CmdSetAnswer, game.CmdBasta, game.CmdAskStop, game.CmdVoteStop, game.CmdVoteReject, game.CmdProposeMerge, game.CmdVoteMerge, game.CmdReviewNav,
 		game.CmdFinishReview, game.CmdNextRound, game.CmdEndGame, game.CmdRematch} {
 		commandTypes[c] = true
 	}
@@ -213,7 +213,7 @@ func TestMetricsAfterAGame(t *testing.T) {
 	big.sendRaw(strings.Repeat("x", protocol.MaxMessageBytes+1))
 	big.expectClose(protocol.CloseTooBig)
 	old := s.connect(s.newPlayer("Old"))
-	old.sendRaw(`{"t":"ping","v":9}`)
+	old.sendRaw(fmt.Sprintf(`{"t":"ping","v":%d}`, protocol.Version+6))
 	old.expectClose(protocol.CloseUnsupportedVersion)
 	lost := s.connect(s.newPlayer("Lost"))
 	lost.send(game.CmdJoin, protocol.JoinRequest{Code: "BCDF", Name: "Lost"})
@@ -226,7 +226,7 @@ func TestMetricsAfterAGame(t *testing.T) {
 	text := s.scrape()
 	for _, name := range []string{
 		"tuttifrutti_rooms", "tuttifrutti_connections", "tuttifrutti_commands_total", "tuttifrutti_rounds_total",
-		"tuttifrutti_basta_total", "tuttifrutti_ws_closes_total", "tuttifrutti_snapshot_errors_total",
+		"tuttifrutti_basta_total", "tuttifrutti_stop_votes_total", "tuttifrutti_ws_closes_total", "tuttifrutti_snapshot_errors_total",
 	} {
 		if !strings.Contains(text, "# TYPE "+name+" ") {
 			t.Errorf("/metrics has no %s", name)

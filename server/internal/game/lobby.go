@@ -88,6 +88,10 @@ func (g *Game) ensureHost(id string) {
 // disconnecting keeps ConnectedAt. A disconnected player keeps their seat, and
 // a disconnected host stays host: the role only moves when the host leaves or
 // is kicked. It returns ErrUnknownPlayer for a player who is not seated.
+//
+// The connection state is also the electorate of a vote to stop: a voter who
+// disconnects stops counting (which may complete the vote), and the vote ends
+// when its asker disconnects.
 func (g *Game) SetConnected(now time.Time, playerID string, connected bool) ([]Event, error) {
 	events := g.Tick(now)
 	p := g.seat(playerID)
@@ -98,13 +102,13 @@ func (g *Game) SetConnected(now time.Time, playerID string, connected bool) ([]E
 		p.ConnectedAt = now
 	}
 	p.Connected = connected
-	return events, nil
+	return append(events, g.settleStopVote(now)...), nil
 }
 
 // dropPlayer removes a player who left or was kicked: from the list in the
 // lobby, otherwise by flagging them Left so scores and history stay intact.
 // It hands the host role over if needed.
-func (g *Game) dropPlayer(id string, kicked bool) []Event {
+func (g *Game) dropPlayer(now time.Time, id string, kicked bool) []Event {
 	var events []Event
 	if kicked {
 		g.Banned = append(g.Banned, id)
@@ -116,6 +120,7 @@ func (g *Game) dropPlayer(id string, kicked bool) []Event {
 		p.Left = true
 		p.Connected = false
 	}
+	events = append(events, g.settleStopVote(now)...)
 	if g.HostID == id {
 		events = append(events, g.electHost()...)
 	}
@@ -151,7 +156,7 @@ func hostRank(a, b *Player) bool {
 	return a.JoinedSeq < b.JoinedSeq
 }
 
-func (g *Game) kick(host *Player, c Kick) ([]Event, error) {
+func (g *Game) kick(now time.Time, host *Player, c Kick) ([]Event, error) {
 	if err := g.requireHost(host); err != nil {
 		return nil, err
 	}
@@ -161,7 +166,7 @@ func (g *Game) kick(host *Player, c Kick) ([]Event, error) {
 	if g.seat(c.PlayerID) == nil {
 		return nil, ErrUnknownPlayer
 	}
-	return g.dropPlayer(c.PlayerID, true), nil
+	return g.dropPlayer(now, c.PlayerID, true), nil
 }
 
 func (g *Game) updateSettings(host *Player, c UpdateSettings) error {

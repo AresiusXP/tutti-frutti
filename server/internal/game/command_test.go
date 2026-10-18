@@ -25,6 +25,9 @@ func TestParseCommand(t *testing.T) {
 		{"stop_letter", `null`, StopLetter{}},
 		{"set_answer", `{"category":2,"text":"Argentina"}`, SetAnswer{Category: 2, Text: "Argentina"}},
 		{"basta", ``, Basta{}},
+		{"ask_stop", ``, AskStop{}},
+		{"vote_stop", `{"yes":true}`, VoteStop{Yes: true}},
+		{"vote_stop", `{"yes":false}`, VoteStop{}},
 		{"vote_reject", `{"category":1,"targetPlayer":"p3"}`, VoteReject{Category: 1, Target: "p3"}},
 		{"vote_reject", `{"category":1,"targetPlayer":"p3","withdraw":true}`, VoteReject{Category: 1, Target: "p3", Withdraw: true}},
 		{"propose_merge", `{"category":4,"playerA":"p1","playerB":"p2"}`, ProposeMerge{Category: 4, PlayerA: "p1", PlayerB: "p2"}},
@@ -64,7 +67,7 @@ func TestParseCommand(t *testing.T) {
 
 	for _, typ := range []string{
 		CmdJoin, CmdLeave, CmdUpdateSettings, CmdKick, CmdStartGame, CmdStopLetter, CmdSetAnswer,
-		CmdBasta, CmdVoteReject, CmdProposeMerge, CmdVoteMerge, CmdReviewNav, CmdFinishReview,
+		CmdBasta, CmdAskStop, CmdVoteStop, CmdVoteReject, CmdProposeMerge, CmdVoteMerge, CmdReviewNav, CmdFinishReview,
 		CmdNextRound, CmdEndGame, CmdRematch,
 	} {
 		if !covered[typ] {
@@ -88,6 +91,8 @@ func TestParseCommandErrors(t *testing.T) {
 		{"malformed json", "set_answer", `{"category":`, ErrBadPayload},
 		{"wrong field type", "set_answer", `{"category":"one"}`, ErrBadPayload},
 		{"not an object", "kick", `[1,2]`, ErrBadPayload},
+		{"vote_stop with a string", "vote_stop", `{"yes":"yes"}`, ErrBadPayload},
+		{"ask_stop with an array", "ask_stop", `[]`, ErrBadPayload},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

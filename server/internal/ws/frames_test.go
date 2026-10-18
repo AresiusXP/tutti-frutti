@@ -55,6 +55,7 @@ func TestVersionMismatch(t *testing.T) {
 	}{
 		{"newer version", fmt.Sprintf(`{"t":"ping","v":%d}`, protocol.Version+1), "ping"},
 		{"previous protocol version", `{"t":"join","v":1,"d":{"code":"KT7P"}}`, "join"},
+		{"protocol version 2 (before the vote to stop)", `{"t":"join","v":2,"d":{"code":"KT7P"}}`, "join"},
 		{"version zero", `{"t":"join","v":0,"d":{"code":"KT7P"}}`, "join"},
 		{"missing version", `{"t":"ping"}`, "ping"},
 		{"negative", `{"t":"set_answer","v":-1,"d":{}}`, "set_answer"},

@@ -53,6 +53,27 @@
 //     empty), with GraceEndsAt set to the limit itself: inputs are locked
 //     from that instant and the phase only lasts for LateUpdateAllowance.
 //     No basta event is emitted (time_up is).
+//   - Basta needs every category filled with a valid answer. When the host left
+//     Settings.StopVote on (the default), a participant who has not filled
+//     everything can instead ask everyone to stop (AskStop): a vote that needs
+//     a yes from every other connected participant (VoteStop), is rejected by
+//     any no and by StopVoteDuration (15 s, exclusive like every deadline)
+//     without agreement, and has no cooldown (the asker, or anybody, may ask
+//     again right away). The electorate is live, like the review votes:
+//     participants who are seated and connected, other than the asker, in join
+//     order. A voter who disconnects or leaves stops counting (that can pass
+//     the vote; an empty electorate passes it at once, without stop_asked), one
+//     who reconnects counts again, and the asker disconnecting, leaving or being
+//     kicked ends the vote. A passed vote is exactly a Basta call by the asker:
+//     the same transition to the grace phase and the same basta event (empty
+//     cells then score 0); a direct Basta by someone else, the time limit and
+//     every phase change end the vote (stop_rejected with reason "ended" before
+//     the basta or time_up event). The vote is part of the Round, so it
+//     round-trips, but a snapshot restore starts with everybody disconnected,
+//     so the room layer drops an open vote there (a stale vote would otherwise
+//     pass with an empty electorate). Snapshots from before the setting existed
+//     decode with StopVote false, so that game restores with the feature off.
+//     View.Round.StopVote is only present in the playing phase.
 //   - The review has no timer; the host drives it. Reject votes and merge
 //     proposals are evaluated live with the connected participants at
 //     evaluation time (a vote from a disconnected player stops counting).

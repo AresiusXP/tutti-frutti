@@ -32,7 +32,7 @@ func init() {
 	}
 	for _, t := range []string{
 		game.CmdJoin, game.CmdLeave, game.CmdUpdateSettings, game.CmdKick, game.CmdStartGame,
-		game.CmdStopLetter, game.CmdSetAnswer, game.CmdBasta, game.CmdVoteReject,
+		game.CmdStopLetter, game.CmdSetAnswer, game.CmdBasta, game.CmdAskStop, game.CmdVoteStop, game.CmdVoteReject,
 		game.CmdProposeMerge, game.CmdVoteMerge, game.CmdReviewNav, game.CmdFinishReview,
 		game.CmdNextRound, game.CmdEndGame, game.CmdRematch,
 		protocol.TypePing, protocol.TypePong, protocol.TypeState, protocol.TypeEvent, protocol.TypeError,

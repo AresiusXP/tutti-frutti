@@ -221,6 +221,13 @@ func (h *Hub) restore(ctx context.Context) ([]*room, error) {
 			}
 			continue
 		}
+		// A vote to stop does not survive a restart: with every seat
+		// disconnected it would have no voters and pass by itself, and its
+		// 15 s are long gone. It is dropped silently, before the seats are
+		// marked, so that nobody hears of it.
+		if g.Round != nil {
+			g.Round.StopVote = nil
+		}
 		// Nobody has a socket yet: every seat is disconnected until its
 		// player reconnects. The first call also applies any deadline that
 		// passed while the server was down.

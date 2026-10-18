@@ -19,6 +19,8 @@ const (
 	CmdStopLetter     = "stop_letter"
 	CmdSetAnswer      = "set_answer"
 	CmdBasta          = "basta"
+	CmdAskStop        = "ask_stop"
+	CmdVoteStop       = "vote_stop"
 	CmdVoteReject     = "vote_reject"
 	CmdProposeMerge   = "propose_merge"
 	CmdVoteMerge      = "vote_merge"
@@ -112,6 +114,17 @@ type EndGame struct{}
 // Rematch returns to the lobby with the same players and settings (host only).
 type Rematch struct{}
 
+// AskStop asks every other connected participant to stop the round although
+// the actor has not filled every category (playing phase, Settings.StopVote).
+// When every category is filled the actor calls Basta instead.
+type AskStop struct{}
+
+// VoteStop answers the open vote to stop. Any "no" rejects the vote at once;
+// it passes when every other connected participant voted yes.
+type VoteStop struct {
+	Yes bool `json:"yes"`
+}
+
 // Type implementations.
 func (Join) Type() string           { return CmdJoin }
 func (Leave) Type() string          { return CmdLeave }
@@ -121,6 +134,8 @@ func (StartGame) Type() string      { return CmdStartGame }
 func (StopLetter) Type() string     { return CmdStopLetter }
 func (SetAnswer) Type() string      { return CmdSetAnswer }
 func (Basta) Type() string          { return CmdBasta }
+func (AskStop) Type() string        { return CmdAskStop }
+func (VoteStop) Type() string       { return CmdVoteStop }
 func (VoteReject) Type() string     { return CmdVoteReject }
 func (ProposeMerge) Type() string   { return CmdProposeMerge }
 func (VoteMerge) Type() string      { return CmdVoteMerge }
@@ -153,6 +168,10 @@ func ParseCommand(t string, raw json.RawMessage) (Command, error) {
 		return decode[SetAnswer](raw)
 	case CmdBasta:
 		return decode[Basta](raw)
+	case CmdAskStop:
+		return decode[AskStop](raw)
+	case CmdVoteStop:
+		return decode[VoteStop](raw)
 	case CmdVoteReject:
 		return decode[VoteReject](raw)
 	case CmdProposeMerge:

@@ -14,6 +14,10 @@ var (
 	ErrLobbyFull        = errors.New("game: the lobby is full")
 	ErrInvalidSettings  = errors.New("game: invalid settings")
 	ErrBastaNotAllowed  = errors.New("game: every category must be filled with a valid answer to call basta")
+	ErrStopVoteDisabled = errors.New("game: asking everyone to stop is turned off in this game")
+	ErrStopVotePending  = errors.New("game: there is already a vote to stop")
+	ErrNoStopVote       = errors.New("game: there is no vote to stop")
+	ErrStopNotNeeded    = errors.New("game: every category is filled, call basta instead")
 	ErrUnknownPlayer    = errors.New("game: unknown player")
 	ErrNotParticipant   = errors.New("game: you are not taking part in this round")
 	ErrNotEnoughPlayers = errors.New("game: not enough players to start")
@@ -57,6 +61,10 @@ var errorCodes = []struct {
 	{ErrLobbyFull, CodeLobbyFull},
 	{ErrInvalidSettings, CodeInvalidSettings},
 	{ErrBastaNotAllowed, CodeBastaNotAllowed},
+	{ErrStopVoteDisabled, CodeStopVoteDisabled},
+	{ErrStopVotePending, CodeStopVotePending},
+	{ErrNoStopVote, CodeNoStopVote},
+	{ErrStopNotNeeded, CodeStopNotNeeded},
 	{ErrUnknownPlayer, CodeUnknownPlayer},
 	{ErrNotParticipant, CodeNotParticipant},
 	{ErrNotEnoughPlayers, CodeNotEnoughPlayers},

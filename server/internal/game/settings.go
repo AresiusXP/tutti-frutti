@@ -31,13 +31,17 @@ type Settings struct {
 	Categories []CategoryRef `json:"categories"`
 	// TimeLimitSeconds is the round time limit; 0 means off.
 	TimeLimitSeconds int `json:"timeLimitSeconds"`
+	// StopVote lets a player who has not filled every category ask everyone
+	// to stop (a vote that needs every other connected participant to say
+	// yes). On by default.
+	StopVote bool `json:"stopVote"`
 }
 
 // DefaultSettings returns the settings of a fresh lobby: Spanish, hard
 // letters excluded, 5 rounds, the six default catalog categories, no time
 // limit.
 func DefaultSettings() Settings {
-	s := Settings{Lang: LangES, ExcludeHardLetters: true, Rounds: 5}
+	s := Settings{Lang: LangES, ExcludeHardLetters: true, Rounds: 5, StopVote: true}
 	for _, c := range catalog.Defaults() {
 		s.Categories = append(s.Categories, CategoryRef{ID: c.ID})
 	}

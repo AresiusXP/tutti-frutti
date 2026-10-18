@@ -119,10 +119,9 @@ func (g *Game) basta(now time.Time, p *Player) ([]Event, error) {
 	if !g.allAnswered(p.ID) {
 		return nil, ErrBastaNotAllowed
 	}
-	g.Phase = PhaseGrace
-	g.Round.CallerID = p.ID
-	g.Round.GraceEndsAt = now.Add(GraceDuration)
-	return []Event{{Type: EventBasta, PlayerID: p.ID, Name: p.Name}}, nil
+	// Basta ends a vote to stop that is still open.
+	events := g.endStopVote(StopReasonEnded)
+	return append(events, g.startGrace(now, p.ID)...), nil
 }
 
 // allAnswered reports whether every category of the player is non-empty and

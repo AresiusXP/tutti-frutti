@@ -112,11 +112,14 @@ func TestUnsupportedVersion(t *testing.T) {
 	}{
 		{"future version before the join", false, fmt.Sprintf(`{"t":"ping","v":%d}`, protocol.Version+1), "ping"},
 		{"previous protocol version before the join", false, `{"t":"ping","v":1}`, "ping"},
+		{"protocol version 2 (before the vote to stop) before the join", false, `{"t":"ping","v":2}`, "ping"},
+		{"protocol version 2 in the join of an old client", false, `{"t":"join","v":2,"d":{"code":"BCDF","name":"Ana","avatar":{"emoji":"🍓","color":"#f06"}}}`, "join"},
 		{"previous protocol version in the join of an old client", false, `{"t":"join","v":1,"d":{"code":"BCDF","name":"Ana","avatar":{"emoji":"🍓","color":"#f06"}}}`, "join"},
 		{"missing version before the join", false, `{"t":"ping"}`, "ping"},
 		{"negative version before the join", false, `{"t":"join","v":-1,"d":{}}`, "join"},
 		{"future version after the join", true, fmt.Sprintf(`{"t":"set_answer","v":%d,"d":{"category":0,"text":"x"}}`, protocol.Version+1), "set_answer"},
 		{"previous protocol version after the join", true, `{"t":"set_answer","v":1,"d":{"category":0,"text":"x"}}`, "set_answer"},
+		{"protocol version 2 after the join", true, `{"t":"ask_stop","v":2}`, "ask_stop"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := newStack(t, stackOpts{})

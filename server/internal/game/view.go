@@ -51,12 +51,24 @@ type RoundView struct {
 	// accepted for LateUpdateAllowance afterwards.
 	GraceEndsAt    time.Time `json:"graceEndsAt,omitzero"`
 	ReviewCategory int       `json:"reviewCategory"`
+	// StopVote is the open vote to stop (playing phase only).
+	StopVote *StopVoteView `json:"stopVote,omitempty"`
 	// RejectVotes and Proposals are only filled during the review.
 	RejectVotes []RejectVote   `json:"rejectVotes"`
 	Proposals   []ProposalView `json:"proposals"`
 	// Result is the live result in the review and the final one in the round
 	// summary and final phases; nil before the review.
 	Result *RoundResult `json:"result,omitempty"`
+}
+
+// StopVoteView is the open vote to stop with its live electorate.
+type StopVoteView struct {
+	CallerID string    `json:"callerId"`
+	EndsAt   time.Time `json:"endsAt"`
+	// Voters are the connected participants other than the asker right now.
+	Voters []string `json:"voters"`
+	// Yes are the voters that already said yes.
+	Yes []string `json:"yes"`
 }
 
 // ProposalView is a merge proposal with its live tally.
@@ -143,6 +155,10 @@ func (g *Game) roundView(viewer string) RoundView {
 		if !hidden || id == viewer {
 			rv.Answers[id] = slices.Clone(answers)
 		}
+	}
+
+	if v := r.StopVote; v != nil && g.Phase == PhasePlaying {
+		rv.StopVote = g.stopVoteView(v)
 	}
 
 	switch g.Phase {

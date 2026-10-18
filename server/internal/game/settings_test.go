@@ -30,7 +30,7 @@ func customs(labels ...string) []CategoryRef {
 
 func TestDefaultSettings(t *testing.T) {
 	s := DefaultSettings()
-	if s.Lang != LangES || !s.ExcludeHardLetters || s.Rounds != 5 || s.TimeLimitSeconds != 0 {
+	if s.Lang != LangES || !s.ExcludeHardLetters || s.Rounds != 5 || s.TimeLimitSeconds != 0 || !s.StopVote {
 		t.Errorf("unexpected defaults: %+v", s)
 	}
 	var want []CategoryRef
