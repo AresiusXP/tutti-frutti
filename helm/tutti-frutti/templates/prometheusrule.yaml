@@ -109,6 +109,67 @@ spec:
             {{- with include "tutti-frutti.alertAnnotations" . }}
             {{- . | nindent 12 }}
             {{- end }}
+        - alert: TuttiFruttiSnapshotSaveFailing
+          expr: |-
+            (
+              sum(increase(tuttifrutti_snapshot_saves_total{ {{- $m }}, result="error"}[10m]))
+                /
+              sum(increase(tuttifrutti_snapshot_saves_total{ {{- $m -}} }[10m]))
+                > 0.5
+            )
+            and
+            sum(increase(tuttifrutti_snapshot_saves_total{ {{- $m -}} }[10m])) >= 6
+          for: 10m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Most Tutti Frutti snapshot writes are failing
+            description: >-
+              {{`{{ $value | humanizePercentage }}`}} of the room snapshot writes of the last 10 minutes failed (at least
+              6 attempts), and it has been like that for 10 minutes. Games keep running from memory, but the saved
+              state of the rooms is going stale: a restart now would bring back old rooms or none. Unlike
+              TuttiFruttiSnapshotFailures, a few failures among many successful writes do not alert.
+            runbook: >-
+              Dashboard "Tutti Frutti", row Persistence, panels "Snapshot saves by result", "Snapshot save error ratio" and "Snapshot save latency".
+              kubectl -n {{ $ns }} logs deploy/{{ $server }} --tail=200 | grep -i "saving room snapshot failed";
+              check the shared Postgres (disk full, read-only, connection limit, slow queries).
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+        - alert: TuttiFruttiSnapshotStale
+          expr: |-
+            (
+              (
+                (time() - max by (namespace, job, instance) ({__name__=~"tuttifrutti_snapshot_last_success_timestamp_seconds|process_start_time_seconds", {{ $m }}}) > 900)
+                and on (namespace, job, instance)
+                (tuttifrutti_snapshot_save_queue{ {{- $m -}} } > 0)
+              )
+              or
+              (time() - max by (namespace, job, instance) ({__name__=~"tuttifrutti_snapshot_last_success_timestamp_seconds|process_start_time_seconds", {{ $m }}}) > 7200)
+            )
+            and on (namespace, job, instance)
+            (tuttifrutti_rooms{ {{- $m -}} } > 0)
+          for: 5m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: Tutti Frutti has not saved any room for a long time
+            description: >-
+              No room snapshot was written successfully for {{`{{ $value | humanizeDuration }}`}} although rooms are
+              live, and either snapshots are waiting for the store (15 minutes or more) or not even the 90-minute
+              refresh of idle rooms got through (2 hours or more). A restart now would lose everything since then.
+              A quiet server does not alert: an idle room only saves every 90 minutes, so a long gap with nothing
+              waiting is normal below 2 hours. The gap counts from the last successful save or from the start of the
+              pod, whichever is later (the timestamp is 0 until the first save), so a deploy never triggers it by itself.
+            runbook: >-
+              Dashboard "Tutti Frutti", row Persistence, panels "Time since the last successful save" and "Snapshot save queue (rooms waiting)".
+              kubectl -n {{ $ns }} logs deploy/{{ $server }} --tail=200 | grep -i snapshot; check the shared Postgres
+              and the database-url key of the Secret. Nothing waiting and still stale after 2 hours means the rooms'
+              refresh timers are stuck: restart the pod (kubectl -n {{ $ns }} rollout restart deploy/{{ $server }})
+              and open an issue with the logs.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
     - name: tutti-frutti.traffic
       {{- with .Values.prometheusRule.interval }}
       interval: {{ . }}

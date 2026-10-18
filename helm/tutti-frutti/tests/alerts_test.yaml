@@ -152,6 +152,295 @@ tests:
         alertname: TuttiFruttiSnapshotFailures
         exp_alerts: []
 
+  # ---------------------------------------------------- SnapshotSaveFailing
+  # tuttifrutti_snapshot_saves_total{result}: one count per save attempt (a failed
+  # write is retried and every attempt counts). Fires when more than half of the
+  # attempts of the last 10 minutes (at least 6) failed, for 10 minutes.
+  - name: SnapshotSaveFailing fires when most writes fail (12 failed attempts and 2 good ones per minute)
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="error"}'
+        values: '0+12x40'
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="ok"}'
+        values: '0+2x40'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: TuttiFruttiSnapshotSaveFailing
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: TuttiFruttiSnapshotSaveFailing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+
+  - name: SnapshotSaveFailing fires when the database is down (only failures)
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="error"}'
+        values: '0+6x40'
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="ok"}'
+        values: '30x40'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: TuttiFruttiSnapshotSaveFailing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+
+  - name: SnapshotSaveFailing ignores a healthy store
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="error"}'
+        values: '0x40'
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="ok"}'
+        values: '0+12x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: TuttiFruttiSnapshotSaveFailing
+        exp_alerts: []
+
+  - name: SnapshotSaveFailing ignores a few failures among many good writes (ratio 15 percent)
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="error"}'
+        values: '0+2x40'
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="ok"}'
+        values: '0+12x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: TuttiFruttiSnapshotSaveFailing
+        exp_alerts: []
+
+  - name: SnapshotSaveFailing ignores a database blip shorter than the 10 minute window
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="error"}'
+        values: '0x10 6 12 18 24 30 30x30'
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="ok"}'
+        values: '0+12x40'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: TuttiFruttiSnapshotSaveFailing
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: TuttiFruttiSnapshotSaveFailing
+        exp_alerts: []
+
+  - name: SnapshotSaveFailing needs real attempts (2 failures and nothing else is noise)
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="error"}'
+        values: '0 1 2 2x40'
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", result="ok"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: TuttiFruttiSnapshotSaveFailing
+        exp_alerts: []
+
+  - name: SnapshotSaveFailing stays quiet across a deploy (counters restart from zero on the new pod)
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-old-1", result="error"}'
+        values: '0x10 _x30'
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-old-1", result="ok"}'
+        values: '0+12x10 _x30'
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", result="error"}'
+        values: '_x11 0x29'
+      - series: 'tuttifrutti_snapshot_saves_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", result="ok"}'
+        values: '_x11 0+12x29'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: TuttiFruttiSnapshotSaveFailing
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: TuttiFruttiSnapshotSaveFailing
+        exp_alerts: []
+
+  # ----------------------------------------------------------- SnapshotStale
+  # tuttifrutti_snapshot_last_success_timestamp_seconds is a Unix time and 0 until
+  # the first save of the process. With interval 1m, the series 0+60xN below is the
+  # evaluation time itself: a save every minute. Fires when rooms are live and the
+  # gap since max(last save, process start) is 15 minutes with snapshots waiting
+  # (tuttifrutti_snapshot_save_queue > 0), or 2 hours whatever the queue (an idle room
+  # refreshes every 90 minutes), for 5 minutes.
+  - name: SnapshotStale fires when snapshots wait and nothing has been saved for 15 minutes
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_last_success_timestamp_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0+60x10 600x60'
+      - series: 'process_start_time_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0x70'
+      - series: 'tuttifrutti_snapshot_save_queue{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0x10 1x60'
+      - series: 'tuttifrutti_rooms{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '2x70'
+    alert_rule_test:
+      - eval_time: 24m   # 14 minutes since the last save
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+      - eval_time: 28m   # past 15 minutes, still inside the 5 minute for
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+      - eval_time: 31m
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: tutti-frutti
+              job: tutti-frutti-server
+              instance: 10.1.0.5:8080
+
+  - name: SnapshotStale resolves when the store takes a snapshot again
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_last_success_timestamp_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0+60x10 600x25 2100+60x30'
+      - series: 'process_start_time_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0x70'
+      - series: 'tuttifrutti_snapshot_save_queue{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0x10 1x25 0x30'
+      - series: 'tuttifrutti_rooms{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '2x70'
+    alert_rule_test:
+      - eval_time: 33m
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: tutti-frutti
+              job: tutti-frutti-server
+              instance: 10.1.0.5:8080
+      - eval_time: 45m
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+
+  - name: SnapshotStale ignores a quiet server (idle rooms, nothing waiting, last save an hour ago)
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_last_success_timestamp_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0+60x10 600x110'
+      - series: 'process_start_time_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0x120'
+      - series: 'tuttifrutti_snapshot_save_queue{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0x120'
+      - series: 'tuttifrutti_rooms{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '2x120'
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+      - eval_time: 105m   # 95 minutes since the last save: more than the 90 minute refresh, less than 2 hours
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+
+  - name: SnapshotStale fires after 2 hours without any save even when nothing is waiting (the refresh of idle rooms is broken)
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_last_success_timestamp_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0+60x10 600x200'
+      - series: 'process_start_time_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0x210'
+      - series: 'tuttifrutti_snapshot_save_queue{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0x210'
+      - series: 'tuttifrutti_rooms{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '1x210'
+    alert_rule_test:
+      - eval_time: 125m   # 1 h 55 min since the last save
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+      - eval_time: 132m   # past 2 hours, still inside the for
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+      - eval_time: 140m
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: tutti-frutti
+              job: tutti-frutti-server
+              instance: 10.1.0.5:8080
+
+  - name: SnapshotStale ignores a server without rooms
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_last_success_timestamp_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0+60x10 600x200'
+      - series: 'process_start_time_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0x210'
+      - series: 'tuttifrutti_snapshot_save_queue{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '1x210'
+      - series: 'tuttifrutti_rooms{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '0x210'
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+      - eval_time: 3h
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+
+  - name: SnapshotStale does not fire right after a deploy (the new pod reports 0 until its first save)
+    interval: 1m
+    input_series:
+      # The old pod saved every minute, then was replaced at minute 60.
+      - series: 'tuttifrutti_snapshot_last_success_timestamp_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-old-1", instance="10.1.0.5:8080"}'
+        values: '0+60x59 _x61'
+      - series: 'process_start_time_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-old-1", instance="10.1.0.5:8080"}'
+        values: '0x59 _x61'
+      - series: 'tuttifrutti_snapshot_save_queue{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-old-1", instance="10.1.0.5:8080"}'
+        values: '0x59 _x61'
+      - series: 'tuttifrutti_rooms{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-old-1", instance="10.1.0.5:8080"}'
+        values: '3x59 _x61'
+      # The new pod restored the rooms (they save as they start: the first save lands 1 minute after the start).
+      - series: 'tuttifrutti_snapshot_last_success_timestamp_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", instance="10.1.0.9:8080"}'
+        values: '_x60 0 3660+60x59'
+      - series: 'process_start_time_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", instance="10.1.0.9:8080"}'
+        values: '_x60 3600x60'
+      - series: 'tuttifrutti_snapshot_save_queue{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", instance="10.1.0.9:8080"}'
+        values: '_x60 1 0x59'
+      - series: 'tuttifrutti_rooms{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", instance="10.1.0.9:8080"}'
+        values: '_x60 3x60'
+    alert_rule_test:
+      - eval_time: 60m   # the new pod's first sample: timestamp 0, one room waiting to be saved
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+      - eval_time: 65m
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+      - eval_time: 100m
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+
+  - name: SnapshotStale does not fire for 15 minutes after a restart even if the first save never lands
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_snapshot_last_success_timestamp_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", instance="10.1.0.9:8080"}'
+        values: '0x100'
+      - series: 'process_start_time_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", instance="10.1.0.9:8080"}'
+        values: '3600x100'
+      - series: 'tuttifrutti_snapshot_save_queue{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", instance="10.1.0.9:8080"}'
+        values: '3x100'
+      - series: 'tuttifrutti_rooms{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", instance="10.1.0.9:8080"}'
+        values: '3x100'
+    alert_rule_test:
+      # The pod started at 60m: nothing may fire before 60m + 15m (+ 5m for).
+      - eval_time: 70m
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+      - eval_time: 79m
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts: []
+      # ... but a store that is down since the start is reported once the gap is real.
+      - eval_time: 85m
+        alertname: TuttiFruttiSnapshotStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: tutti-frutti
+              job: tutti-frutti-server
+              instance: 10.1.0.9:8080
+
   # --------------------------------------------------- RateLimitSaturation
   - name: RateLimitSaturation fires above 6 rejected requests per minute for 5 minutes
     interval: 1m

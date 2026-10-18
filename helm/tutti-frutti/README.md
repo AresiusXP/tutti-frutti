@@ -133,7 +133,7 @@ dashboard layout and what to do when an alert fires are in
 |---|---|---|
 | ServiceMonitor (scrapes the server `/metrics`) | `serviceMonitor.enabled` | `templates/servicemonitor.yaml` |
 | Grafana dashboard ConfigMap | `dashboard.enabled` | `templates/grafana-dashboard.yaml`, content `dashboards/tutti-frutti.json` |
-| PrometheusRule (12 alerts) | `prometheusRule.enabled` | `templates/prometheusrule.yaml` |
+| PrometheusRule (14 alerts) | `prometheusRule.enabled` | `templates/prometheusrule.yaml` |
 
 Homelab (kube-prometheus-stack, Alertmanager disabled): the ServiceMonitor is picked
 up by every Prometheus (`serviceMonitorSelector: {}`); rules need the label
@@ -161,7 +161,8 @@ python3 helm/tutti-frutti/dashboards/generate.py --check  # CI: fail when it is 
 ```
 
 and commit both. The ConfigMap is limited to 1 MiB (and ~256 KiB when ArgoCD stores a
-copy in the `last-applied-configuration` annotation): the JSON is ~130 KB.
+copy in the `last-applied-configuration` annotation): the JSON is ~145 KB (one-space indent;
+`dashboards/test_generate.py` keeps it well under that).
 
 Checks without a cluster (needs `helm`, `python3` and [`promtool`](https://github.com/prometheus/prometheus/releases)):
 
@@ -173,7 +174,11 @@ It verifies that the JSON is up to date and valid, that the ConfigMap contains i
 verbatim, that the PrometheusRule passes `promtool check rules` (every alert has
 `severity`, `summary`, `description`, `runbook`, `for`) and runs the alert unit tests
 in `tests/alerts_test.yaml` (`promtool test rules`: each alert fires when it should and
-stays quiet during a normal deploy, a short database blip, ...).
+stays quiet during a normal deploy, a short database blip, ...; the snapshot alerts also
+cover a restart, where the new pod reports `snapshot_last_success_timestamp_seconds` 0 until
+its first save). The dashboard tests also grep the Go sources: a panel or alert that reads
+a `tuttifrutti_*` series the server does not register, or a registered metric nobody
+uses or documents, fails the check.
 `dashboards/generate.py`, its tests, `tests/` and `ci/` are excluded from the packaged chart (`.helmignore`).
 
 ## How releases flow

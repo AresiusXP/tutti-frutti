@@ -11,9 +11,10 @@ diff of tutti-frutti.json only ever shows real changes. Edit THIS file, never
 the JSON. Standard library only.
 
 Metric names are the ones the server exports (internal/room, internal/ws,
-internal/httpapi, internal/account metrics.go); kube-state-metrics and cAdvisor
-series cover the container. Every PromQL expression here is meant to be run
-against a live Prometheus before it is committed (docs/DESIGN.md,
+internal/httpapi metrics); kube-state-metrics and cAdvisor series cover the
+container. test_generate.py greps the Go sources and fails when a panel reads a
+metric the server does not register. Every PromQL expression here is meant to
+be run against a live Prometheus before it is committed (docs/DESIGN.md,
 "Observability (Phase 5)").
 """
 
@@ -47,6 +48,12 @@ KS_POD = 'namespace="$namespace", pod=~"$job-.+"'
 # Probes and scrapes are not user traffic.
 NOT_PROBES = 'route!~"GET /(healthz|readyz|metrics)"'
 RI = "$__rate_interval"
+# Unix time of the later of the last successful snapshot write and the start of
+# the process (the first is 0 until the process has saved once): the baseline of
+# "time since the last save", as the TuttiFruttiSnapshotStale alert counts it.
+LAST_SAVE = (
+    '{__name__=~"tuttifrutti_snapshot_last_success_timestamp_seconds|process_start_time_seconds", ' + M + "}"
+)
 
 GREEN, YELLOW, ORANGE, RED, BLUE, PURPLE = (
     "green",
@@ -405,9 +412,9 @@ def build_panels() -> list[dict]:
     lo.add(
         stat(
             "Games started (1 h)",
-            "start_game commands accepted in the last hour (a rematch needs another start_game, so it counts again). "
-            "There is no games-finished metric yet.",
-            f'sum(increase(tuttifrutti_commands_total{{{M}, type="start_game", result="ok"}}[1h]))',
+            "Games the host started in the last hour (tuttifrutti_games_started_total; a rematch starts another game and counts again). "
+            "The Gameplay row shows how they ended.",
+            f"sum(increase(tuttifrutti_games_started_total{{{M}}}[1h]))",
             decimals=0,
             instant=True,
             no_value="0",
@@ -449,41 +456,84 @@ def build_panels() -> list[dict]:
     lo.row("Gameplay")
     lo.add(
         stat(
+            "Games finished in range",
+            "Games that reached the final phase in the selected range (tuttifrutti_games_finished_total), by how they ended: "
+            "completed = every configured round was played, ended_by_host = the host ended it early, "
+            "letters_exhausted = no letter was left. A game abandoned in the middle (everybody left, idle room) is in none of them.",
+            f"sum by (reason) (increase(tuttifrutti_games_finished_total{{{M}}}[$__range]))",
+            decimals=0,
+            instant=True,
+            no_value="0",
+            graph=False,
+            legend="{{reason}}",
+        ),
+        4,
+        4,
+    )
+    lo.add(
+        stat(
             "Rounds in range",
-            "Rounds started in the selected time range.",
+            "Rounds started in the selected time range (tuttifrutti_rounds_total).",
             f"sum(increase(tuttifrutti_rounds_total{{{M}}}[$__range]))",
             decimals=0,
             instant=True,
             no_value="0",
         ),
-        6,
+        3,
         4,
     )
     lo.add(
         stat(
             "Basta calls in range",
-            "Basta calls in the selected time range.",
+            "Basta calls in the selected time range (tuttifrutti_basta_total). A vote to stop that passes counts as a Basta.",
             f"sum(increase(tuttifrutti_basta_total{{{M}}}[$__range]))",
             decimals=0,
             instant=True,
             no_value="0",
         ),
-        6,
+        3,
+        4,
+    )
+    lo.add(
+        stat(
+            "Time-ups in range",
+            "Rounds that ended because the time limit expired (tuttifrutti_time_ups_total) in the selected range. "
+            "Only games with a time limit have them.",
+            f"sum(increase(tuttifrutti_time_ups_total{{{M}}}[$__range]))",
+            decimals=0,
+            instant=True,
+            no_value="0",
+        ),
+        3,
         4,
     )
     lo.add(
         stat(
             "Rounds ended by Basta",
-            "Basta calls / rounds started in the selected range. The remainder ended by time-up or were abandoned "
-            "(a round still running counts as started but not yet as Basta).",
+            "Basta calls / (Basta calls + time-ups) in the selected range: of the rounds that were played to the end, how many "
+            "a player closed by calling Basta (or by a vote to stop that passed) instead of waiting for the clock. "
+            "A round that was abandoned counts in neither.",
             f"(sum(increase(tuttifrutti_basta_total{{{M}}}[$__range])) or vector(0)) / "
-            f"(sum(increase(tuttifrutti_rounds_total{{{M}}}[$__range])) > 0)",
+            f"((sum(increase(tuttifrutti_basta_total{{{M}}}[$__range])) + sum(increase(tuttifrutti_time_ups_total{{{M}}}[$__range]))) > 0)",
             "percentunit",
             decimals=0,
             instant=True,
             no_value="n/a",
         ),
-        6,
+        4,
+        4,
+    )
+    lo.add(
+        stat(
+            "Letter auto-stops in range",
+            "Letters the server picked because the chooser did not tap STOP within 10 s (tuttifrutti_letter_auto_stops_total). "
+            "Many of them mean players walk away from the phone or the chooser's connection is bad.",
+            f"sum(increase(tuttifrutti_letter_auto_stops_total{{{M}}}[$__range]))",
+            decimals=0,
+            instant=True,
+            no_value="0",
+        ),
+        3,
         4,
     )
     lo.add(
@@ -499,22 +549,61 @@ def build_panels() -> list[dict]:
             instant=True,
             no_value="n/a",
         ),
-        6,
+        4,
         4,
     )
     lo.add(
         timeseries(
-            "Rounds started and Basta calls (per min)",
-            "Rounds started (tuttifrutti_rounds_total) against Basta calls (tuttifrutti_basta_total). "
-            "A round that ends without Basta ended by time-up (or the room was abandoned): there is no separate time-up metric.",
+            "Rounds started, Basta calls and time-ups (per min)",
+            "Rounds started (tuttifrutti_rounds_total) against the two ways a played round ends: a Basta call "
+            "(tuttifrutti_basta_total, a passed vote to stop included) or the time limit (tuttifrutti_time_ups_total). "
+            "Started minus the other two is rounds still running or abandoned.",
             [
                 (f"sum(rate(tuttifrutti_rounds_total{{{M}}}[{RI}])) * 60", "rounds started"),
                 (f"sum(rate(tuttifrutti_basta_total{{{M}}}[{RI}])) * 60", "Basta calls"),
+                (f"sum(rate(tuttifrutti_time_ups_total{{{M}}}[{RI}])) * 60", "time-ups"),
             ],
             bars=True,
             decimals=2,
         ),
-        12,
+        8,
+        8,
+    )
+    lo.add(
+        timeseries(
+            "Games started and finished (per h)",
+            "Games started (tuttifrutti_games_started_total) and finished by reason (tuttifrutti_games_finished_total). "
+            "The difference is games in progress or abandoned.",
+            [
+                (f"sum(rate(tuttifrutti_games_started_total{{{M}}}[{RI}])) * 3600", "started"),
+                (f"sum by (reason) (rate(tuttifrutti_games_finished_total{{{M}}}[{RI}])) * 3600", "finished: {{reason}}"),
+            ],
+            bars=True,
+            decimals=2,
+            overrides=[
+                color_override("byName", "started", BLUE),
+                color_override("byName", "finished: completed", GREEN),
+                color_override("byName", "finished: ended_by_host", ORANGE),
+                color_override("byName", "finished: letters_exhausted", PURPLE),
+            ],
+            legend="table",
+            legend_calcs=("sum",),
+        ),
+        8,
+        8,
+    )
+    lo.add(
+        timeseries(
+            "Letter auto-stops (per min)",
+            "Letters the server picked because the chooser did not tap within 10 s (tuttifrutti_letter_auto_stops_total). "
+            "Empty means every chooser tapped.",
+            [(f"sum(rate(tuttifrutti_letter_auto_stops_total{{{M}}}[{RI}])) * 60", "auto-stops")],
+            bars=True,
+            decimals=2,
+            color=ORANGE,
+            no_value="none",
+        ),
+        8,
         8,
     )
     lo.add(
@@ -542,8 +631,8 @@ def build_panels() -> list[dict]:
             legend="table",
             legend_calcs=("sum",),
         ),
+        12,
         8,
-        7,
     )
     lo.add(
         timeseries(
@@ -580,6 +669,30 @@ def build_panels() -> list[dict]:
             decimals=1,
             legend="table",
             legend_calcs=("max",),
+        ),
+        8,
+        7,
+    )
+    lo.add(
+        timeseries(
+            "Votes to stop by result (per h)",
+            "Votes to stop a round (tuttifrutti_stop_votes_total, only in lobbies that enabled them): asked = opened (or passed at once "
+            "when nobody else was left to ask), then how each ended: passed (the round stopped, counted as a Basta too), declined, "
+            "timeout (15 s without agreement) or ended (the round moved on, or the asker left). Empty means nobody used the vote.",
+            [(f"sum by (result) (rate(tuttifrutti_stop_votes_total{{{M}}}[{RI}])) * 3600", "{{result}}")],
+            stack=True,
+            bars=True,
+            decimals=2,
+            overrides=[
+                color_override("byName", "asked", BLUE),
+                color_override("byName", "passed", GREEN),
+                color_override("byName", "declined", ORANGE),
+                color_override("byName", "timeout", YELLOW),
+                color_override("byName", "ended", PURPLE),
+            ],
+            legend="table",
+            legend_calcs=("sum",),
+            no_value="no votes yet",
         ),
         8,
         7,
@@ -662,13 +775,21 @@ def build_panels() -> list[dict]:
     )
     lo.add(
         timeseries(
-            "Policy closes (per min)",
-            "Close code 1008: the server dropped the client for exceeding its frame rate, overflowing its send queue "
-            "(32 frames, i.e. it cannot keep up), missing the join deadline or sending malformed frames. There is no dedicated send-queue-drop metric.",
-            [(f'sum(rate(tuttifrutti_ws_closes_total{{{M}, code="1008"}}[{RI}])) * 60', "policy closes (1008)")],
+            "Policy closes and slow-client drops (per min)",
+            "Close code 1008 (tuttifrutti_ws_closes_total): the server cut a client off for exceeding its frame rate, missing the join "
+            "deadline, sending malformed frames or overflowing its send queue. The red line is exactly the last cause "
+            "(tuttifrutti_ws_send_drops_total): the client could not keep up with 32 queued frames and reconnects for a fresh snapshot. "
+            "Occasional drops are phones going through a tunnel; a steady stream means bad networks or a server too slow to write.",
+            [
+                (f'sum(rate(tuttifrutti_ws_closes_total{{{M}, code="1008"}}[{RI}])) * 60', "policy closes (1008)"),
+                (f"sum(rate(tuttifrutti_ws_send_drops_total{{{M}}}[{RI}])) * 60", "slow clients dropped (send queue full)"),
+            ],
             bars=True,
             decimals=2,
-            color=ORANGE,
+            overrides=[
+                color_override("byName", "policy closes (1008)", ORANGE),
+                color_override("byName", "slow clients dropped (send queue full)", RED),
+            ],
         ),
         8,
         7,
@@ -679,7 +800,7 @@ def build_panels() -> list[dict]:
     lo.add(
         stat(
             "Snapshot errors in range",
-            "Failed room snapshot writes and deletions (tuttifrutti_snapshot_errors_total) in the selected range. "
+            "Failed room snapshot writes, deletions and janitor sweeps (tuttifrutti_snapshot_errors_total) in the selected range. "
             "Anything above zero means Postgres refused or timed out: rooms keep running from memory but would be lost on a restart. "
             "Check: kubectl -n $namespace logs deploy/$job | grep -i snapshot.",
             f"sum(increase(tuttifrutti_snapshot_errors_total{{{M}}}[$__range]))",
@@ -693,16 +814,197 @@ def build_panels() -> list[dict]:
         6,
     )
     lo.add(
+        stat(
+            "Time since last successful save",
+            "Seconds since the later of the last successful snapshot write (tuttifrutti_snapshot_last_success_timestamp_seconds, 0 until "
+            "the process has saved once) and the start of the process. It grows while nothing changes: a room that is playing saves "
+            "every 5 s, an idle one every 90 minutes, so orange (90 min) and red (2 h) are what the TuttiFruttiSnapshotStale alert "
+            "treats as broken; shorter gaps only matter while snapshots are waiting (panel Snapshot save queue).",
+            f"time() - max({LAST_SAVE})",
+            "s",
+            steps=((GREEN, None), (ORANGE, 5400), (RED, 7200)),
+            color_mode="background",
+            graph=False,
+            instant=True,
+            no_value="n/a",
+        ),
+        4,
+        6,
+    )
+    lo.add(
+        stat(
+            "Rooms restored at last start",
+            "Rooms rebuilt from their snapshots when the current server process started (tuttifrutti_rooms_restored_total; the counter "
+            "only moves during the start). After a deploy this is the number of games that survived it.",
+            f"sum(tuttifrutti_rooms_restored_total{{{M}}})",
+            decimals=0,
+            graph=False,
+            instant=True,
+            no_value="n/a",
+        ),
+        4,
+        6,
+    )
+    lo.add(
+        stat(
+            "Restore duration",
+            "How long the startup restore took (tuttifrutti_restore_duration_seconds): loading every snapshot and starting its room. "
+            "The startup probe allows 150 s; orange above 30 s, red above 120 s.",
+            f"max(tuttifrutti_restore_duration_seconds{{{M}}})",
+            "s",
+            decimals=3,
+            steps=((GREEN, None), (ORANGE, 30), (RED, 120)),
+            graph=False,
+            instant=True,
+            no_value="n/a",
+        ),
+        4,
+        6,
+    )
+    lo.add(
+        stat(
+            "Restore errors at last start",
+            "Saved rooms the current process could not bring back (tuttifrutti_restore_errors_total): unusable snapshots (corrupt, or "
+            "written by an incompatible version; they are logged and deleted) and snapshots beyond server.maxRooms (left in the store). "
+            "Check: kubectl -n $namespace logs deploy/$job | grep -i 'snapshot\\|not restoring'.",
+            f"sum(tuttifrutti_restore_errors_total{{{M}}})",
+            decimals=0,
+            steps=((GREEN, None), (RED, 1)),
+            color_mode="background",
+            graph=False,
+            instant=True,
+            no_value="n/a",
+        ),
+        4,
+        6,
+    )
+    lo.add(
+        stat(
+            "Snapshots deleted in range",
+            "Snapshots removed from the store in the selected range (tuttifrutti_snapshots_deleted_total): room_closed = a room that "
+            "ended removed its own (normal), janitor = the hourly sweep removed a row nobody refreshed for 6 h (should stay at 0: live "
+            "rooms refresh theirs every 90 minutes at the latest).",
+            f"sum by (source) (increase(tuttifrutti_snapshots_deleted_total{{{M}}}[$__range]))",
+            decimals=0,
+            instant=True,
+            no_value="0",
+            graph=False,
+            legend="{{source}}",
+        ),
+        4,
+        6,
+    )
+    lo.add(
+        timeseries(
+            "Snapshot saves by result (per min)",
+            "Room snapshot write attempts (tuttifrutti_snapshot_saves_total): ok, or error = encoding or writing failed (a failed write is "
+            "retried with backoff, so a database outage shows as a steady stream of errors). Playing rooms save every 5 s, so ok is "
+            "roughly 12 per playing room per minute.",
+            [(f"sum by (result) (rate(tuttifrutti_snapshot_saves_total{{{M}}}[{RI}])) * 60", "{{result}}")],
+            stack=True,
+            bars=True,
+            decimals=2,
+            overrides=[color_override("byName", "ok", GREEN), color_override("byName", "error", RED)],
+            legend="table",
+            legend_calcs=("sum",),
+        ),
+        8,
+        7,
+    )
+    lo.add(
+        timeseries(
+            "Snapshot save error ratio",
+            "Failed / all snapshot write attempts. The TuttiFruttiSnapshotSaveFailing alert fires above 50 % (at least 6 attempts in "
+            "10 minutes) for 10 minutes; the dashed lines are 20 % (orange) and 50 % (red).",
+            [
+                (
+                    f'(sum(rate(tuttifrutti_snapshot_saves_total{{{M}, result="error"}}[{RI}])) or vector(0)) / '
+                    f"(sum(rate(tuttifrutti_snapshot_saves_total{{{M}}}[{RI}])) > 0)",
+                    "error / attempts",
+                )
+            ],
+            "percentunit",
+            steps=((GREEN, None), (ORANGE, 0.2), (RED, 0.5)),
+            max_=1,
+            decimals=1,
+            color=RED,
+        ),
+        8,
+        7,
+    )
+    lo.add(
+        timeseries(
+            "Snapshot save latency",
+            "Duration of one snapshot write to Postgres (tuttifrutti_snapshot_save_duration_seconds), successful or not. A healthy "
+            "database answers in a few milliseconds; the saver gives up on a write after 10 s.",
+            [
+                (
+                    f"histogram_quantile({q}, sum by (le) (rate(tuttifrutti_snapshot_save_duration_seconds_bucket{{{M}}}[{RI}])))",
+                    f"p{int(q * 100)}",
+                )
+                for q in (0.5, 0.95, 0.99)
+            ],
+            "s",
+            decimals=3,
+        ),
+        8,
+        7,
+    )
+    lo.add(
+        timeseries(
+            "Time since the last successful save",
+            "The Time since last successful save stat over time: a sawtooth that resets at every save. Idle rooms only save every 90 "
+            "minutes, so teeth of up to 90 minutes are normal; the dashed lines are 15 minutes and 2 hours, the thresholds of the "
+            "TuttiFruttiSnapshotStale alert (the 15 minute one only counts while snapshots are waiting).",
+            [(f"time() - max({LAST_SAVE})", "since last save")],
+            "s",
+            steps=((GREEN, None), (ORANGE, 900), (RED, 7200)),
+            fill=5,
+        ),
+        8,
+        7,
+    )
+    lo.add(
+        timeseries(
+            "Snapshot save queue (rooms waiting)",
+            "Rooms whose newest snapshot is waiting for the store, being written or waiting for a retry (tuttifrutti_snapshot_save_queue). "
+            "It is 0 whenever everything is written: a write takes milliseconds, so a value that stays at 1 or more means the store is "
+            "failing or hanging (see Snapshot saves by result).",
+            [(f"sum(tuttifrutti_snapshot_save_queue{{{M}}})", "rooms waiting")],
+            decimals=0,
+            color=ORANGE,
+        ),
+        8,
+        7,
+    )
+    lo.add(
         timeseries(
             "Snapshot errors (per min)",
-            "Failed snapshot writes/deletes per minute. A saver retries with backoff (0.2 s to 10 s) so a database outage "
-            "shows as a steady stream. Empty means healthy.",
+            "Failed snapshot writes, deletions and janitor sweeps per minute (tuttifrutti_snapshot_errors_total; the writes are also in "
+            "Snapshot saves by result). A saver retries with backoff (0.2 s to 10 s) so a database outage shows as a steady stream. "
+            "Empty means healthy.",
             [(f"sum(rate(tuttifrutti_snapshot_errors_total{{{M}}}[{RI}])) * 60", "snapshot errors")],
             bars=True,
             decimals=2,
             color=RED,
         ),
         8,
+        7,
+    )
+    lo.add(
+        timeseries(
+            "Snapshot deletions by source (per h)",
+            "Snapshots deleted per hour (tuttifrutti_snapshots_deleted_total): room_closed = rooms that ended, janitor = stale rows swept "
+            "by the hourly janitor (a janitor line means a snapshot nobody refreshed for 6 hours: investigate).",
+            [(f"sum by (source) (rate(tuttifrutti_snapshots_deleted_total{{{M}}}[{RI}])) * 3600", "{{source}}")],
+            stack=True,
+            bars=True,
+            decimals=2,
+            overrides=[color_override("byName", "room_closed", BLUE), color_override("byName", "janitor", ORANGE)],
+            legend="table",
+            legend_calcs=("sum",),
+        ),
+        12,
         6,
     )
     lo.add(
@@ -834,6 +1136,23 @@ def build_panels() -> list[dict]:
         ),
         4,
         7,
+    )
+    lo.add(
+        timeseries(
+            "Stats backlog (finished games waiting)",
+            "Finished games not yet credited to their players' lifetime stats: the recorder queue (tuttifrutti_stats_queue_depth, games "
+            "waiting for the database writer) and the rooms' outboxes (tuttifrutti_stats_outbox_pending, games the store has not "
+            "confirmed yet, kept in the room's snapshot). Both are 0 when the database answers; a plateau above 0 means stats writes "
+            "are failing (see Stats recorded by result and the TuttiFruttiStatsRecordingFailing alert).",
+            [
+                (f"sum(tuttifrutti_stats_queue_depth{{{M}}})", "recorder queue"),
+                (f"sum(tuttifrutti_stats_outbox_pending{{{M}}})", "room outboxes"),
+            ],
+            decimals=0,
+            no_value="0",
+        ),
+        12,
+        6,
     )
 
     # ------------------------------------------------------------------ HTTP API
@@ -1121,7 +1440,8 @@ def build_dashboard() -> dict:
             ]
         },
         "description": (
-            "Tutti Frutti server health, gameplay, WebSocket connections, persistence, accounts and Go runtime. "
+            "Tutti Frutti server health, gameplay (games, rounds, time-ups), WebSocket connections, persistence (snapshot saves, "
+            "restore), accounts and Go runtime. "
             "Generated by helm/tutti-frutti/dashboards/generate.py: do not edit by hand."
         ),
         "editable": True,
@@ -1173,7 +1493,9 @@ def validate(dash: dict) -> None:
 def render() -> str:
     dash = build_dashboard()
     validate(dash)
-    return json.dumps(dash, indent=2, ensure_ascii=False) + "\n"
+    # indent=1: the ConfigMap is stored twice by `kubectl apply` (the object and its
+    # last-applied annotation, capped at 256 KiB), and whitespace is most of the bytes.
+    return json.dumps(dash, indent=1, ensure_ascii=False) + "\n"
 
 
 def main(argv: list[str]) -> int:
