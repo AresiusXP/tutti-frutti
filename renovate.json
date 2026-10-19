@@ -10,6 +10,9 @@
     "github-actions",
     "helm-values"
   ],
+  "constraints": {
+    "npm": "<12"
+  },
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": ["before 6am on monday"]

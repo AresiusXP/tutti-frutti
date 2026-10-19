@@ -467,7 +467,12 @@ docs/                  this file
   Majors that cannot work yet are disabled in `packageRules` with the blocker and
   the condition to retry in their `description`: SvelteKit 3 / adapter-static 4 /
   vite-plugin-pwa 2 (wait for `@vite-pwa/sveltekit` for Kit 3), TypeScript 7 (wait
-  for `typescript-eslint` and `svelte-check`).
+  for `typescript-eslint` and `svelte-check`). Renovate is held on **npm 11**
+  (`constraints.npm: "<12"`): npm 12 refuses to fetch registry tarballs of packages with
+  bundled dependencies (`EALLOWREMOTE`, `allow-remote` defaults to none), which breaks lockfile
+  maintenance because of `@tailwindcss/oxide-wasm32-wasi`. Lift the constraint when a Renovate
+  lockfile-maintenance run on `web/` succeeds with npm 12. A run needs ~15 minutes and is
+  started by hand with `kubectl create job --from=cronjob/renovate -n renovate`.
 * GitHub flow, squash merges, conventional commits.
 
 ## 9. Phases
