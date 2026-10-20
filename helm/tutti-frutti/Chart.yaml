@@ -7,5 +7,5 @@ sources:
   - https://github.com/AresiusXP/tutti-frutti
 # version and appVersion are bumped by release-please (see release-please-config.json).
 # Keep the marker comments on the same line as the values.
-version: 1.0.0 # x-release-please-version
-appVersion: "1.0.0" # x-release-please-version
+version: 1.1.0 # x-release-please-version
+appVersion: "1.1.0" # x-release-please-version
