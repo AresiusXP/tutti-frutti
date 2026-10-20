@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.0.0...v1.1.0) (2026-10-20)
+
+
+### Features
+
+* **web:** add voluntary support link with region detection ([12141e5](https://github.com/AresiusXP/tutti-frutti/commit/12141e51503f9d1c6f424f5092a1f21a65e26d88))
+
 ## [1.0.0](https://github.com/AresiusXP/tutti-frutti/compare/v0.7.0...v1.0.0) (2026-10-18)
 
 
