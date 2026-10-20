@@ -7,6 +7,7 @@
 	import AccountChip from '$lib/account/AccountChip.svelte';
 	import GoogleButton from '$lib/account/GoogleButton.svelte';
 	import PrivacyLink from '$lib/components/PrivacyLink.svelte';
+	import SupportLink from '$lib/components/SupportLink.svelte';
 	import { ApiError, api, type RoomInfo } from '$lib/api';
 	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
 	import AvatarPicker from '$lib/components/AvatarPicker.svelte';
@@ -235,6 +236,9 @@
 		{:else if account.googleEnabled}
 			<GoogleButton returnTo="/" />
 		{/if}
-		<PrivacyLink class="-mt-2" />
+		<div class="-mt-2 flex flex-wrap items-center justify-center gap-x-2">
+			<PrivacyLink />
+			<SupportLink />
+		</div>
 	</section>
 </main>

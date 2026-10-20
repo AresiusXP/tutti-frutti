@@ -17,6 +17,11 @@ export interface PlayerOptions {
 	 * default one of `locale` (es-AR, en-US, nl-NL): the first-visit language detection specs.
 	 */
 	browserLanguage?: string;
+	/**
+	 * The device's IANA timezone when it should not be Argentina's (`America/Argentina/Buenos_Aires`, the
+	 * default of every player): the support link goes to Cafecito there and to Ko-fi anywhere else.
+	 */
+	timezoneId?: string;
 	avatar?: AvatarChoice;
 	/** Proxy the room WebSocket so the connection can be dropped on demand (`player.network`). */
 	network?: boolean;

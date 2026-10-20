@@ -227,6 +227,11 @@ export class FinalPage extends PageObject {
 		return this.page.getByTestId('podium');
 	}
 
+	/** The "support the game" link under the round history. */
+	get supportLink(): Locator {
+		return this.main.getByRole('link', { name: this.t('support_link') });
+	}
+
 	place(n: number): Locator {
 		return this.podium.locator(`li[data-place="${n}"]`);
 	}

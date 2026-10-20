@@ -112,6 +112,28 @@ describe('Home actions', () => {
 		});
 	});
 
+	describe('support link', () => {
+		it('sits next to the privacy link, outside the SPA, in every language', () => {
+			for (const [locale, support, privacy] of [
+				['es', /^Invitame un café/, 'Política de privacidad'],
+				['en', /^Support the game/, 'Privacy policy'],
+				['nl', /^Steun het spel/, 'Privacybeleid']
+			] as const) {
+				i18n.set(locale);
+				const { unmount } = render(Home);
+				const link = screen.getByRole('link', { name: support });
+				expect(link.getAttribute('target'), locale).toBe('_blank');
+				expect(link.getAttribute('href'), locale).toMatch(
+					/^https:\/\/(cafecito\.app|ko-fi\.com)\//
+				);
+				expect(link.parentElement, locale).toBe(
+					screen.getByRole('link', { name: privacy }).parentElement
+				);
+				unmount();
+			}
+		});
+	});
+
 	describe('create', () => {
 		it('is disabled until there is a nickname', async () => {
 			profile.setNickname('');

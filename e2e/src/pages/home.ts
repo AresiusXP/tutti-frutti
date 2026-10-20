@@ -29,6 +29,11 @@ export class HomePage extends PageObject {
 		return this.page.getByRole('link', { name: this.t('privacy_link'), exact: true });
 	}
 
+	/** The "support the game" link next to it: Cafecito in Argentina, Ko-fi elsewhere, a new tab either way. */
+	get supportLink(): Locator {
+		return this.page.getByRole('link', { name: this.t('support_link') });
+	}
+
 	codeBox(index: number): Locator {
 		return this.page.getByRole('textbox', {
 			name: this.t('code_char_label', { n: index + 1, total: 4 }),

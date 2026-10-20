@@ -20,7 +20,7 @@ Argentine game *Tutti Frutti* / *Basta*. Hosted on the homelab at
 | Basta | The caller triggers a 3 s grace countdown for everyone else, then inputs lock |
 | Vote to stop | Whoever has not filled every category can ask everyone to stop: every other connected player must say yes within 15 s, and it then counts as their Basta (host setting, on by default) |
 | Review | Players vote to reject invalid answers (majority of other players); answers can be merged as "the same" by majority |
-| Extras v1 | Invite link + QR, optional round time limit, custom per-game categories, installable PWA |
+| Extras v1 | Invite link + QR, optional round time limit, custom per-game categories, installable PWA, a voluntary "support the game" link (Cafecito in Argentina, Ko-fi elsewhere) |
 
 ### Naming rules
 
@@ -344,7 +344,8 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 ## 6. UX (one main action per screen, thumb-reachable bottom buttons)
 
 1. **Home** — logo, nickname, avatar (emoji + colour), **Create game**, **Join**
-   (4-box code input), links: Google login, ES/EN/NL.
+   (4-box code input), links: Google login, ES/EN/NL, privacy policy and
+   *support the game* (side by side on one row, see "Support links").
 2. **Lobby** — huge code, **Share** (Web Share API), **QR**, player list with 👑,
    settings card (host editable), category picker (search, groups, "Clásicas"
    and "Sorprendeme" presets, reorderable selection, custom category input,
@@ -374,7 +375,8 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 6. **Review** — category carousel ("País · 2/6"), one card per answer (player,
    answer, points badge, 👎 count, "same"), host ◀ ▶ + **Finish review**.
 7. **Round summary** — round points, totals, **Next round** (host).
-8. **Final** — podium, stats, **Rematch**, **Home**.
+8. **Final** — podium, stats, **Rematch**, **Home**, and under the round history a quiet
+   *support the game* card (see "Support links").
 
 Accessibility: touch targets ≥ 48 px, high contrast (4.5:1 for text, after opacity), `aria-live` for Basta and
 letter reveal. Every screen has **exactly one `h1`** (visually hidden where the design shows none: the playing
@@ -422,6 +424,36 @@ strict CSP needs no change, and crawlers and people without JavaScript read it t
   app really sets is the one the page names, that the page is reachable with an active service worker, that
   Home still fits one screen with the link, and runs axe on all three languages. `security.test.ts` fails
   if the page gains a script, an inline style or an embedded third-party resource.
+
+### Support links
+
+The game is free and stays free; there is a voluntary *support the game* link, nothing more (no ads, no
+paywall, no perks). It is a plain outbound link (`SupportLink`, `web/src/lib/components/`) with no widget,
+script or embedded resource, so the CSP and the privacy policy are untouched.
+
+* **Where it goes** depends on the player's region, decided **in the browser** (`web/src/lib/support/support.ts`,
+  a pure `supportUrl({ timeZone, languages })` plus a `detectSupportEnv()` that reads `Intl` and `navigator`
+  and never throws). Argentina is a device timezone of `America/Argentina/*` (or a legacy alias:
+  `America/Buenos_Aires`, `Catamarca`, `Cordoba`, `Jujuy`, `Mendoza`, `Rosario`) **or** any language tag whose
+  region is `AR` (`es-AR`, `en-AR`). Those players get **Cafecito** (`https://cafecito.app/aresiusxp`, pays out in
+  pesos through Mercado Pago, which is what people there use). Everybody else gets **Ko-fi**
+  (`https://ko-fi.com/aresiusxp`: cards, Apple/Google Pay, PayPal). Nothing is sent to the server and there
+  is **no IP geolocation** (it would need a database or service, the client address through Traefik and a
+  policy change, and it is wrong for travellers and VPNs anyway).
+* **The screen language does not choose the destination**, only the label: es "Invitame un café", en
+  "Support the game", nl "Steun het spel". The labels never name a platform (so "Cafecito" never shows on an
+  English or Dutch screen), and a visually hidden "(opens in a new tab)" follows the visible words in the
+  accessible name (WCAG 2.5.3). Messages live in `web/messages/support/` (`support_*`).
+* **Attributes.** `target="_blank"`, `rel="external noopener noreferrer"` (no referrer, and a real link for
+  SvelteKit), at least 48 px tall.
+* **Where it shows.** Home: on the same row as the privacy link (no extra height; Home still fits 360×740).
+  Final: a card under the round history with one sentence, for the host and the guests, **not** in the sticky
+  footer (Rematch and Home stay the main actions). Never in the lobby, during a round, in a popup or as a toast.
+* **Adding a region.** Add a rule to `REGIONS` in `support.ts` (first match wins; `SUPPORT_DEFAULT` is the
+  fallback), e.g. `Europe/Amsterdam` or `nl-NL` to a `bunq.me` link if that ever becomes possible, and a row to
+  the table in `support.test.ts` and to `DEVICES` in `e2e/tests/14-support.spec.ts`.
+* **Tests.** `support.test.ts` (every timezone / language case and the never-throws path), `SupportLink.test.ts`,
+  the Home and Final component tests, and `e2e/tests/14-support.spec.ts` (see "End-to-end tests").
 
 ## 7. Repository layout
 
@@ -1077,6 +1109,12 @@ the EN/ES/NL bar switches language and stays on screen, `/privacy/`, `/privacy.h
 page is `no-cache` with the app's security headers, an app whose service worker is active still shows the policy, the
 cookie a guest really gets (`tf_guest`, `HttpOnly`, `Lax`, about a year) is the one the page names, every outgoing link
 goes to one of the five known hosts, and axe is clean in es, en and nl.
+(14) the support link: on Home (360×740, in the same row as the privacy link, no scrolling, no extra request to any
+other host) and on the Final screen (host and guest, outside the footer, axe clean) the link goes to Cafecito for
+`America/Argentina/Buenos_Aires` / `Cordoba` / the legacy `America/Buenos_Aires` and to Ko-fi for Amsterdam, Madrid
+and Montevideo whatever the screen language; it is `target=_blank` with `noopener noreferrer`, at least 48 px tall, wholly
+on screen, with no Spanish on the English and Dutch screens; switching the language changes the label and never the
+destination. The links are never opened.
 
 **Rules of the suite.** (A spec of its own checks that the guard, the no-Spanish check (English and Dutch) and the accessibility check really fail when they should; the main assertions were also mutation-checked against deliberately broken servers and messages.) Labels come from the app's real `web/messages/**` (never retyped, so they cannot drift); the
 exact Basta words and the game rules (alphabets, hard letters, points) are written out in the tests, so drift from this

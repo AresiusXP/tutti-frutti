@@ -67,7 +67,7 @@ export class App {
 		const locale = options.locale ?? 'es';
 		const context = await this.browser.newContext({
 			locale: options.browserLanguage ?? LOCALE_TAGS[locale],
-			timezoneId: 'America/Argentina/Buenos_Aires',
+			timezoneId: options.timezoneId ?? 'America/Argentina/Buenos_Aires',
 			permissions: [],
 			...(options.viewport ? { viewport: options.viewport } : {}),
 			...(options.reducedMotion ? { reducedMotion: 'reduce' as const } : {}),

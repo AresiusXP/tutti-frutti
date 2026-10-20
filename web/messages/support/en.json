@@ -1,0 +1,6 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"support_link": "Support the game",
+	"support_new_tab": "(opens in a new tab)",
+	"support_final_text": "The game is free. If you enjoyed it, you can help keep it running."
+}

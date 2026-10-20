@@ -148,6 +148,46 @@ describe('Final actions', () => {
 	});
 });
 
+describe('Final support link', () => {
+	const sentence = 'El juego es gratis. Si te gustó, podés ayudar a mantenerlo.';
+
+	it('invites everybody, host or not, to support the game, below the history and outside the footer', () => {
+		open();
+		expect(screen.getByText(sentence)).toBeTruthy();
+		const link = screen.getByRole('link', { name: /^Invitame un café/ });
+		expect(link.getAttribute('target')).toBe('_blank');
+		expect(link.getAttribute('rel')).toBe('external noopener noreferrer');
+		expect(link.closest('footer')).toBeNull();
+		expect(link.closest('section')?.getAttribute('aria-label')).toBe('Invitame un café');
+	});
+
+	it('is there for a waiting guest too, and does not replace the rematch or home buttons', () => {
+		open({ youId: 'p2' });
+		expect(screen.getByRole('link', { name: /^Invitame un café/ })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Inicio' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Revancha' })).toBeNull();
+	});
+
+	it.each([
+		[
+			'en',
+			'The game is free. If you enjoyed it, you can help keep it running.',
+			/^Support the game/
+		],
+		[
+			'nl',
+			'Het spel is gratis. Vond je het leuk? Help mee om het draaiende te houden.',
+			/^Steun het spel/
+		]
+	] as const)('speaks %s and names no platform', (locale, text, name) => {
+		i18n.set(locale);
+		open({ lang: locale });
+		expect(screen.getByText(text)).toBeTruthy();
+		expect(screen.getByRole('link', { name })).toBeTruthy();
+		expect(document.body.textContent).not.toMatch(/cafecito|ko-fi/i);
+	});
+});
+
 describe('Final in English', () => {
 	it('contains no Spanish text', async () => {
 		i18n.set('en');

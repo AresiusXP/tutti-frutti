@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
 	import Screen from '$lib/components/Screen.svelte';
+	import SupportLink from '$lib/components/SupportLink.svelte';
 	import type { RoomSession } from '$lib/game/session';
 	import { i18n } from '$lib/i18n.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -63,6 +64,14 @@
 		</section>
 
 		<RoundHistory rounds={history} meId={view.youId} />
+
+		<section
+			aria-label={m.support_link()}
+			class="flex flex-col items-center gap-1 rounded-2xl bg-night-2 px-4 py-3 text-center"
+		>
+			<p class="text-sm text-cream-muted">{m.support_final_text()}</p>
+			<SupportLink class="text-base text-cream" />
+		</section>
 
 		{#snippet footer()}
 			<div class="flex items-center gap-2">

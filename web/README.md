@@ -258,7 +258,7 @@ confirmation sheet, opened by itself), `stopvote-waiting` (asker, 1 of 3 yes), `
   screen starts it as a Dutch lobby (`lang: i18n.locale`), but the host can change it.
 - **Message areas**: besides the core `messages/{es,en,nl}.json`, every feature owns a folder
   (`messages/net/` for the network/Home/gate/closed/error strings, `messages/lobby/`,
-  `messages/play/`, `messages/review/`, `messages/account/`) with its own key prefix (`net_`, `err_`, `gate_`, `closed_`,
+  `messages/play/`, `messages/review/`, `messages/account/`, `messages/support/`) with its own key prefix (`net_`, `err_`, `gate_`, `closed_`,
   `home_` for `net/`). They are listed in `project.inlang/settings.json` (`pathPattern`) and
   merged by Paraglide; a key may exist in ONE area only (`src/lib/messages.test.ts` fails on
   duplicates). English never contains `¡¿ñáéíóúü`; Dutch never contains `¡¿ñ`; neither says "basta"

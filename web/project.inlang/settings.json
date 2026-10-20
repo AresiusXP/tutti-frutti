@@ -10,7 +10,8 @@
 			"./messages/lobby/{locale}.json",
 			"./messages/play/{locale}.json",
 			"./messages/review/{locale}.json",
-			"./messages/account/{locale}.json"
+			"./messages/account/{locale}.json",
+			"./messages/support/{locale}.json"
 		]
 	}
 }
