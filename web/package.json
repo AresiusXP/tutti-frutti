@@ -21,7 +21,8 @@
 		"test": "vitest run",
 		"pretest:ci": "npm run i18n",
 		"test:ci": "vitest run --reporter=default",
-		"icons": "node scripts/generate-icons.mjs"
+		"icons": "node scripts/generate-icons.mjs",
+		"og": "node scripts/og-image.mjs"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

@@ -13,6 +13,23 @@
 		<meta property="og:title" content="Tutti Frutti" />
 		<meta property="og:site_name" content="Tutti Frutti" />
 		<meta property="og:type" content="website" />
+		<!--
+			Link previews (Discord, WhatsApp, Telegram, ...): crawlers do not run JavaScript, so this
+			must live in the static shell. Always Spanish (the base language), and the image URL must be
+			absolute. No og:url: invite links such as /KT7P get this same shell and must not all
+			claim the home page as their canonical URL.
+		-->
+		<meta
+			property="og:description"
+			content="El Basta de toda la vida, online y en tiempo real. Armá una sala, pasales el código a tus amigos y jueguen desde el celu, sin lapicera ni papel."
+		/>
+		<meta property="og:locale" content="es_AR" />
+		<meta property="og:image" content="https://tuttifrutti.aresius.xyz/og-image.png" />
+		<meta property="og:image:type" content="image/png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="Naranja, frutilla y lima junto al nombre Tutti Frutti" />
+		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="theme-color" content="#1a1033" />
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />

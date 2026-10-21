@@ -25,7 +25,7 @@ Argentine game *Tutti Frutti* / *Basta*. Hosted on the homelab at
 ### Naming rules
 
 * "Tutti Frutti" is a fixed constant (manifest `name`/`short_name`, `<title>`,
-  logo, share text). Never translate it.
+  `og:title`, logo, share text). Never translate it.
 * Spanish screens: the call button is **¡BASTA!**, the overlay says
   "¡Basta para mí, basta para todos!".
 * English screens: the call button and the overlay just say **"Stop!"**.
@@ -1034,6 +1034,21 @@ PNGs (26–41 KB, `static/screenshots/`, from the dev playground with `node scri
 needs for its richer install UI; they are excluded from the precache (`workbox.globIgnores`) so no client downloads
 them unless the install dialog asks. No `wide` screenshots (mobile-first game). No `shortcuts`: "join a game" would need
 app support (`/?join=1`), not trivial.
+
+**Link previews (Open Graph).** Chat apps (Discord, WhatsApp, Telegram, Slack, …) unfurl a pasted URL with a crawler
+that runs **no JavaScript**, so everything it needs is in the static shell `web/src/app.html` (the runtime
+`<svelte:head>` of the layout is invisible to it): `og:title` (= `BRAND`), `og:site_name`, `og:type`,
+`og:description`, `og:locale` (`es_AR`), `og:image` (absolute `https://tuttifrutti.aresius.xyz/og-image.png`, as
+crawlers need) with `og:image:type/width/height/alt`, and `twitter:card = summary_large_image` (which Discord uses to
+show the large card). The preview is Spanish only (the base language; the crawler sends no usable language and the
+shell is one static file). There is deliberately no `og:url`: invite links (`/KT7P`) are served the same shell and
+must not all name the home page as their canonical URL. The image is 1200×630 (~35 KB palette PNG), with everything
+that matters inside the central square (WhatsApp/Telegram may crop to 1:1) and no small text; it is rendered by
+`npm run og` (`web/scripts/og-image.mjs`: the logo mark and the wordmark colours of the app, in Chromium) and
+committed. It is excluded from the precache (`workbox.globIgnores`) because the app never needs it (only chat crawlers fetch it), and nginx serves
+it with the generic image rule (`Cache-Control: public, max-age=86400`). Chat apps cache the card per URL, so after a
+change post the link with a throwaway query string (`/?v=2`) to see it. `src/lib/social.test.ts` checks the tags and
+the file, and the e2e spec in `08-pwa.spec.ts` fetches `/` and `/KT7P` without JS and the image over HTTP.
 
 **Service worker and update flow** (Workbox `generateSW`, `registerType: 'prompt'`). It precaches the shell, navigations
 fall back to `index.html` except `/api`, `/ws`, `/healthz`, `/readyz`, `/metrics` (denylist + `NetworkOnly`). A new

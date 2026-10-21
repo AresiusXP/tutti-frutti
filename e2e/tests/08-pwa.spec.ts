@@ -79,3 +79,31 @@ test('the web manifest makes the app installable', async ({ app, request }) => {
 		expect(image.headers()['content-type']).toMatch(/^image\//);
 	}
 });
+
+test('link-preview crawlers (no JavaScript) get the Open Graph card on Home and on invite links', async ({
+	request
+}) => {
+	const meta = (html: string, property: string) =>
+		new RegExp(`<meta\\s+property="${property}"\\s+content="([^"]*)"`).exec(html)?.[1];
+
+	for (const path of ['/', '/KT7P']) {
+		const response = await request.get(new URL(path, ORIGIN).toString(), {
+			headers: { 'user-agent': 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)' }
+		});
+		expect(response.ok(), path).toBe(true);
+		const html = await response.text();
+		expect(meta(html, 'og:title'), path).toBe('Tutti Frutti');
+		expect(meta(html, 'og:description')?.length, path).toBeGreaterThan(40);
+		expect(html, path).toMatch(/<meta\s+name="twitter:card"\s+content="summary_large_image"/);
+
+		// The URL names the production host (crawlers need an absolute one); on the stack under test
+		// only the path is fetched.
+		const image = new URL(meta(html, 'og:image') ?? '');
+		expect(image.protocol, path).toBe('https:');
+		const picture = await request.get(new URL(image.pathname, ORIGIN).toString());
+		expect(picture.ok(), `${path}: ${image.pathname}`).toBe(true);
+		expect(picture.headers()['content-type'], image.pathname).toBe('image/png');
+		const body = await picture.body();
+		expect(body.subarray(1, 4).toString('latin1'), 'a real PNG, not the SPA fallback').toBe('PNG');
+	}
+});

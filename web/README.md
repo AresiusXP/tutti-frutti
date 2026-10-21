@@ -21,6 +21,7 @@ account UI (Google sign-in, saved profile, lifetime stats): see "Accounts" below
 | `npm run test` / `npm run test:ci` | Vitest, run once                                                        |
 | `npm run i18n`                     | Compile `messages/*.json` into `src/lib/paraglide/` (git-ignored)       |
 | `npm run icons`                    | Re-render the PNG icons / `favicon.ico` from `static/logo.svg`          |
+| `npm run og`                       | Re-render the link-preview image `static/og-image.png` (needs Chromium) |
 
 CI order: `npm ci && npm run check && npm run lint && npm run test && npm run build`.
 `check`, `test` and `test:ci` run `npm run i18n` first (npm `pre*` hooks), because the
@@ -379,6 +380,12 @@ The service worker never answers or caches `/api/*`, `/ws`, `/healthz`, `/readyz
   listed in `scripts/screenshots.json`), never precached (`workbox.globIgnores`). Regenerate with
   `npm run dev -- --port 5173` and, in another terminal, `node scripts/screenshots.mjs` (needs a
   Chromium and `playwright-core`, which are not dependencies: see the header of the script).
+- Link previews (Discord, WhatsApp, Telegram, …): the Open Graph tags live in the static `src/app.html`,
+  because crawlers run no JavaScript. The card image `static/og-image.png` (1200×630, never precached)
+  is rendered by `npm run og` (same Chromium / `playwright-core` requirements as the screenshots; set
+  `CHROME` and `PLAYWRIGHT_CORE`, see the header of `scripts/og-image.mjs`). Checked by
+  `src/lib/social.test.ts`. Chat apps cache a card per URL for a long time: to re-test after changing it,
+  post the link with a throwaway query string (`/?v=2`).
 - Check installability in Chromium: DevTools → Application → Manifest, or CDP
   `Page.getInstallabilityErrors` (must be empty; use a non-incognito profile).
 - Test an update locally: build two images with a visible change in between, serve one on a port,

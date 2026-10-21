@@ -117,12 +117,12 @@ describe('service worker policy', () => {
 			expect(sw).toContain('cleanupOutdatedCaches');
 		});
 
-		it('precaches the shell but neither the backend, nor screenshots, nor itself', () => {
+		it('precaches the shell but neither the backend, nor screenshots, nor the preview image, nor itself', () => {
 			const urls = [...sw.matchAll(/\{url:"([^"]+)"/g)].map((m) => m[1]);
 			expect(urls).toContain('index.html');
 			expect(urls).toContain('manifest.webmanifest');
 			expect(
-				urls.filter((u) => /^(?:api|ws|healthz)|screenshots|^sw\.js|^workbox-/.test(u))
+				urls.filter((u) => /^(?:api|ws|healthz)|screenshots|og-image|^sw\.js|^workbox-/.test(u))
 			).toEqual([]);
 			expect(sw).toMatch(/denylist:\[\/\^\\\/\(\?:api\|ws\|healthz\|readyz\|metrics\)/);
 			expect(sw).toContain('NetworkOnly');

@@ -31,10 +31,12 @@ export default defineConfig({
 						manifest,
 						workbox: {
 							cleanupOutdatedCaches: true,
-							// The store screenshots are only fetched by the install dialog: keep them
-							// out of the precache (every client would download them for nothing).
+							// The store screenshots are only fetched by the install dialog, and the
+							// link-preview image only by chat crawlers: keep them out of the precache
+							// (every client would download them for nothing).
 							globIgnores: [
 								'**/screenshots/**',
+								'**/og-image.png',
 								'**/node_modules/**/*',
 								'sw.js',
 								'workbox-*.js',
