@@ -62,6 +62,12 @@ describe('link previews (Open Graph) in the static shell', () => {
 		expect(tag('property', 'og:image:alt')).toContain(BRAND);
 	});
 
+	it('calls the game by its name: "Basta" is what a player calls to end a round, not the game', () => {
+		const description = tag('property', 'og:description') ?? '';
+		expect(description).toContain(BRAND);
+		expect(description).not.toMatch(/\bbasta\b/i);
+	});
+
 	it('never precaches the preview image: only crawlers fetch it', () => {
 		expect(read('vite.config.ts')).toMatch(/globIgnores:\s*\[[^\]]*'\*\*\/og-image\.png'/);
 	});

@@ -15,7 +15,7 @@ export const manifest: Partial<ManifestOptions> = {
 	id: '/',
 	name: BRAND,
 	short_name: BRAND,
-	description: `${BRAND}: Basta multijugador en tiempo real`,
+	description: `${BRAND}: el juego de palabras multijugador en tiempo real`,
 	lang: 'es',
 	dir: 'ltr',
 	start_url: '/',
