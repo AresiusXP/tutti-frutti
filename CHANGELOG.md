@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.1.0...v1.2.0) (2026-10-21)
+
+
+### Features
+
+* **web:** rich link previews (Open Graph description and image) ([07f5747](https://github.com/AresiusXP/tutti-frutti/commit/07f5747125c9ee2f8b364139b2d1eeb83f011f32))
+
 ## [1.1.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.0.0...v1.1.0) (2026-10-20)
 
 
