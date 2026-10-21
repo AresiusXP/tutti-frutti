@@ -7,8 +7,8 @@
 ## 1. Product summary
 
 Real-time multiplayer web game (mobile-first, installable PWA) based on the
-Argentine game *Tutti Frutti* / *Basta*. Hosted on the homelab at
-**https://tuttifrutti.aresius.xyz**.
+Argentine game *Tutti Frutti*, in which the first player to finish calls *Basta*
+to end the round. Hosted on the homelab at **https://tuttifrutti.aresius.xyz**.
 
 | Area | Decision |
 |---|---|
@@ -26,6 +26,9 @@ Argentine game *Tutti Frutti* / *Basta*. Hosted on the homelab at
 
 * "Tutti Frutti" is a fixed constant (manifest `name`/`short_name`, `<title>`,
   `og:title`, logo, share text). Never translate it.
+* The game is called "Tutti Frutti", never "Basta": *Basta* (es) / *Stop!* (en, nl)
+  is only the call a player makes to end a round. This holds for every user-facing
+  text (screens, `<meta>` and manifest descriptions, link previews) and for the docs.
 * Spanish screens: the call button is **¡BASTA!**, the overlay says
   "¡Basta para mí, basta para todos!".
 * English screens: the call button and the overlay just say **"Stop!"**.

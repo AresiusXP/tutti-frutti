@@ -1,13 +1,14 @@
 # AGENTS.md — tutti-frutti
 
-Real-time multiplayer Tutti Frutti / Basta word game (mobile-first web PWA).
+Real-time multiplayer Tutti Frutti word game (mobile-first web PWA).
 **Read `docs/DESIGN.md` first** — it is the source of truth for rules, protocol,
 UX and SDLC. If code and design diverge, update the design in the same change.
 
 ## Product rules you must not break
 
 * The game's name is **"Tutti Frutti"** in every language. It is a fixed
-  constant, never a translation key.
+  constant, never a translation key. "Basta" is **not** a name or alias of the
+  game: it is only the call a player makes to end a round.
 * English and Dutch screens say just **"Stop!"** for the Basta call (no Spanish
   word or character); Spanish says **¡BASTA!**.
 * Server is authoritative. Clients only send intents.

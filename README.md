@@ -1,6 +1,6 @@
 # Tutti Frutti
 
-Real-time multiplayer **Tutti Frutti** (a.k.a. *Basta*) for phones — play in the
+Real-time multiplayer **Tutti Frutti** for phones — play in the
 browser, install it as an app, share a 4-letter code with friends.
 
 * Play: <https://tuttifrutti.aresius.xyz>
