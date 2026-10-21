@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/AresiusXP/tutti-frutti/compare/v1.2.0...v1.2.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **web:** call the game Tutti Frutti, not Basta, in preview and manifest text ([8b7467e](https://github.com/AresiusXP/tutti-frutti/commit/8b7467e3650be21a006f6b6970a8e795f37ea79f))
+
 ## [1.2.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.1.0...v1.2.0) (2026-10-21)
 
 
