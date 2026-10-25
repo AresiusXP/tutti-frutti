@@ -1,6 +1,6 @@
 // Package catalog exposes the built-in Tutti Frutti category catalog.
 //
-// The catalog is an embedded JSON file (categories.json): exactly 50 entries,
+// The catalog is an embedded JSON file (categories.json): exactly 80 entries,
 // 6 of them flagged as defaults ("Clásicas"). The file order is the display
 // order. Custom per-game categories are never part of the catalog.
 package catalog

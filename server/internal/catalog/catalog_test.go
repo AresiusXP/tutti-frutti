@@ -12,15 +12,15 @@ var wantGroups = []struct {
 	name  string
 	count int
 }{
-	{"personas", 6},
-	{"lugares", 8},
-	{"naturaleza", 4},
-	{"comida", 5},
-	{"cosas", 7},
-	{"marcas", 2},
-	{"cultura", 6},
-	{"trabajo", 4},
-	{"divertidas", 8},
+	{"personas", 9},
+	{"lugares", 12},
+	{"naturaleza", 7},
+	{"comida", 9},
+	{"cosas", 11},
+	{"marcas", 4},
+	{"cultura", 10},
+	{"trabajo", 7},
+	{"divertidas", 11},
 }
 
 // golden is the catalog as written in DESIGN.md section 4 (the table with
@@ -31,14 +31,17 @@ var golden = []struct {
 	id, group, es, en, nl string
 	def                   bool
 }{
-	// personas (6)
+	// personas (9)
 	{"nombre", "personas", "Nombre", "Name", "Naam", true},
 	{"apellido", "personas", "Apellido", "Last name", "Achternaam", false},
 	{"famoso", "personas", "Famoso/a", "Celebrity", "Bekende persoon", false},
 	{"personaje_historico", "personas", "Personaje histórico", "Historical figure", "Historisch figuur", false},
 	{"futbolista", "personas", "Futbolista", "Football player", "Voetballer", false},
 	{"cantante_banda", "personas", "Cantante o banda", "Singer or band", "Zanger of band", false},
-	// lugares (8)
+	{"politico", "personas", "Político/a", "Politician", "Politicus", false},
+	{"escritor", "personas", "Escritor/a", "Writer", "Schrijver", false},
+	{"cientifico", "personas", "Científico/a", "Scientist", "Wetenschapper", false},
+	// lugares (12)
 	{"pais", "lugares", "País", "Country", "Land", true},
 	{"ciudad", "lugares", "Ciudad", "City", "Stad", false},
 	{"capital", "lugares", "Capital", "Capital city", "Hoofdstad", false},
@@ -47,18 +50,29 @@ var golden = []struct {
 	{"lugar_turistico", "lugares", "Lugar turístico", "Tourist attraction", "Toeristische attractie", false},
 	{"nacionalidad", "lugares", "Nacionalidad", "Nationality", "Nationaliteit", false},
 	{"club_futbol", "lugares", "Club de fútbol", "Football club", "Voetbalclub", false},
-	// naturaleza (4)
+	{"monumento", "lugares", "Monumento", "Monument", "Monument", false},
+	{"montana_volcan", "lugares", "Montaña o volcán", "Mountain or volcano", "Berg of vulkaan", false},
+	{"isla", "lugares", "Isla", "Island", "Eiland", false},
+	{"pueblo", "lugares", "Pueblo", "Town or village", "Dorp", false},
+	// naturaleza (7)
 	{"animal", "naturaleza", "Animal", "Animal", "Dier", true},
 	{"ave", "naturaleza", "Ave", "Bird", "Vogel", false},
 	{"animal_marino", "naturaleza", "Animal marino", "Sea creature", "Zeedier", false},
 	{"flor_planta", "naturaleza", "Flor o planta", "Flower or plant", "Bloem of plant", false},
-	// comida (5)
+	{"insecto", "naturaleza", "Insecto", "Insect", "Insect", false},
+	{"arbol", "naturaleza", "Árbol", "Tree", "Boom", false},
+	{"reptil_anfibio", "naturaleza", "Reptil o anfibio", "Reptile or amphibian", "Reptiel of amfibie", false},
+	// comida (9)
 	{"comida", "comida", "Comida", "Food", "Eten", true},
 	{"fruta_verdura", "comida", "Fruta o verdura", "Fruit or vegetable", "Fruit of groente", false},
 	{"postre", "comida", "Postre", "Dessert", "Nagerecht", false},
 	{"bebida", "comida", "Bebida", "Drink", "Drank", false},
 	{"algo_heladera", "comida", "Algo que hay en la heladera", "Something in the fridge", "Iets in de koelkast", false},
-	// cosas (7): the star is on Color, not on Cosa
+	{"plato_tipico", "comida", "Plato típico", "Traditional dish", "Traditioneel gerecht", false},
+	{"golosina", "comida", "Golosina", "Sweet or candy", "Snoep", false},
+	{"condimento", "comida", "Condimento o especia", "Spice or condiment", "Kruid of saus", false},
+	{"sabor_helado", "comida", "Sabor de helado", "Ice cream flavor", "Ijssmaak", false},
+	// cosas (11): the star is on Color, not on Cosa
 	{"cosa", "cosas", "Cosa", "Thing", "Ding", false},
 	{"color", "cosas", "Color", "Color", "Kleur", true},
 	{"ropa_accesorio", "cosas", "Ropa o accesorio", "Clothing or accessory", "Kleding of accessoire", false},
@@ -66,22 +80,35 @@ var golden = []struct {
 	{"util_escolar", "cosas", "Útil escolar", "School supply", "Schoolbenodigdheid", false},
 	{"juguete", "cosas", "Juguete", "Toy", "Speelgoed", false},
 	{"transporte", "cosas", "Medio de transporte", "Vehicle", "Vervoermiddel", false},
-	// marcas (2)
+	{"herramienta", "cosas", "Herramienta", "Tool", "Gereedschap", false},
+	{"electrodomestico", "cosas", "Electrodoméstico", "Home appliance", "Huishoudelijk apparaat", false},
+	{"algo_cocina", "cosas", "Algo que hay en la cocina", "Something in the kitchen", "Iets in de keuken", false},
+	{"algo_mochila", "cosas", "Algo que hay en una mochila", "Something in a backpack", "Iets in een rugzak", false},
+	// marcas (4)
 	{"marca", "marcas", "Marca", "Brand", "Merk", true},
 	{"marca_auto", "marcas", "Marca de auto", "Car brand", "Automerk", false},
-	// cultura (6)
+	{"marca_ropa", "marcas", "Marca de ropa", "Clothing brand", "Kledingmerk", false},
+	{"marca_tecnologia", "marcas", "Marca de tecnología", "Tech brand", "Technologiemerk", false},
+	// cultura (10)
 	{"pelicula", "cultura", "Película", "Movie", "Film", false},
 	{"serie", "cultura", "Serie", "TV show", "Tv-serie", false},
 	{"dibujo_animado", "cultura", "Dibujo animado", "Cartoon", "Tekenfilm", false},
 	{"personaje_ficcion", "cultura", "Personaje de ficción", "Fictional character", "Fictief personage", false},
 	{"superheroe_villano", "cultura", "Superhéroe o villano", "Superhero or villain", "Superheld of schurk", false},
 	{"videojuego", "cultura", "Videojuego", "Video game", "Videogame", false},
-	// trabajo (4)
+	{"cancion", "cultura", "Canción", "Song", "Liedje", false},
+	{"libro", "cultura", "Libro", "Book", "Boek", false},
+	{"mitologia", "cultura", "Dios o criatura mitológica", "Mythological god or creature", "Mythologische god of wezen", false},
+	{"disfraz", "cultura", "Disfraz", "Costume", "Verkleedkostuum", false},
+	// trabajo (7)
 	{"profesion", "trabajo", "Profesión u oficio", "Job", "Beroep", false},
 	{"deporte", "trabajo", "Deporte", "Sport", "Sport", false},
 	{"instrumento", "trabajo", "Instrumento musical", "Musical instrument", "Muziekinstrument", false},
 	{"parte_cuerpo", "trabajo", "Parte del cuerpo", "Body part", "Lichaamsdeel", false},
-	// divertidas (8)
+	{"materia_escolar", "trabajo", "Materia escolar", "School subject", "Schoolvak", false},
+	{"enfermedad", "trabajo", "Enfermedad", "Illness", "Ziekte", false},
+	{"pasatiempo", "trabajo", "Pasatiempo", "Hobby", "Hobby", false},
+	// divertidas (11)
 	{"adjetivo", "divertidas", "Adjetivo", "Adjective", "Bijvoeglijk naamwoord", false},
 	{"verbo", "divertidas", "Verbo", "Verb", "Werkwoord", false},
 	{"idioma", "divertidas", "Idioma", "Language", "Taal", false},
@@ -90,12 +117,15 @@ var golden = []struct {
 	{"excusa_tarde", "divertidas", "Excusa para llegar tarde", "Excuse for being late", "Smoes om te laat te komen", false},
 	{"algo_playa", "divertidas", "Algo que llevás a la playa", "Something you take to the beach", "Iets wat je meeneemt naar het strand", false},
 	{"algo_miedo", "divertidas", "Algo que da miedo", "Something scary", "Iets engs", false},
+	{"regalo", "divertidas", "Regalo", "Gift", "Cadeau", false},
+	{"algo_fiesta", "divertidas", "Algo que hay en una fiesta", "Something at a party", "Iets op een feestje", false},
+	{"algo_rojo", "divertidas", "Algo rojo", "Something red", "Iets roods", false},
 }
 
 func TestCatalogMatchesDesignTable(t *testing.T) {
 	all := All()
-	if len(golden) != 50 || len(all) != 50 {
-		t.Fatalf("golden has %d entries, catalog has %d, want 50 each", len(golden), len(all))
+	if len(golden) != 80 || len(all) != 80 {
+		t.Fatalf("golden has %d entries, catalog has %d, want 80 each", len(golden), len(all))
 	}
 	for i, want := range golden {
 		got := all[i]
@@ -108,8 +138,8 @@ func TestCatalogMatchesDesignTable(t *testing.T) {
 
 func TestCatalogShape(t *testing.T) {
 	all := All()
-	if len(all) != 50 {
-		t.Fatalf("len(All()) = %d, want 50", len(all))
+	if len(all) != 80 {
+		t.Fatalf("len(All()) = %d, want 80", len(all))
 	}
 
 	ids := map[string]bool{}
@@ -241,7 +271,7 @@ func TestForLang(t *testing.T) {
 		if l.Lang != tt.lang {
 			t.Errorf("ForLang(%q).Lang = %q, want %q", tt.in, l.Lang, tt.lang)
 		}
-		if len(l.Categories) != 50 || len(l.Groups) != 9 {
+		if len(l.Categories) != 80 || len(l.Groups) != 9 {
 			t.Fatalf("ForLang(%q): %d categories / %d groups", tt.in, len(l.Categories), len(l.Groups))
 		}
 		for i, want := range golden {
@@ -261,7 +291,7 @@ func TestForLang(t *testing.T) {
 	if err := json.Unmarshal(b, &back); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(back.Groups, Groups()) || len(back.Categories) != 50 || back.Lang != "en" {
+	if !slices.Equal(back.Groups, Groups()) || len(back.Categories) != 80 || back.Lang != "en" {
 		t.Fatalf("JSON round trip lost data: %+v", back)
 	}
 	if !strings.Contains(string(b), `{"id":"nombre","group":"personas","label":"Name","default":true}`) {

@@ -255,7 +255,7 @@ Round total = sum over categories; added to the player's running total.
   `GET /api/categories?lang=`.
 * Each entry: `id` (stable short key), `group`, `es`, `en`, `nl`, `default` (bool).
   Saved room state stores only ids (+ custom labels).
-* **Exactly 50 entries**, **exactly 6 `default`** ("Clásicas": Nombre, Animal,
+* **Exactly 80 entries**, **exactly 6 `default`** ("Clásicas": Nombre, Animal,
   País, Color, Comida, Marca).
 * **Custom categories**: per-game only; stored in room state, copied on rematch,
   never added to the catalog. ≤ 24 chars, non-empty, no duplicates after
@@ -263,15 +263,15 @@ Round total = sum over categories; added to the player's running total.
 
 | Group | Categories (ES / EN / NL) |
 |---|---|
-| personas (6) | Nombre / Name / Naam ★ · Apellido / Last name / Achternaam · Famoso/a / Celebrity / Bekende persoon · Personaje histórico / Historical figure / Historisch figuur · Futbolista / Football player / Voetballer · Cantante o banda / Singer or band / Zanger of band |
-| lugares (8) | País / Country / Land ★ · Ciudad / City / Stad · Capital / Capital city / Hoofdstad · Provincia o estado / Province or state / Provincie of staat · Río, lago o mar / River, lake or sea / Rivier, meer of zee · Lugar turístico / Tourist attraction / Toeristische attractie · Nacionalidad / Nationality / Nationaliteit · Club de fútbol / Football club / Voetbalclub |
-| naturaleza (4) | Animal / Animal / Dier ★ · Ave / Bird / Vogel · Animal marino / Sea creature / Zeedier · Flor o planta / Flower or plant / Bloem of plant |
-| comida (5) | Comida / Food / Eten ★ · Fruta o verdura / Fruit or vegetable / Fruit of groente · Postre / Dessert / Nagerecht · Bebida / Drink / Drank · Algo que hay en la heladera / Something in the fridge / Iets in de koelkast |
-| cosas (7) | Cosa / Thing / Ding · Color / Color / Kleur ★ · Ropa o accesorio / Clothing or accessory / Kleding of accessoire · Mueble / Furniture / Meubelstuk · Útil escolar / School supply / Schoolbenodigdheid · Juguete / Toy / Speelgoed · Medio de transporte / Vehicle / Vervoermiddel |
-| marcas (2) | Marca / Brand / Merk ★ · Marca de auto / Car brand / Automerk |
-| cultura (6) | Película / Movie / Film · Serie / TV show / Tv-serie · Dibujo animado / Cartoon / Tekenfilm · Personaje de ficción / Fictional character / Fictief personage · Superhéroe o villano / Superhero or villain / Superheld of schurk · Videojuego / Video game / Videogame |
-| trabajo (4) | Profesión u oficio / Job / Beroep · Deporte / Sport / Sport · Instrumento musical / Musical instrument / Muziekinstrument · Parte del cuerpo / Body part / Lichaamsdeel |
-| divertidas (8) | Adjetivo / Adjective / Bijvoeglijk naamwoord · Verbo / Verb / Werkwoord · Idioma / Language / Taal · Emoción / Emotion / Emotie · Nombre de mascota / Pet name / Naam van een huisdier · Excusa para llegar tarde / Excuse for being late / Smoes om te laat te komen · Algo que llevás a la playa / Something you take to the beach / Iets wat je meeneemt naar het strand · Algo que da miedo / Something scary / Iets engs |
+| personas (9) | Nombre / Name / Naam ★ · Apellido / Last name / Achternaam · Famoso/a / Celebrity / Bekende persoon · Personaje histórico / Historical figure / Historisch figuur · Futbolista / Football player / Voetballer · Cantante o banda / Singer or band / Zanger of band · Político/a / Politician / Politicus · Escritor/a / Writer / Schrijver · Científico/a / Scientist / Wetenschapper |
+| lugares (12) | País / Country / Land ★ · Ciudad / City / Stad · Capital / Capital city / Hoofdstad · Provincia o estado / Province or state / Provincie of staat · Río, lago o mar / River, lake or sea / Rivier, meer of zee · Lugar turístico / Tourist attraction / Toeristische attractie · Nacionalidad / Nationality / Nationaliteit · Club de fútbol / Football club / Voetbalclub · Monumento / Monument / Monument · Montaña o volcán / Mountain or volcano / Berg of vulkaan · Isla / Island / Eiland · Pueblo / Town or village / Dorp |
+| naturaleza (7) | Animal / Animal / Dier ★ · Ave / Bird / Vogel · Animal marino / Sea creature / Zeedier · Flor o planta / Flower or plant / Bloem of plant · Insecto / Insect / Insect · Árbol / Tree / Boom · Reptil o anfibio / Reptile or amphibian / Reptiel of amfibie |
+| comida (9) | Comida / Food / Eten ★ · Fruta o verdura / Fruit or vegetable / Fruit of groente · Postre / Dessert / Nagerecht · Bebida / Drink / Drank · Algo que hay en la heladera / Something in the fridge / Iets in de koelkast · Plato típico / Traditional dish / Traditioneel gerecht · Golosina / Sweet or candy / Snoep · Condimento o especia / Spice or condiment / Kruid of saus · Sabor de helado / Ice cream flavor / Ijssmaak |
+| cosas (11) | Cosa / Thing / Ding · Color / Color / Kleur ★ · Ropa o accesorio / Clothing or accessory / Kleding of accessoire · Mueble / Furniture / Meubelstuk · Útil escolar / School supply / Schoolbenodigdheid · Juguete / Toy / Speelgoed · Medio de transporte / Vehicle / Vervoermiddel · Herramienta / Tool / Gereedschap · Electrodoméstico / Home appliance / Huishoudelijk apparaat · Algo que hay en la cocina / Something in the kitchen / Iets in de keuken · Algo que hay en una mochila / Something in a backpack / Iets in een rugzak |
+| marcas (4) | Marca / Brand / Merk ★ · Marca de auto / Car brand / Automerk · Marca de ropa / Clothing brand / Kledingmerk · Marca de tecnología / Tech brand / Technologiemerk |
+| cultura (10) | Película / Movie / Film · Serie / TV show / Tv-serie · Dibujo animado / Cartoon / Tekenfilm · Personaje de ficción / Fictional character / Fictief personage · Superhéroe o villano / Superhero or villain / Superheld of schurk · Videojuego / Video game / Videogame · Canción / Song / Liedje · Libro / Book / Boek · Dios o criatura mitológica / Mythological god or creature / Mythologische god of wezen · Disfraz / Costume / Verkleedkostuum |
+| trabajo (7) | Profesión u oficio / Job / Beroep · Deporte / Sport / Sport · Instrumento musical / Musical instrument / Muziekinstrument · Parte del cuerpo / Body part / Lichaamsdeel · Materia escolar / School subject / Schoolvak · Enfermedad / Illness / Ziekte · Pasatiempo / Hobby / Hobby |
+| divertidas (11) | Adjetivo / Adjective / Bijvoeglijk naamwoord · Verbo / Verb / Werkwoord · Idioma / Language / Taal · Emoción / Emotion / Emotie · Nombre de mascota / Pet name / Naam van een huisdier · Excusa para llegar tarde / Excuse for being late / Smoes om te laat te komen · Algo que llevás a la playa / Something you take to the beach / Iets wat je meeneemt naar het strand · Algo que da miedo / Something scary / Iets engs · Regalo / Gift / Cadeau · Algo que hay en una fiesta / Something at a party / Iets op een feestje · Algo rojo / Something red / Iets roods |
 
 ★ = default.
 

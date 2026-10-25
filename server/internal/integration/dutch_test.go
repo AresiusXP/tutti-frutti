@@ -103,7 +103,7 @@ func TestDutchGame(t *testing.T) {
 				defaults = append(defaults, c.Label)
 			}
 		}
-		if r.status != http.StatusOK || listing.Lang != "nl" || len(listing.Categories) != 50 || !slices.Equal(defaults, dutchDefaults) {
+		if r.status != http.StatusOK || listing.Lang != "nl" || len(listing.Categories) != 80 || !slices.Equal(defaults, dutchDefaults) {
 			t.Fatalf("GET /api/categories?lang=nl = %d lang %q entries %d defaults %v", r.status, listing.Lang, len(listing.Categories), defaults)
 		}
 

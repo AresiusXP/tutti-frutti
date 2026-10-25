@@ -248,7 +248,7 @@ func TestCategories(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := catalog.ForLang(tt.wantLang)
-			if got.Lang != tt.wantLang || len(got.Categories) != 50 || got.Categories[0] != want.Categories[0] {
+			if got.Lang != tt.wantLang || len(got.Categories) != 80 || got.Categories[0] != want.Categories[0] {
 				t.Errorf("listing lang=%q n=%d first=%+v", got.Lang, len(got.Categories), got.Categories[0])
 			}
 		})

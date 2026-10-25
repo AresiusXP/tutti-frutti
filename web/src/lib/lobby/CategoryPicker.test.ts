@@ -144,7 +144,7 @@ describe('CategoryPicker', () => {
 			mount();
 			const personas = await screen.findByRole('button', { name: /^Personas/ });
 			expect(personas.getAttribute('aria-expanded')).toBe('false');
-			expect(within(personas).getByText('1/6')).toBeTruthy();
+			expect(within(personas).getByText('1/9')).toBeTruthy();
 			expect(screen.getAllByRole('button', { name: /\d+\/\d+$/ })).toHaveLength(9);
 			expect(screen.queryByRole('button', { name: 'Apellido' })).toBeNull();
 		});

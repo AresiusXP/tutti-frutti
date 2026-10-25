@@ -173,7 +173,7 @@ func TestCategoriesEndpoint(t *testing.T) {
 	byLang := map[string]listing{}
 	for _, tc := range []struct{ query, lang string }{{"", "es"}, {"?lang=es", "es"}, {"?lang=en", "en"}, {"?lang=nl", "nl"}} {
 		r, l := get(tc.query)
-		if r.status != 200 || l.Lang != tc.lang || len(l.Categories) != 50 || len(l.Groups) == 0 {
+		if r.status != 200 || l.Lang != tc.lang || len(l.Categories) != 80 || len(l.Groups) == 0 {
 			t.Fatalf("GET /api/categories%s = %d lang %q entries %d", tc.query, r.status, l.Lang, len(l.Categories))
 		}
 		if cc := r.header.Get("Cache-Control"); !strings.Contains(cc, "max-age") {

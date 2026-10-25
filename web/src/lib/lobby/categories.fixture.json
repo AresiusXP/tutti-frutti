@@ -47,7 +47,30 @@
 		"nl": "Zanger of band",
 		"default": false
 	},
-
+	{
+		"id": "politico",
+		"group": "personas",
+		"es": "Político/a",
+		"en": "Politician",
+		"nl": "Politicus",
+		"default": false
+	},
+	{
+		"id": "escritor",
+		"group": "personas",
+		"es": "Escritor/a",
+		"en": "Writer",
+		"nl": "Schrijver",
+		"default": false
+	},
+	{
+		"id": "cientifico",
+		"group": "personas",
+		"es": "Científico/a",
+		"en": "Scientist",
+		"nl": "Wetenschapper",
+		"default": false
+	},
 	{
 		"id": "pais",
 		"group": "lugares",
@@ -112,7 +135,38 @@
 		"nl": "Voetbalclub",
 		"default": false
 	},
-
+	{
+		"id": "monumento",
+		"group": "lugares",
+		"es": "Monumento",
+		"en": "Monument",
+		"nl": "Monument",
+		"default": false
+	},
+	{
+		"id": "montana_volcan",
+		"group": "lugares",
+		"es": "Montaña o volcán",
+		"en": "Mountain or volcano",
+		"nl": "Berg of vulkaan",
+		"default": false
+	},
+	{
+		"id": "isla",
+		"group": "lugares",
+		"es": "Isla",
+		"en": "Island",
+		"nl": "Eiland",
+		"default": false
+	},
+	{
+		"id": "pueblo",
+		"group": "lugares",
+		"es": "Pueblo",
+		"en": "Town or village",
+		"nl": "Dorp",
+		"default": false
+	},
 	{
 		"id": "animal",
 		"group": "naturaleza",
@@ -145,7 +199,30 @@
 		"nl": "Bloem of plant",
 		"default": false
 	},
-
+	{
+		"id": "insecto",
+		"group": "naturaleza",
+		"es": "Insecto",
+		"en": "Insect",
+		"nl": "Insect",
+		"default": false
+	},
+	{
+		"id": "arbol",
+		"group": "naturaleza",
+		"es": "Árbol",
+		"en": "Tree",
+		"nl": "Boom",
+		"default": false
+	},
+	{
+		"id": "reptil_anfibio",
+		"group": "naturaleza",
+		"es": "Reptil o anfibio",
+		"en": "Reptile or amphibian",
+		"nl": "Reptiel of amfibie",
+		"default": false
+	},
 	{
 		"id": "comida",
 		"group": "comida",
@@ -186,9 +263,54 @@
 		"nl": "Iets in de koelkast",
 		"default": false
 	},
-
-	{ "id": "cosa", "group": "cosas", "es": "Cosa", "en": "Thing", "nl": "Ding", "default": false },
-	{ "id": "color", "group": "cosas", "es": "Color", "en": "Color", "nl": "Kleur", "default": true },
+	{
+		"id": "plato_tipico",
+		"group": "comida",
+		"es": "Plato típico",
+		"en": "Traditional dish",
+		"nl": "Traditioneel gerecht",
+		"default": false
+	},
+	{
+		"id": "golosina",
+		"group": "comida",
+		"es": "Golosina",
+		"en": "Sweet or candy",
+		"nl": "Snoep",
+		"default": false
+	},
+	{
+		"id": "condimento",
+		"group": "comida",
+		"es": "Condimento o especia",
+		"en": "Spice or condiment",
+		"nl": "Kruid of saus",
+		"default": false
+	},
+	{
+		"id": "sabor_helado",
+		"group": "comida",
+		"es": "Sabor de helado",
+		"en": "Ice cream flavor",
+		"nl": "Ijssmaak",
+		"default": false
+	},
+	{
+		"id": "cosa",
+		"group": "cosas",
+		"es": "Cosa",
+		"en": "Thing",
+		"nl": "Ding",
+		"default": false
+	},
+	{
+		"id": "color",
+		"group": "cosas",
+		"es": "Color",
+		"en": "Color",
+		"nl": "Kleur",
+		"default": true
+	},
 	{
 		"id": "ropa_accesorio",
 		"group": "cosas",
@@ -229,8 +351,46 @@
 		"nl": "Vervoermiddel",
 		"default": false
 	},
-
-	{ "id": "marca", "group": "marcas", "es": "Marca", "en": "Brand", "nl": "Merk", "default": true },
+	{
+		"id": "herramienta",
+		"group": "cosas",
+		"es": "Herramienta",
+		"en": "Tool",
+		"nl": "Gereedschap",
+		"default": false
+	},
+	{
+		"id": "electrodomestico",
+		"group": "cosas",
+		"es": "Electrodoméstico",
+		"en": "Home appliance",
+		"nl": "Huishoudelijk apparaat",
+		"default": false
+	},
+	{
+		"id": "algo_cocina",
+		"group": "cosas",
+		"es": "Algo que hay en la cocina",
+		"en": "Something in the kitchen",
+		"nl": "Iets in de keuken",
+		"default": false
+	},
+	{
+		"id": "algo_mochila",
+		"group": "cosas",
+		"es": "Algo que hay en una mochila",
+		"en": "Something in a backpack",
+		"nl": "Iets in een rugzak",
+		"default": false
+	},
+	{
+		"id": "marca",
+		"group": "marcas",
+		"es": "Marca",
+		"en": "Brand",
+		"nl": "Merk",
+		"default": true
+	},
 	{
 		"id": "marca_auto",
 		"group": "marcas",
@@ -239,7 +399,22 @@
 		"nl": "Automerk",
 		"default": false
 	},
-
+	{
+		"id": "marca_ropa",
+		"group": "marcas",
+		"es": "Marca de ropa",
+		"en": "Clothing brand",
+		"nl": "Kledingmerk",
+		"default": false
+	},
+	{
+		"id": "marca_tecnologia",
+		"group": "marcas",
+		"es": "Marca de tecnología",
+		"en": "Tech brand",
+		"nl": "Technologiemerk",
+		"default": false
+	},
 	{
 		"id": "pelicula",
 		"group": "cultura",
@@ -288,7 +463,38 @@
 		"nl": "Videogame",
 		"default": false
 	},
-
+	{
+		"id": "cancion",
+		"group": "cultura",
+		"es": "Canción",
+		"en": "Song",
+		"nl": "Liedje",
+		"default": false
+	},
+	{
+		"id": "libro",
+		"group": "cultura",
+		"es": "Libro",
+		"en": "Book",
+		"nl": "Boek",
+		"default": false
+	},
+	{
+		"id": "mitologia",
+		"group": "cultura",
+		"es": "Dios o criatura mitológica",
+		"en": "Mythological god or creature",
+		"nl": "Mythologische god of wezen",
+		"default": false
+	},
+	{
+		"id": "disfraz",
+		"group": "cultura",
+		"es": "Disfraz",
+		"en": "Costume",
+		"nl": "Verkleedkostuum",
+		"default": false
+	},
 	{
 		"id": "profesion",
 		"group": "trabajo",
@@ -321,7 +527,30 @@
 		"nl": "Lichaamsdeel",
 		"default": false
 	},
-
+	{
+		"id": "materia_escolar",
+		"group": "trabajo",
+		"es": "Materia escolar",
+		"en": "School subject",
+		"nl": "Schoolvak",
+		"default": false
+	},
+	{
+		"id": "enfermedad",
+		"group": "trabajo",
+		"es": "Enfermedad",
+		"en": "Illness",
+		"nl": "Ziekte",
+		"default": false
+	},
+	{
+		"id": "pasatiempo",
+		"group": "trabajo",
+		"es": "Pasatiempo",
+		"en": "Hobby",
+		"nl": "Hobby",
+		"default": false
+	},
 	{
 		"id": "adjetivo",
 		"group": "divertidas",
@@ -384,6 +613,30 @@
 		"es": "Algo que da miedo",
 		"en": "Something scary",
 		"nl": "Iets engs",
+		"default": false
+	},
+	{
+		"id": "regalo",
+		"group": "divertidas",
+		"es": "Regalo",
+		"en": "Gift",
+		"nl": "Cadeau",
+		"default": false
+	},
+	{
+		"id": "algo_fiesta",
+		"group": "divertidas",
+		"es": "Algo que hay en una fiesta",
+		"en": "Something at a party",
+		"nl": "Iets op een feestje",
+		"default": false
+	},
+	{
+		"id": "algo_rojo",
+		"group": "divertidas",
+		"es": "Algo rojo",
+		"en": "Something red",
+		"nl": "Iets roods",
 		"default": false
 	}
 ]

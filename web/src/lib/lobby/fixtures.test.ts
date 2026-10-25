@@ -10,8 +10,8 @@ describe('catalog fixture', () => {
 		expect(FIXTURE_CATEGORIES).toEqual(JSON.parse(readFileSync(server, 'utf8')));
 	});
 
-	it('has 50 categories, 6 defaults and the 9 groups of the design', () => {
-		expect(FIXTURE_CATEGORIES).toHaveLength(50);
+	it('has 80 categories, 6 defaults and the 9 groups of the design', () => {
+		expect(FIXTURE_CATEGORIES).toHaveLength(80);
 		expect(FIXTURE_CATEGORIES.filter((c) => c.default)).toHaveLength(6);
 		expect(listingFor('es').groups).toEqual([
 			'personas',
@@ -42,7 +42,7 @@ describe('catalog fixture', () => {
 	it('serves the Dutch catalog', () => {
 		const nl = listingFor('nl');
 		expect(nl.lang).toBe('nl');
-		expect(nl.categories).toHaveLength(50);
+		expect(nl.categories).toHaveLength(80);
 		expect(nl.categories[0]).toEqual({
 			id: 'nombre',
 			group: 'personas',
