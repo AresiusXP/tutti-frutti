@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
+	"github.com/AresiusXP/tutti-frutti/server/internal/judge"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 )
 
@@ -86,6 +87,17 @@ type Config struct {
 	// to an account (see UserLinked). Nil disables statistics: no link is kept
 	// and nothing is recorded.
 	Recorder Recorder
+	// Judge is the AI judge of the review; nil turns the feature off (the
+	// host is not offered the button and ask_judge is refused).
+	Judge Judge
+}
+
+// Judge answers whether the answers of a category are valid examples of it.
+// It is called off the room's goroutine; *judge.Cloudflare implements it.
+type Judge interface {
+	// Judge returns one result per answer of req. It returns judge.ErrBusy
+	// when the judge is out of budget or rate, any other error on failure.
+	Judge(ctx context.Context, req judge.Request) ([]judge.Result, error)
 }
 
 // CreateRequest describes the host of a new room.

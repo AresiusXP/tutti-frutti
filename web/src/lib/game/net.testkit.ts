@@ -49,8 +49,14 @@ export class FakeSocket implements SocketLike {
 	receiveRaw(data: unknown): void {
 		this.onmessage?.({ data });
 	}
-	state(view: View, serverTime = Date.now(), code = 'KT7P'): void {
-		this.receive('state', { code, serverTime, view });
+	/** `canJudge` left out sends a frame without the field (an older server). */
+	state(view: View, serverTime = Date.now(), code = 'KT7P', canJudge?: boolean): void {
+		this.receive('state', {
+			code,
+			serverTime,
+			view,
+			...(canJudge === undefined ? {} : { canJudge })
+		});
 	}
 	serverClose(code: number): void {
 		this.readyState = 3;

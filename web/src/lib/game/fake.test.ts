@@ -3,6 +3,17 @@ import { describe, expect, it } from 'vitest';
 import { FakeSession } from './fake.svelte';
 import { makeRound, makeSettings, makeStopVote, makeView } from './fixtures';
 
+describe('FakeSession: AI judge', () => {
+	it('records askJudge and starts with canJudge off', () => {
+		const session = new FakeSession(makeView());
+		expect(session.canJudge).toBe(false);
+		session.canJudge = true;
+		session.askJudge(2);
+		expect(session.canJudge).toBe(true);
+		expect(session.sent).toEqual([{ cmd: 'askJudge', args: [2] }]);
+	});
+});
+
 describe('FakeSession: vote to stop', () => {
 	it('records askStop and voteStop with their arguments, in order', () => {
 		const session = new FakeSession(makeView());

@@ -30,6 +30,8 @@ export class FakeSession implements RoomSession {
 	view = $state<View | null>(null);
 	events = $state<SessionEvent[]>([]);
 	lastError = $state<SessionError | null>(null);
+	/** Like `state.canJudge`: the "Ask the AI" button is offered to the host. */
+	canJudge = $state(false);
 
 	/** Every command called, in order. Not reactive. */
 	sent: SentCommand[] = [];
@@ -127,6 +129,9 @@ export class FakeSession implements RoomSession {
 	}
 	reviewNav(category: number) {
 		this.#record('reviewNav', [category]);
+	}
+	askJudge(category: number) {
+		this.#record('askJudge', [category]);
 	}
 	finishReview() {
 		this.#record('finishReview', []);

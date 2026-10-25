@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ReviewDemoSession } from './demo';
 import {
 	BASE_TOTALS,
 	buildReviewView,
+	freeze,
 	reviewState,
 	reviewView,
 	scoreState,
@@ -168,6 +169,57 @@ describe('ReviewDemoSession', () => {
 		session.proposeMerge(2, 'p1', 'p4');
 		expect(session.lastError?.code).toBe('already_same');
 		expect(session.view?.round?.proposals).toEqual([]);
+	});
+
+	it('asks the AI like the server: pending, then one verdict per judgeable answer', () => {
+		vi.useFakeTimers();
+		try {
+			const session = new ReviewDemoSession(reviewState({ category: 2, canJudge: true }));
+			expect(session.canJudge).toBe(true);
+			session.askJudge(2);
+			expect(session.view?.round?.judgePending).toEqual([2]);
+			expect(session.view?.round?.verdicts).toEqual([]);
+			session.askJudge(2);
+			expect(session.lastError?.code).toBe('judge_pending');
+			vi.advanceTimersByTime(session.judgeDelay);
+			expect(session.view?.round?.judgePending).toEqual([]);
+			// category 2: p3 left it empty, so three answers are judged
+			expect(session.view?.round?.verdicts.map((v) => [v.player, v.verdict])).toEqual([
+				['p1', 'valid'],
+				['p2', 'doubtful'],
+				['p4', 'valid']
+			]);
+			session.askJudge(2);
+			expect(session.lastError?.code).toBe('already_judged');
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('refuses the AI to those who cannot ask and when nothing is worth judging', () => {
+		const guest = new ReviewDemoSession(reviewState({ youId: 'p2', canJudge: true }));
+		guest.askJudge(1);
+		expect(guest.lastError?.code).toBe('not_host');
+		const anon = new ReviewDemoSession(reviewState());
+		anon.askJudge(1);
+		expect(anon.lastError?.code).toBe('login_required');
+		const empty = new ReviewDemoSession(
+			reviewState({
+				canJudge: true,
+				answers: { p1: { 2: '' }, p2: { 2: '' }, p3: { 2: '' }, p4: { 2: 'Perro' } }
+			})
+		);
+		empty.askJudge(2);
+		expect(empty.lastError?.code).toBe('nothing_to_judge');
+	});
+
+	it('fills the verdicts only during the review', () => {
+		const state = reviewState({ category: 1, judged: [1], judgePending: [2] });
+		expect(buildReviewView(state).round?.verdicts).toHaveLength(4);
+		expect(buildReviewView(state).round?.judgePending).toEqual([2]);
+		freeze(state);
+		expect(buildReviewView(state).round?.verdicts).toEqual([]);
+		expect(buildReviewView(state).round?.judgePending).toEqual([]);
 	});
 
 	it('walks review -> summary -> final', () => {

@@ -17,6 +17,7 @@ import (
 	"github.com/AresiusXP/tutti-frutti/server/internal/auth"
 	"github.com/AresiusXP/tutti-frutti/server/internal/config"
 	"github.com/AresiusXP/tutti-frutti/server/internal/httpapi"
+	"github.com/AresiusXP/tutti-frutti/server/internal/judge"
 	"github.com/AresiusXP/tutti-frutti/server/internal/room"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 	"github.com/AresiusXP/tutti-frutti/server/internal/ws"
@@ -89,13 +90,29 @@ func run() error {
 	}
 	defer st.Close()
 
-	hub := room.NewHub(room.Config{
+	// The AI judge is optional: without the Cloudflare settings the host is
+	// never offered it. A nil *judge.Cloudflare must not reach the interface.
+	roomCfg := room.Config{
 		Store:      st,
 		Logger:     logger,
 		Registerer: reg,
 		MaxRooms:   cfg.MaxRooms,
 		Recorder:   st,
-	})
+	}
+	if cfg.JudgeEnabled() {
+		j, err := judge.New(judge.Config{
+			AccountID:    cfg.CloudflareAccountID,
+			APIToken:     cfg.CloudflareAPIToken,
+			DailyNeurons: float64(cfg.JudgeDailyNeurons),
+			Logger:       logger,
+			Registerer:   reg,
+		})
+		if err != nil {
+			return fmt.Errorf("ai judge: %w", err)
+		}
+		roomCfg.Judge = j
+	}
+	hub := room.NewHub(roomCfg)
 	// hub.Start ties its janitor to the context it receives, so that context
 	// must live as long as the server (the signal context), not just for the
 	// startup. The startup budget is enforced by a watchdog that is disarmed as
@@ -166,7 +183,7 @@ func run() error {
 	errCh := make(chan error, 1)
 	go func() {
 		logger.Info("server listening", "addr", srv.Addr, "version", version,
-			"database", cfg.DatabaseURL != "", "google", google != nil, "origins", origins)
+			"database", cfg.DatabaseURL != "", "google", google != nil, "judge", cfg.JudgeEnabled(), "origins", origins)
 		errCh <- srv.ListenAndServe()
 	}()
 

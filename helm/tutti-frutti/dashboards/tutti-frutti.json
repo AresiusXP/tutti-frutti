@@ -2180,14 +2180,270 @@
    "id": 26
   },
   {
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "description": "Categories the host asked the AI judge about (tuttifrutti_judge_requests_total, only when the server has Cloudflare credentials): ok = answered, cache_hit = answered from the cache without a call, busy = out of daily budget, rate limit or refused by Cloudflare, error = the call failed or the reply was unusable. Empty means nobody used it.",
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "axisBorderShow": false,
+      "axisCenteredZero": false,
+      "axisColorMode": "text",
+      "axisLabel": "",
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "drawStyle": "bars",
+      "fillOpacity": 60,
+      "gradientMode": "none",
+      "hideFrom": {
+       "legend": false,
+       "tooltip": false,
+       "viz": false
+      },
+      "insertNulls": false,
+      "lineInterpolation": "linear",
+      "lineWidth": 1,
+      "pointSize": 4,
+      "scaleDistribution": {
+       "type": "linear"
+      },
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "group": "A",
+       "mode": "normal"
+      },
+      "thresholdsStyle": {
+       "mode": "off"
+      }
+     },
+     "mappings": [],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "unit": "short",
+     "min": 0,
+     "decimals": 2,
+     "noValue": "no judging yet"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "ok"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "green"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "cache_hit"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "blue"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "busy"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "yellow"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "error"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "calcs": [
+      "sum"
+     ],
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "sum by (outcome) (rate(tuttifrutti_judge_requests_total{namespace=\"$namespace\", job=\"$job\"}[$__rate_interval])) * 3600",
+     "instant": false,
+     "legendFormat": "{{outcome}}",
+     "range": true,
+     "refId": "A"
+    }
+   ],
+   "title": "AI judge requests by outcome (per h)",
+   "type": "timeseries",
+   "gridPos": {
+    "h": 7,
+    "w": 12,
+    "x": 0,
+    "y": 40
+   },
+   "id": 27
+  },
+  {
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "description": "Neurons spent today (UTC) by this process (tuttifrutti_judge_neurons_used). The Free plan allows 10000 a day and Cloudflare refuses calls after that; the server stops asking at JUDGE_DAILY_NEURONS (default 9000). It restarts from 0 when the server restarts.",
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "axisBorderShow": false,
+      "axisCenteredZero": false,
+      "axisColorMode": "text",
+      "axisLabel": "",
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "drawStyle": "line",
+      "fillOpacity": 12,
+      "gradientMode": "none",
+      "hideFrom": {
+       "legend": false,
+       "tooltip": false,
+       "viz": false
+      },
+      "insertNulls": false,
+      "lineInterpolation": "linear",
+      "lineWidth": 1,
+      "pointSize": 4,
+      "scaleDistribution": {
+       "type": "linear"
+      },
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "group": "A",
+       "mode": "none"
+      },
+      "thresholdsStyle": {
+       "mode": "off"
+      }
+     },
+     "mappings": [],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "unit": "short",
+     "min": 0,
+     "max": 10000,
+     "decimals": 0,
+     "noValue": "judge off"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "calcs": [],
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "max(tuttifrutti_judge_neurons_used{namespace=\"$namespace\", job=\"$job\"})",
+     "instant": false,
+     "legendFormat": "Neurons",
+     "range": true,
+     "refId": "A"
+    }
+   ],
+   "title": "AI judge Workers AI Neurons used today",
+   "type": "timeseries",
+   "gridPos": {
+    "h": 7,
+    "w": 12,
+    "x": 12,
+    "y": 40
+   },
+   "id": 28
+  },
+  {
    "collapsed": false,
    "gridPos": {
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 40
+    "y": 47
    },
-   "id": 27,
+   "id": 29,
    "panels": [],
    "title": "Connections",
    "type": "row"
@@ -2361,9 +2617,9 @@
     "h": 8,
     "w": 8,
     "x": 0,
-    "y": 41
+    "y": 48
    },
-   "id": 28
+   "id": 30
   },
   {
    "datasource": {
@@ -2615,9 +2871,9 @@
     "h": 8,
     "w": 8,
     "x": 8,
-    "y": 41
+    "y": 48
    },
-   "id": 29
+   "id": 31
   },
   {
    "datasource": {
@@ -2734,9 +2990,9 @@
     "h": 8,
     "w": 8,
     "x": 16,
-    "y": 41
+    "y": 48
    },
-   "id": 30
+   "id": 32
   },
   {
    "datasource": {
@@ -2832,9 +3088,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 49
+    "y": 56
    },
-   "id": 31
+   "id": 33
   },
   {
    "datasource": {
@@ -2958,9 +3214,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 49
+    "y": 56
    },
-   "id": 32
+   "id": 34
   },
   {
    "datasource": {
@@ -3096,9 +3352,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 49
+    "y": 56
    },
-   "id": 33
+   "id": 35
   },
   {
    "collapsed": false,
@@ -3106,9 +3362,9 @@
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 56
+    "y": 63
    },
-   "id": 34,
+   "id": 36,
    "panels": [],
    "title": "Persistence",
    "type": "row"
@@ -3180,9 +3436,9 @@
     "h": 6,
     "w": 4,
     "x": 0,
-    "y": 57
+    "y": 64
    },
-   "id": 35
+   "id": 37
   },
   {
    "datasource": {
@@ -3254,9 +3510,9 @@
     "h": 6,
     "w": 4,
     "x": 4,
-    "y": 57
+    "y": 64
    },
-   "id": 36
+   "id": 38
   },
   {
    "datasource": {
@@ -3321,9 +3577,9 @@
     "h": 6,
     "w": 4,
     "x": 8,
-    "y": 57
+    "y": 64
    },
-   "id": 37
+   "id": 39
   },
   {
    "datasource": {
@@ -3396,9 +3652,9 @@
     "h": 6,
     "w": 4,
     "x": 12,
-    "y": 57
+    "y": 64
    },
-   "id": 38
+   "id": 40
   },
   {
    "datasource": {
@@ -3467,9 +3723,9 @@
     "h": 6,
     "w": 4,
     "x": 16,
-    "y": 57
+    "y": 64
    },
-   "id": 39
+   "id": 41
   },
   {
    "datasource": {
@@ -3534,9 +3790,9 @@
     "h": 6,
     "w": 4,
     "x": 20,
-    "y": 57
+    "y": 64
    },
-   "id": 40
+   "id": 42
   },
   {
    "datasource": {
@@ -3662,9 +3918,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 63
+    "y": 70
    },
-   "id": 41
+   "id": 43
   },
   {
    "datasource": {
@@ -3767,9 +4023,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 63
+    "y": 70
    },
-   "id": 42
+   "id": 44
   },
   {
    "datasource": {
@@ -3886,9 +4142,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 63
+    "y": 70
    },
-   "id": 43
+   "id": 45
   },
   {
    "datasource": {
@@ -3988,9 +4244,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 70
+    "y": 77
    },
-   "id": 44
+   "id": 46
   },
   {
    "datasource": {
@@ -4084,9 +4340,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 70
+    "y": 77
    },
-   "id": 45
+   "id": 47
   },
   {
    "datasource": {
@@ -4180,9 +4436,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 70
+    "y": 77
    },
-   "id": 46
+   "id": 48
   },
   {
    "datasource": {
@@ -4308,9 +4564,9 @@
     "h": 6,
     "w": 12,
     "x": 0,
-    "y": 77
+    "y": 84
    },
-   "id": 47
+   "id": 49
   },
   {
    "datasource": {
@@ -4396,9 +4652,9 @@
     "h": 6,
     "w": 6,
     "x": 12,
-    "y": 77
+    "y": 84
    },
-   "id": 48
+   "id": 50
   },
   {
    "datasource": {
@@ -4567,9 +4823,9 @@
     "h": 6,
     "w": 6,
     "x": 18,
-    "y": 77
+    "y": 84
    },
-   "id": 49
+   "id": 51
   },
   {
    "datasource": {
@@ -4663,9 +4919,9 @@
     "h": 6,
     "w": 12,
     "x": 0,
-    "y": 83
+    "y": 90
    },
-   "id": 50
+   "id": 52
   },
   {
    "datasource": {
@@ -4757,9 +5013,9 @@
     "h": 6,
     "w": 12,
     "x": 12,
-    "y": 83
+    "y": 90
    },
-   "id": 51
+   "id": 53
   },
   {
    "collapsed": false,
@@ -4767,9 +5023,9 @@
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 89
+    "y": 96
    },
-   "id": 52,
+   "id": 54,
    "panels": [],
    "title": "Accounts",
    "type": "row"
@@ -4914,9 +5170,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 90
+    "y": 97
    },
-   "id": 53
+   "id": 55
   },
   {
    "datasource": {
@@ -4981,9 +5237,9 @@
     "h": 7,
     "w": 4,
     "x": 8,
-    "y": 90
+    "y": 97
    },
-   "id": 54
+   "id": 56
   },
   {
    "datasource": {
@@ -5125,9 +5381,9 @@
     "h": 7,
     "w": 8,
     "x": 12,
-    "y": 90
+    "y": 97
    },
-   "id": 55
+   "id": 57
   },
   {
    "datasource": {
@@ -5192,9 +5448,9 @@
     "h": 7,
     "w": 4,
     "x": 20,
-    "y": 90
+    "y": 97
    },
-   "id": 56
+   "id": 58
   },
   {
    "datasource": {
@@ -5300,9 +5556,9 @@
     "h": 6,
     "w": 12,
     "x": 0,
-    "y": 97
+    "y": 104
    },
-   "id": 57
+   "id": 59
   },
   {
    "collapsed": false,
@@ -5310,9 +5566,9 @@
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 103
+    "y": 110
    },
-   "id": 58,
+   "id": 60,
    "panels": [],
    "title": "HTTP API",
    "type": "row"
@@ -5411,9 +5667,9 @@
     "h": 8,
     "w": 8,
     "x": 0,
-    "y": 104
+    "y": 111
    },
-   "id": 59
+   "id": 61
   },
   {
    "datasource": {
@@ -5584,9 +5840,9 @@
     "h": 8,
     "w": 8,
     "x": 8,
-    "y": 104
+    "y": 111
    },
-   "id": 60
+   "id": 62
   },
   {
    "datasource": {
@@ -5685,9 +5941,9 @@
     "h": 8,
     "w": 8,
     "x": 16,
-    "y": 104
+    "y": 111
    },
-   "id": 61
+   "id": 63
   },
   {
    "datasource": {
@@ -5804,9 +6060,9 @@
     "h": 8,
     "w": 12,
     "x": 0,
-    "y": 112
+    "y": 119
    },
-   "id": 62
+   "id": 64
   },
   {
    "datasource": {
@@ -5901,9 +6157,9 @@
     "h": 8,
     "w": 12,
     "x": 12,
-    "y": 112
+    "y": 119
    },
-   "id": 63
+   "id": 65
   },
   {
    "collapsed": false,
@@ -5911,9 +6167,9 @@
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 120
+    "y": 127
    },
-   "id": 64,
+   "id": 66,
    "panels": [],
    "title": "Go runtime and container",
    "type": "row"
@@ -6051,9 +6307,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 121
+    "y": 128
    },
-   "id": 65
+   "id": 67
   },
   {
    "datasource": {
@@ -6212,9 +6468,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 121
+    "y": 128
    },
-   "id": 66
+   "id": 68
   },
   {
    "datasource": {
@@ -6349,9 +6605,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 121
+    "y": 128
    },
-   "id": 67
+   "id": 69
   },
   {
    "datasource": {
@@ -6473,9 +6729,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 128
+    "y": 135
    },
-   "id": 68
+   "id": 70
   },
   {
    "datasource": {
@@ -6568,9 +6824,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 128
+    "y": 135
    },
-   "id": 69
+   "id": 71
   },
   {
    "datasource": {
@@ -6672,9 +6928,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 128
+    "y": 135
    },
-   "id": 70
+   "id": 72
   }
  ],
  "refresh": "30s",

@@ -19,7 +19,7 @@ var commandTypes = map[string]struct{}{
 	game.CmdStartGame: {}, game.CmdStopLetter: {}, game.CmdSetAnswer: {}, game.CmdBasta: {},
 	game.CmdAskStop: {}, game.CmdVoteStop: {},
 	game.CmdVoteReject: {}, game.CmdProposeMerge: {}, game.CmdVoteMerge: {},
-	game.CmdReviewNav: {}, game.CmdFinishReview: {}, game.CmdNextRound: {},
+	game.CmdReviewNav: {}, game.CmdAskJudge: {}, game.CmdFinishReview: {}, game.CmdNextRound: {},
 	game.CmdEndGame: {}, game.CmdRematch: {},
 }
 

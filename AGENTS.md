@@ -29,7 +29,13 @@ Longhorn storage, shared CloudPirates Postgres — **never Bitnami**).
 * Prefer explicit image tags over `latest`; keep resource requests small
   (server ~50m/64Mi, web ~10m/16Mi).
 * Secrets come from the existing Secret `tutti-frutti-secrets`
-  (`database-url`, `session-secret`, `google-client-id`, `google-client-secret`).
+  (`database-url`, `session-secret`, `google-client-id`, `google-client-secret`,
+  and the optional `cloudflare-account-id`, `cloudflare-api-token` of the AI judge).
+* The AI judge (review, `server/internal/judge`) runs on **Cloudflare Workers AI, Free
+  plan** (10,000 Neurons/day, refused after that, never billed). **Never add a payment
+  method to that Cloudflare account or upgrade it to Workers Paid**, and never use a
+  second account to get more quota (the terms forbid it). Gemini's free tier is not an
+  option: its terms bar EEA/minor users (see `docs/DESIGN.md`, "AI judge").
 
 ## Commands
 

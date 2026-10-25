@@ -33,6 +33,9 @@ var (
 	ErrProposalExists   = errors.New("game: there is already a proposal for those answers")
 	ErrInvalidMerge     = errors.New("game: those answers cannot be merged")
 	ErrUnknownProposal  = errors.New("game: unknown merge proposal")
+	ErrJudgePending     = errors.New("game: the AI judge is already working on that category")
+	ErrAlreadyJudged    = errors.New("game: that category was already judged")
+	ErrNothingToJudge   = errors.New("game: there is no answer to judge in that category")
 	ErrUnknownCommand   = errors.New("game: unknown command")
 	ErrBadPayload       = errors.New("game: malformed command payload")
 )
@@ -80,6 +83,9 @@ var errorCodes = []struct {
 	{ErrProposalExists, CodeProposalExists},
 	{ErrInvalidMerge, CodeInvalidMerge},
 	{ErrUnknownProposal, CodeUnknownProposal},
+	{ErrJudgePending, CodeJudgePending},
+	{ErrAlreadyJudged, CodeAlreadyJudged},
+	{ErrNothingToJudge, CodeNothingToJudge},
 	{ErrUnknownCommand, CodeUnknownCommand},
 	{ErrBadPayload, CodeBadPayload},
 }

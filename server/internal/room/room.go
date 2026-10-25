@@ -441,6 +441,12 @@ func (r *room) onCommand(now time.Time, s *session, t string, d json.RawMessage)
 		r.reject(s, t, protocol.ErrBadMessage)
 		return
 	}
+	if _, judging := cmd.(game.AskJudge); judging {
+		if code := r.judgeRefusal(s); code != "" {
+			r.reject(s, t, code)
+			return
+		}
+	}
 	prev := r.g.Phase
 	events, err := r.g.Apply(now, s.id, cmd)
 	if err != nil {
@@ -464,6 +470,9 @@ func (r *room) onCommand(now time.Time, s *session, t string, d json.RawMessage)
 	r.commit(now, prev, events, lobbyChanges[t])
 	if leaving {
 		s.c.Close(protocol.CloseLeft, "left")
+	}
+	if c, ok := cmd.(game.AskJudge); ok {
+		r.startJudge(c.Category)
 	}
 }
 
@@ -631,6 +640,7 @@ func (r *room) broadcast(now time.Time, events []game.Event) {
 			Code:       r.code,
 			ServerTime: now.UnixMilli(),
 			View:       r.g.View(s.id),
+			CanJudge:   r.canJudge(s),
 		}))
 	}
 }

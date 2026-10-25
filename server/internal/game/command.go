@@ -25,6 +25,7 @@ const (
 	CmdProposeMerge   = "propose_merge"
 	CmdVoteMerge      = "vote_merge"
 	CmdReviewNav      = "review_nav"
+	CmdAskJudge       = "ask_judge"
 	CmdFinishReview   = "finish_review"
 	CmdNextRound      = "next_round"
 	CmdEndGame        = "end_game"
@@ -180,6 +181,8 @@ func ParseCommand(t string, raw json.RawMessage) (Command, error) {
 		return decode[VoteMerge](raw)
 	case CmdReviewNav:
 		return decode[ReviewNav](raw)
+	case CmdAskJudge:
+		return decode[AskJudge](raw)
 	case CmdFinishReview:
 		return decode[FinishReview](raw)
 	case CmdNextRound:

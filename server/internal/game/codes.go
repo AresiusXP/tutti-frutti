@@ -28,6 +28,9 @@ const (
 	CodeProposalExists   = "proposal_exists"
 	CodeInvalidMerge     = "invalid_merge"
 	CodeUnknownProposal  = "unknown_proposal"
+	CodeJudgePending     = "judge_pending"
+	CodeAlreadyJudged    = "already_judged"
+	CodeNothingToJudge   = "nothing_to_judge"
 	CodeUnknownCommand   = "unknown_command"
 	CodeBadPayload       = "bad_payload"
 	// CodeInternal is returned for errors that are not engine sentinels.

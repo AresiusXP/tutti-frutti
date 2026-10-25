@@ -42,6 +42,10 @@ describe('static/privacy.html', () => {
 				'https://developers.google.com/terms/api-services-user-data-policy'
 			);
 			expect(section).toContain('https://policies.google.com/privacy');
+			// the optional AI judge sends the answers of a category to Cloudflare Workers AI
+			expect(section).toContain('https://www.cloudflare.com/privacypolicy/');
+			expect(section).toContain('Cloudflare');
+			expect(section).toContain('24');
 			expect(section).toContain('https://myaccount.google.com/permissions');
 			// 30 days (session cookie and the answer time), 10 minutes (OAuth), 6 hours (cleanup), 7 days (logs)
 			for (const figure of ['30', '10', '6', '7'])

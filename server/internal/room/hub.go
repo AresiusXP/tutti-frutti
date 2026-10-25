@@ -231,6 +231,9 @@ func (h *Hub) restore(ctx context.Context) ([]*room, error) {
 		// marked, so that nobody hears of it.
 		if g.Round != nil {
 			g.Round.StopVote = nil
+			// The same goes for a question to the AI judge: its call died
+			// with the process, so the host is let ask again.
+			g.Round.JudgePending = nil
 		}
 		// Nobody has a socket yet: every seat is disconnected until its
 		// player reconnects. The first call also applies any deadline that

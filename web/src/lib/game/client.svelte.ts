@@ -22,6 +22,7 @@ import {
 	CloseRoomClosed,
 	CloseServiceRestart,
 	CloseUnsupportedVersion,
+	CmdAskJudge,
 	CmdAskStop,
 	CmdBasta,
 	CmdEndGame,
@@ -56,6 +57,7 @@ import {
 	TypePing,
 	TypePong,
 	TypeState,
+	type AskJudge,
 	type ErrorBody,
 	type Event as GameEvent,
 	type JoinRequest,
@@ -163,6 +165,7 @@ export class WsRoomSession implements RoomSession {
 	#view = $state.raw<View | null>(null);
 	#events = $state.raw<SessionEvent[]>([]);
 	#lastError = $state.raw<SessionError | null>(null);
+	#canJudge = $state(false);
 
 	readonly #d: SessionDeps;
 	readonly #api: Api;
@@ -248,6 +251,10 @@ export class WsRoomSession implements RoomSession {
 		return !!v?.round && v.round.participants.includes(v.youId);
 	}
 
+	get canJudge(): boolean {
+		return this.#canJudge;
+	}
+
 	serverNow(): number {
 		return this.#d.now() + this.#offset;
 	}
@@ -303,6 +310,10 @@ export class WsRoomSession implements RoomSession {
 	reviewNav(category: number) {
 		const d: ReviewNav = { category };
 		this.#command(CmdReviewNav, d);
+	}
+	askJudge(category: number) {
+		const d: AskJudge = { category };
+		this.#command(CmdAskJudge, d);
 	}
 	finishReview() {
 		this.#command(CmdFinishReview);
@@ -554,6 +565,7 @@ export class WsRoomSession implements RoomSession {
 		const view = state.view;
 		const first = !this.#joined;
 		this.#view = view;
+		this.#canJudge = state.canJudge === true;
 		const round = view.round?.number ?? null;
 		if (first || round !== this.#answerRound) this.#sentAnswers.clear();
 		this.#answerRound = round;

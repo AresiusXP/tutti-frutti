@@ -6,6 +6,7 @@ import { FakeSession } from '$lib/game/fake.svelte';
 import { i18n } from '$lib/i18n.svelte';
 import { curate, labelNameMismatches } from '$lib/a11y.testkit';
 import { reviewView, vote, type ReviewOptions } from '$lib/review/fixtures';
+import { toasts } from '$lib/toast.svelte';
 import Review from './Review.svelte';
 
 const COMIDA = 3;
@@ -23,7 +24,10 @@ const pending = (voters: Array<[string, boolean]>, a = 'p1', b = 'p2') => ({
 	votes: voters.map(([voter, yes]) => ({ voter, yes }))
 });
 
-beforeEach(() => i18n.set('es'));
+beforeEach(() => {
+	i18n.set('es');
+	toasts.items = [];
+});
 
 describe('Review header and navigation', () => {
 	it('shows the category carousel title, the letter and one card per participant', () => {
@@ -515,5 +519,200 @@ describe('Review in Dutch', () => {
 		open({ lang: 'nl', category: COMIDA });
 		await fireEvent.click(screen.getByRole('button', { name: /Zelfde/ }));
 		expect(document.body.textContent).toContain('Kies het eerste antwoord');
+	});
+});
+
+describe('Review AI judge', () => {
+	const ask = () => screen.queryByRole('button', { name: 'Preguntar a la IA' });
+	const judging = (options: ReviewOptions = {}, canJudge = true) => {
+		const session = new FakeSession(reviewView({ category: COMIDA, ...options }));
+		session.canJudge = canJudge;
+		const view = render(Review, { session });
+		return { session, ...view };
+	};
+
+	it('host with canJudge: the button is at least 48 px high and asks for the current category', async () => {
+		const { session } = judging();
+		const button = ask()!;
+		expect(button).toBeTruthy();
+		expect(button.className).toContain('h-12');
+		expect((button as HTMLButtonElement).disabled).toBe(false);
+		expect(button.getAttribute('aria-busy')).toBe('false');
+		await fireEvent.click(button);
+		expect(session.sent).toEqual([{ cmd: 'askJudge', args: [COMIDA] }]);
+	});
+
+	it('does not offer the button to a host without canJudge, nor to a guest', () => {
+		const { unmount } = judging({}, false);
+		expect(ask()).toBeNull();
+		unmount();
+		judging({ youId: 'p2' }, true);
+		expect(ask()).toBeNull();
+	});
+
+	it('after the tap it shows the working state at once and cannot be tapped twice', async () => {
+		const { session } = judging();
+		await fireEvent.click(ask()!);
+		const busy = screen.getByRole('button', { name: 'La IA está revisando…' }) as HTMLButtonElement;
+		expect(busy.disabled).toBe(true);
+		expect(busy.getAttribute('aria-busy')).toBe('true');
+		await fireEvent.click(busy);
+		expect(session.sent).toHaveLength(1);
+	});
+
+	it('a refused ask (an error) gives the button back', async () => {
+		const { session } = judging();
+		await fireEvent.click(ask()!);
+		session.fail('nothing_to_judge', 'ask_judge');
+		await tick();
+		expect((ask() as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('shows the working state while the AI works on this category, to the host and to everybody else', () => {
+		const { unmount } = judging({ judgePending: [COMIDA] });
+		const busy = screen.getByRole('button', { name: 'La IA está revisando…' }) as HTMLButtonElement;
+		expect(busy.disabled).toBe(true);
+		expect(busy.getAttribute('aria-busy')).toBe('true');
+		expect(screen.getAllByRole('status').map((s) => s.textContent?.trim())).toContain(
+			'La IA está revisando…'
+		);
+		unmount();
+		judging({ youId: 'p2', judgePending: [COMIDA] }, false);
+		const note = screen.getAllByRole('status').find((s) => s.textContent?.includes('La IA'))!;
+		expect(note.getAttribute('aria-busy')).toBe('true');
+		expect(ask()).toBeNull();
+	});
+
+	it('another category being checked does not block this one', () => {
+		judging({ judgePending: [1] });
+		expect((ask() as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('with verdicts: chips with icon + text and the reason on the answer cards, one caption', () => {
+		judging({ judged: [COMIDA] });
+		expect(ask()).toBeNull();
+		expect(screen.getByText('Revisado por la IA')).toBeTruthy();
+		expect(screen.getAllByText('Sugerencia de la IA: no cambia el puntaje')).toHaveLength(1);
+		const valid = within(card('p1')).getByTestId('verdict');
+		expect(valid.dataset.verdict).toBe('valid');
+		expect(valid.textContent).toContain('✓');
+		expect(valid.textContent).toContain('IA: parece válida');
+		expect(valid.textContent).toContain('Respuesta conocida');
+		const doubtful = within(card('p2')).getByTestId('verdict');
+		expect(doubtful.dataset.verdict).toBe('doubtful');
+		expect(doubtful.textContent).toContain('?');
+		expect(doubtful.textContent).toContain('IA: dudosa');
+		expect(doubtful.textContent).toContain('No estoy seguro de que exista');
+		expect(within(card('p3')).getByTestId('verdict')).toBeTruthy();
+		expect(labelNameMismatches(document.body)).toEqual([]);
+	});
+
+	it('guests see the verdicts and the caption but no host wording', () => {
+		judging({ youId: 'p2', judged: [COMIDA] }, false);
+		expect(document.querySelectorAll('[data-testid="verdict"]')).toHaveLength(4);
+		expect(screen.getByText('Sugerencia de la IA: no cambia el puntaje')).toBeTruthy();
+		expect(screen.queryByText('Revisado por la IA')).toBeNull();
+	});
+
+	it('shows only the verdicts of the category on screen, and nothing before the AI answers', () => {
+		const { unmount } = judging({ category: 1, judged: [COMIDA] });
+		expect(document.querySelectorAll('[data-testid="verdict"]')).toHaveLength(0);
+		expect(screen.queryByText(/Sugerencia de la IA/)).toBeNull();
+		expect(ask()).not.toBeNull();
+		unmount();
+		judging({});
+		expect(document.querySelectorAll('[data-testid="verdict"]')).toHaveLength(0);
+	});
+
+	it('follows the live state: pending, then verdicts', async () => {
+		const { session } = judging();
+		session.setView(reviewView({ category: COMIDA, judgePending: [COMIDA] }));
+		await tick();
+		expect(
+			(screen.getByRole('button', { name: 'La IA está revisando…' }) as HTMLButtonElement).disabled
+		).toBe(true);
+		session.setView(reviewView({ category: COMIDA, judged: [COMIDA] }));
+		await tick();
+		expect(screen.queryByRole('button', { name: /IA/ })).toBeNull();
+		expect(document.querySelectorAll('[data-testid="verdict"]')).toHaveLength(4);
+	});
+
+	it('shows the reason as plain text, never as markup', () => {
+		judging({
+			youId: 'p2',
+			verdicts: [{ category: COMIDA, player: 'p1', verdict: 'doubtful', reason: '<b>bold</b>' }]
+		});
+		const chip = within(card('p1')).getByTestId('verdict');
+		expect(chip.querySelector('b')).toBeNull();
+		expect(chip.textContent).toContain('<b>bold</b>');
+	});
+
+	it('a verdict without a reason shows just the chip', () => {
+		judging({
+			youId: 'p2',
+			verdicts: [{ category: COMIDA, player: 'p1', verdict: 'valid' }]
+		});
+		const chip = within(card('p1')).getByTestId('verdict');
+		expect(chip.children).toHaveLength(1);
+	});
+
+	it('speaks English and Dutch', async () => {
+		i18n.set('en');
+		const { unmount } = judging({ lang: 'en', judged: [COMIDA] });
+		expect(document.body.textContent).toContain('AI: looks valid');
+		expect(document.body.textContent).toContain('AI: doubtful');
+		expect(document.body.textContent).toContain('AI suggestion, it does not change the score');
+		unmount();
+		i18n.set('nl');
+		judging({ lang: 'nl', judged: [COMIDA] });
+		expect(document.body.textContent).toContain('AI: lijkt geldig');
+		expect(document.body.textContent).toContain('AI: twijfelachtig');
+		expect(document.body.textContent).not.toMatch(/[¡¿ñ]/i);
+	});
+
+	describe('when the AI fails', () => {
+		it('tells only the host, with the reason', async () => {
+			const { session } = judging();
+			await fireEvent.click(ask()!);
+			session.emit({ type: 'judge_failed', reason: 'busy' });
+			await tick();
+			expect(toasts.items.map((t) => t.text)).toEqual([
+				'La IA está descansando por hoy, probá más tarde'
+			]);
+			expect((ask() as HTMLButtonElement).disabled).toBe(false);
+			session.emit({ type: 'judge_failed', reason: 'error' });
+			await tick();
+			expect(toasts.items.map((t) => t.text).at(-1)).toBe(
+				'La IA no pudo responder, probá de nuevo'
+			);
+		});
+
+		it('says nothing to the other players', async () => {
+			const { session } = judging({ youId: 'p2', judgePending: [COMIDA] }, false);
+			session.emit({ type: 'judge_failed', reason: 'busy' });
+			await tick();
+			expect(toasts.items).toEqual([]);
+		});
+
+		it('ignores events that came before the screen opened', async () => {
+			const session = new FakeSession(reviewView({ category: COMIDA }));
+			session.canJudge = true;
+			session.emit({ type: 'judge_failed', reason: 'busy' });
+			render(Review, { session });
+			await tick();
+			expect(toasts.items).toEqual([]);
+		});
+
+		it('speaks the host language', async () => {
+			i18n.set('en');
+			const { session } = judging({ lang: 'en' });
+			session.emit({ type: 'judge_failed', reason: 'busy' });
+			session.emit({ type: 'judge_failed', reason: 'error' });
+			await tick();
+			expect(toasts.items.map((t) => t.text)).toEqual([
+				'The AI is resting for today, try again later',
+				'The AI could not answer, try again'
+			]);
+		});
 	});
 });

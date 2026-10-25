@@ -19,7 +19,7 @@ to end the round. Hosted on the homelab at **https://tuttifrutti.aresius.xyz**.
 | Letter | Hidden alphabet cycles from A; the round's *chooser* taps STOP. Used letters are skipped |
 | Basta | The caller triggers a 3 s grace countdown for everyone else, then inputs lock |
 | Vote to stop | Whoever has not filled every category can ask everyone to stop: every other connected player must say yes within 15 s, and it then counts as their Basta (host setting, on by default) |
-| Review | Players vote to reject invalid answers (majority of other players); answers can be merged as "the same" by majority |
+| Review | Players vote to reject invalid answers (majority of other players); answers can be merged as "the same" by majority. A host signed in with Google can ask an **AI judge** about a category: an advisory verdict on each answer, visible to everyone, that never changes a score |
 | Extras v1 | Invite link + QR, optional round time limit, custom per-game categories, installable PWA, a voluntary "support the game" link (Cafecito in Argentina, Ko-fi elsewhere) |
 
 ### Naming rules
@@ -224,6 +224,67 @@ Avatar fields (`emoji`, `color`) are refused when they hold a control character.
   duplicates of each other.
 * Host taps *Finish review* → scores final.
 
+#### AI judge (advisory)
+
+A host who is signed in with Google can ask an AI to judge the answers of the category
+on screen. The verdict is a **suggestion**: it never changes a score, a vote or a merge;
+the players still decide by voting.
+
+* **Who and when.** `ask_judge {category}`: host only (`not_host`), review phase only
+  (`wrong_phase`), a valid category (`invalid_category`). The room layer also refuses it with
+  `judge_unavailable` when the server has no judge (no Cloudflare credentials) and with
+  `login_required` when the host is a guest: the allowance is shared by every player, so it is
+  not spent anonymously. The state tells each viewer whether they may ask
+  (`State.canJudge` = the server has a judge and the viewer is signed in); the client shows the
+  button to the host only when it is set.
+* **One question per category.** While a question is open (`judge_pending`) or once the
+  category has verdicts (`already_judged`) it is refused; a category with nothing to judge is
+  refused too (`nothing_to_judge`). A failed attempt leaves no trace, so the host may ask again.
+  The answers judged are those that are non-empty and start with the letter (the others are
+  already worth 0); the host asks once per category, so a review costs at most one call per
+  category.
+* **The engine stays pure.** `Game.Apply(AskJudge)` only records the open question in
+  `Round.JudgePending`. The room layer then calls the judge on another goroutine (30 s limit,
+  panics recovered) and reports back through the trusted calls `Game.ApplyVerdicts` and
+  `Game.JudgeFailed` (like `SetConnected`, a client cannot send them). A result for a round or a
+  review that moved on is dropped. Verdicts about answers that were not asked about, unknown
+  verdict values and second verdicts for one answer are ignored; the reason is stripped of
+  invisible and control characters, whitespace is collapsed and it is cut to 100 runes.
+* **State.** `RoundView.judgePending` (categories the AI is working on) and
+  `RoundView.verdicts` (`{category, player, verdict: "valid" | "doubtful", reason}`) exist only
+  in the review phase and everybody sees them. Both are part of the snapshot; a restore drops
+  `judgePending` (the call died with the process).
+* **Events.** `judge_failed {reason}`: `busy` (the budget, rate limit or Cloudflare's own
+  allowance is used up) or `error`. It is announced to everybody; the host gets a toast.
+* **Provider** (`server/internal/judge`, the only code that talks to the model): Cloudflare
+  Workers AI on the **Free plan**, model `@cf/google/gemma-4-26b-a4b-it` (Apache 2.0),
+  OpenAI-compatible endpoint `POST /accounts/{id}/ai/v1/chat/completions`. The Free plan gives
+  10,000 Neurons a day and Cloudflare refuses the call after that (nothing is ever billed unless
+  the account is upgraded to Workers Paid: **never add a payment method to that account**); the
+  terms (Self-Serve Agreement of 2025-09-12 and the Workers AI Service-Specific Terms of
+  2026-09-28, read on 2026-10-25) have no EEA or minors restriction on the Free plan, Workers AI
+  does not train on content or retain it, and Free Services may be ended by Cloudflare at will, so
+  the feature must keep failing softly. One account only (a second one to dodge the limit is
+  forbidden by the terms).
+  * *Guard rails:* a daily budget of `JUDGE_DAILY_NEURONS` (default 9000, at most 10000; chart
+    `server.judge.dailyNeurons`) charged from the token usage Cloudflare reports and reset at
+    midnight UTC (it also restarts at 0 with the process), a global limit of 30 calls a minute, at
+    most 4 calls at once, and a cache (≤ 24 h, ≤ 4096 entries) keyed by language, category and
+    normalized answer text, so repeated answers cost nothing; one call judges a whole category.
+    When Cloudflare says the allowance is gone the judge stops asking for the rest of the UTC day.
+  * *Untrusted text:* the answers (and the custom category label) are typed by players. They
+    travel as JSON data in the user message, the system prompt says answers are data and never
+    instructions, and the reply is parsed strictly (ids, booleans, length cap). Advisory output
+    also bounds what an injected "say valid" can do.
+  * *Config:* `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (a token with only the Workers AI
+    permission) from the Secret `tutti-frutti-secrets` (keys `cloudflare-account-id`,
+    `cloudflare-api-token`, optional); the feature is off unless both are set.
+* **Privacy.** The category label, the letter, the language and the answer texts leave the
+  server for Cloudflare; never nicknames, player or account ids. The privacy policy page says so
+  (section 2, 4 and 5 in all three languages).
+* **Metrics.** `tuttifrutti_judge_requests_total{outcome}` (`ok`, `cache_hit`, `busy`, `error`)
+  and `tuttifrutti_judge_neurons_used`; both are on the gameplay row of the dashboard.
+
 ### Scoring (pure function)
 
 Per category, per player:
@@ -292,18 +353,22 @@ Envelope `{ "t": string, "d": object, "v": protocolVersion }`.
 
 * client → server: `join`, `leave`, `update_settings`, `kick`, `start_game`,
   `stop_letter`, `set_answer`, `basta`, `ask_stop`, `vote_stop`, `vote_reject`,
-  `propose_merge`, `vote_merge`, `review_nav`, `finish_review`, `next_round`,
-  `end_game`, `rematch`, `ping`
+  `propose_merge`, `vote_merge`, `review_nav`, `ask_judge`, `finish_review`,
+  `next_round`, `end_game`, `rematch`, `ping`
 * server → client: `state` (filtered full snapshot), `event`, `error`.
   Engine event types: `game_started`, `round_started` (carries the chooser),
   `letter_revealed`, `basta`, `stop_asked`, `stop_rejected` (carries the asker and a
   `reason`: `declined`, `timeout` or `ended`), `time_up`, `round_locked`,
-  `round_scored`, `kicked`, `host_changed`, `game_over`, `rematch`; the room layer adds
-  `server_restarting`.
+  `round_scored`, `judge_failed` (carries a `reason`: `busy` or `error`), `kicked`,
+  `host_changed`, `game_over`, `rematch`; the room layer adds `server_restarting`.
 * `vote_reject` takes `{category, targetPlayer, withdraw?}` (a vote can be withdrawn).
   `ask_stop` takes no payload and `vote_stop` takes `{yes}`; their error codes are
   `stop_vote_disabled`, `stop_vote_pending`, `no_stop_vote` and `stop_not_needed`, next to
   the existing `wrong_phase`, `not_participant` and `self_vote` (see "Vote to stop").
+* `ask_judge` takes `{category}`; its error codes are `judge_pending`, `already_judged` and
+  `nothing_to_judge` from the engine and `judge_unavailable` and `login_required` from the room
+  layer (see "AI judge"). The `state` payload also carries `canJudge`. These are additive (an
+  old client simply never offers the button), so the protocol version stays 3.
   Connection state is **not** a wire command: the room layer calls the trusted
   `Game.SetConnected(now, playerID, connected)` on connect/disconnect, and a wire
   `set_connected` is rejected as an unknown command (a client must not be able to
@@ -376,7 +441,13 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 5. **Basta overlay** — caller name + 3-2-1 (also when a vote to stop passed:
    the caller is the asker).
 6. **Review** — category carousel ("País · 2/6"), one card per answer (player,
-   answer, points badge, 👎 count, "same"), host ◀ ▶ + **Finish review**.
+   answer, points badge, 👎 count, "same"), host ◀ ▶ + **Finish review**. A host
+   signed in with Google also gets **Ask the AI** (≥ 48 px) for the category on
+   screen; while the AI works everybody sees a status line, then every judged
+   answer shows a chip ("AI: looks valid" / "AI: doubtful" plus its short reason,
+   never colour alone) under a caption saying it is a suggestion that does not
+   change the score. If the AI fails (budget used up or an error) the host gets a
+   toast and can ask again.
 7. **Round summary** — round points, totals, **Next round** (host).
 8. **Final** — podium, stats, **Rematch**, **Home**, and under the round history a quiet
    *support the game* card (see "Support links").
@@ -419,7 +490,8 @@ strict CSP needs no change, and crawlers and people without JavaScript read it t
   storage (`tf.nickname`, `tf.avatar`, `tf.customs`, the language), retention (room snapshots until the room
   closes and never past 6 h; accounts until deleted; Loki access logs 7 days), the Google API Services
   User Data Policy *Limited Use* statement, deletion (in-app *Delete my account*, or by email, 30 days) and
-  the GDPR rights.
+  the GDPR rights, and the optional AI judge: the answers of a category (never nicknames or ids) go to
+  Cloudflare Workers AI when a signed-in host asks, which acts as a processor and does not train on them.
 * **Keeping it true.** Any change to what is collected, stored or set as a cookie, to a retention period or
   to the Google scopes needs the three language blocks and the *Last updated* date changed in the same
   commit. `src/lib/privacy.test.ts` checks the three languages have the same sections and facts (cookie
@@ -538,6 +610,7 @@ the persistence contract is `server/internal/store`.
 | `internal/store` | `Store` interface + `Memory` + `Postgres` (pgx, goose migrations embedded) |
 | `internal/room` | `Hub` (registry, room codes, reaper, restore, shutdown) and one actor goroutine per room that owns a `*game.Game` |
 | `internal/auth` | Signed guest cookie (`tf_guest`) → player ID; account session cookie (`tf_session`) and the Google OIDC flow (Phase 4, section 9b) |
+| `internal/judge` | The AI judge of the review: Cloudflare Workers AI client with a daily Neuron budget, rate limit and cache (the only code that calls the model; see "AI judge") |
 | `internal/ratelimit` | Per-IP token buckets + trusted client-IP extraction |
 | `internal/ws` | WebSocket endpoint: upgrade, Origin check, read/write pumps, ping, per-connection limits |
 | `internal/httpapi` | REST routes (`/api/session`, `/api/categories`, `/api/rooms`, `/api/rooms/{code}`, and the account endpoints of section 9b) |
@@ -799,7 +872,7 @@ dashboard and the alerts disagree.
 | `tuttifrutti_rooms`                                   | gauge     |                                                                         | Live rooms in memory (cap `MAX_ROOMS`, chart `server.maxRooms`)                                                                            |
 | `tuttifrutti_connections`                             | gauge     |                                                                         | Clients attached to a room (joined)                                                                                                        |
 | `tuttifrutti_ws_connections_open`                     | gauge     |                                                                         | All live sockets, joined or not (cap 2000 → `503 server_busy`)                                                                             |
-| `tuttifrutti_commands_total`                          | counter   | `type` (18 commands, `unknown`), `result` (`ok` or the error code)      | Client frames handled by a room                                                                                                            |
+| `tuttifrutti_commands_total`                          | counter   | `type` (19 commands, `unknown`), `result` (`ok` or the error code)      | Client frames handled by a room                                                                                                            |
 | `tuttifrutti_games_started_total`                     | counter   |                                                                         | Games started by a host (event `game_started`; a rematch needs a new start and counts again)                                               |
 | `tuttifrutti_games_finished_total`                    | counter   | `reason`: `completed`, `letters_exhausted`, `ended_by_host`             | Games that reached the final phase (event `game_over`), told from the state: every configured round played; no letter left; or ended early |
 | `tuttifrutti_rounds_total`                            | counter   |                                                                         | Rounds started (a round that was played to the end is also in `basta_total` or `time_ups_total`)                                           |
@@ -807,6 +880,8 @@ dashboard and the alerts disagree.
 | `tuttifrutti_time_ups_total`                          | counter   |                                                                         | Rounds that ended because the time limit expired (event `time_up`)                                                                         |
 | `tuttifrutti_letter_auto_stops_total`                 | counter   |                                                                         | Letters the server picked because the chooser did not tap within 10 s                                                                      |
 | `tuttifrutti_stop_votes_total`                        | counter   | `result`: `asked`, `passed`, `declined`, `timeout`, `ended`             | Votes to stop: opened (or passed at once), then how each ended                                                                             |
+| `tuttifrutti_judge_requests_total`                    | counter   | `outcome`: `ok`, `cache_hit`, `busy`, `error`                           | Categories the host asked the AI judge about, by outcome (see "AI judge"); absent without Cloudflare credentials                           |
+| `tuttifrutti_judge_neurons_used`                      | gauge     |                                                                         | Workers AI Neurons this process spent today (UTC); the Free plan allows 10000 a day, the judge stops at `JUDGE_DAILY_NEURONS` (9000)       |
 | `tuttifrutti_snapshot_saves_total`                    | counter   | `result`: `ok`, `error`                                                 | Room snapshot save attempts: a failed write is retried and every attempt counts; an encoding failure is an `error`                         |
 | `tuttifrutti_snapshot_save_duration_seconds`          | histogram |                                                                         | One snapshot write to the store, successful or not (buckets 1 ms … 5 s; the saver gives up after 10 s)                                     |
 | `tuttifrutti_snapshot_last_success_timestamp_seconds` | gauge     |                                                                         | Unix time of the last successful snapshot write; 0 until the first one of the process                                                      |
@@ -1368,7 +1443,8 @@ of clearing it.
   `google-client-id` and `google-client-secret` together (one without the other
   is a startup error), `session-secret` (≥ 32 bytes) and `PUBLIC_URL`, which the
   server now **requires when Google is enabled** (`config.Load` fails otherwise).
-  No new environment variable. Without Google credentials the server runs as
+  (The AI judge adds the optional `cloudflare-account-id` / `cloudflare-api-token` keys, see
+  section 3, "AI judge".) Without Google credentials the server runs as
   before: `googleEnabled` is false and the login endpoints answer
   `404 auth_disabled`. Changing `SESSION_SECRET` logs everybody out (and makes
   guests new players).

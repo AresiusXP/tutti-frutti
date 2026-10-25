@@ -54,6 +54,23 @@ describe('errorMessage', () => {
 		expect(errorMessage('stop_not_needed')).toContain('¡BASTA!');
 	});
 
+	it('explains the AI judge codes in every language, never with the generic sentence', () => {
+		const codes = [
+			'judge_pending',
+			'already_judged',
+			'nothing_to_judge',
+			'judge_unavailable',
+			'login_required'
+		];
+		for (const locale of ['es', 'en', 'nl']) {
+			i18n.set(locale);
+			const texts = codes.map((code) => errorMessage(code));
+			expect(new Set(texts).size, locale).toBe(codes.length);
+			for (const text of texts) expect(text, locale).not.toBe(m.err_unknown());
+		}
+		i18n.set('es');
+	});
+
 	it('falls back to err_unknown for anything else and follows the language', () => {
 		i18n.set('es');
 		expect(errorMessage('definitely_new')).toBe(m.err_unknown());

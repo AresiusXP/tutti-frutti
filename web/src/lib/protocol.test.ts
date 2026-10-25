@@ -53,6 +53,7 @@ const commands: Record<Cmd, true> = {
 	propose_merge: true,
 	vote_merge: true,
 	review_nav: true,
+	ask_judge: true,
 	finish_review: true,
 	next_round: true,
 	end_game: true,
@@ -62,6 +63,7 @@ const commands: Record<Cmd, true> = {
 const lobbyState = {
 	code: 'KT7P',
 	serverTime: 1_760_790_000_000,
+	canJudge: false,
 	view: {
 		phase: 'lobby',
 		youId: 'guest-ana',
@@ -117,6 +119,26 @@ const lobbyState = {
 describe('protocol constants', () => {
 	it('is protocol version 3 (vote to stop)', () => {
 		expect(proto.Version).toBe(3);
+	});
+
+	it('has the AI judge constants', () => {
+		expect(proto.CmdAskJudge).toBe('ask_judge');
+		expect(proto.EventJudgeFailed).toBe('judge_failed');
+		expect([proto.VerdictValid, proto.VerdictDoubtful]).toEqual(['valid', 'doubtful']);
+		expect([proto.JudgeReasonBusy, proto.JudgeReasonError]).toEqual(['busy', 'error']);
+		expect([
+			proto.CodeJudgePending,
+			proto.CodeAlreadyJudged,
+			proto.CodeNothingToJudge,
+			proto.ErrJudgeUnavailable,
+			proto.ErrLoginRequired
+		]).toEqual([
+			'judge_pending',
+			'already_judged',
+			'nothing_to_judge',
+			'judge_unavailable',
+			'login_required'
+		]);
 	});
 
 	it('has the vote-to-stop constants', () => {
@@ -197,6 +219,7 @@ describe('protocol constants', () => {
 			proto.CmdProposeMerge,
 			proto.CmdVoteMerge,
 			proto.CmdReviewNav,
+			proto.CmdAskJudge,
 			proto.CmdFinishReview,
 			proto.CmdNextRound,
 			proto.CmdEndGame,
@@ -215,6 +238,7 @@ describe('protocol constants', () => {
 			proto.EventBasta,
 			proto.EventStopAsked,
 			proto.EventStopRejected,
+			proto.EventJudgeFailed,
 			proto.EventTimeUp,
 			proto.EventRoundLocked,
 			proto.EventRoundScored,
@@ -232,6 +256,7 @@ describe('protocol constants', () => {
 			'basta',
 			'stop_asked',
 			'stop_rejected',
+			'judge_failed',
 			'time_up',
 			'round_locked',
 			'round_scored',
@@ -306,7 +331,9 @@ describe('wire shapes', () => {
 			timeLimitEndsAt: '2026-10-18T12:03:00Z',
 			reviewCategory: 0,
 			rejectVotes: [],
-			proposals: []
+			proposals: [],
+			judgePending: [],
+			verdicts: []
 		};
 		const playing: View = {
 			...lobbyState.view,
@@ -336,7 +363,9 @@ describe('wire shapes', () => {
 			stopVote,
 			reviewCategory: 0,
 			rejectVotes: [],
-			proposals: []
+			proposals: [],
+			judgePending: [],
+			verdicts: []
 		};
 		const rejected = {
 			type: proto.EventStopRejected,

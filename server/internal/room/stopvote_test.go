@@ -419,7 +419,7 @@ func allCommandTypes() []string {
 	return []string{
 		game.CmdJoin, game.CmdLeave, game.CmdUpdateSettings, game.CmdKick, game.CmdStartGame, game.CmdStopLetter,
 		game.CmdSetAnswer, game.CmdBasta, game.CmdAskStop, game.CmdVoteStop, game.CmdVoteReject, game.CmdProposeMerge,
-		game.CmdVoteMerge, game.CmdReviewNav, game.CmdFinishReview, game.CmdNextRound, game.CmdEndGame, game.CmdRematch,
+		game.CmdVoteMerge, game.CmdReviewNav, game.CmdAskJudge, game.CmdFinishReview, game.CmdNextRound, game.CmdEndGame, game.CmdRematch,
 	}
 }
 

@@ -58,6 +58,8 @@ export function makeRound(over: Partial<RoundView> = {}): RoundView {
 		reviewCategory: 0,
 		rejectVotes: [],
 		proposals: [],
+		judgePending: [],
+		verdicts: [],
 		...over
 	};
 }

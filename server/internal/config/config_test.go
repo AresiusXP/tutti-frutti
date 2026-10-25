@@ -308,3 +308,32 @@ func TestLoadSessionSecretErrorNeverEchoesTheValue(t *testing.T) {
 		t.Errorf("error %q echoes the secret", err)
 	}
 }
+
+func TestLoadJudge(t *testing.T) {
+	cfg, err := Load(env(nil))
+	if err != nil || cfg.JudgeEnabled() || cfg.JudgeDailyNeurons != 9000 {
+		t.Fatalf("defaults: %+v, %v", cfg, err)
+	}
+	cfg, err = Load(env(map[string]string{"CLOUDFLARE_ACCOUNT_ID": " acc ", "CLOUDFLARE_API_TOKEN": "tok\n", "JUDGE_DAILY_NEURONS": "5000"}))
+	if err != nil || !cfg.JudgeEnabled() || cfg.CloudflareAccountID != "acc" || cfg.CloudflareAPIToken != "tok" || cfg.JudgeDailyNeurons != 5000 {
+		t.Fatalf("configured: %+v, %v", cfg, err)
+	}
+
+	for name, vars := range map[string]map[string]string{
+		"only the account":   {"CLOUDFLARE_ACCOUNT_ID": "acc"},
+		"only the token":     {"CLOUDFLARE_API_TOKEN": "tok-secret"},
+		"zero budget":        {"JUDGE_DAILY_NEURONS": "0"},
+		"over the allowance": {"JUDGE_DAILY_NEURONS": "10001"},
+		"not a number":       {"JUDGE_DAILY_NEURONS": "lots"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := Load(env(vars))
+			if err == nil {
+				t.Fatal("Load must fail")
+			}
+			if strings.Contains(err.Error(), "tok-secret") {
+				t.Errorf("the error echoes the token: %v", err)
+			}
+		})
+	}
+}

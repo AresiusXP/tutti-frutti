@@ -73,6 +73,8 @@ export interface RoomSession {
 	readonly isChooser: boolean;
 	/** True when this player takes part in the current round (mid-game joiners wait for the next one). */
 	readonly isParticipant: boolean;
+	/** True when the server has an AI judge and this player is signed in (latest `state`; false when absent). */
+	readonly canJudge: boolean;
 
 	/** The last 20 events, oldest first. */
 	readonly events: readonly SessionEvent[];
@@ -115,6 +117,8 @@ export interface RoomSession {
 	voteMerge(proposalId: number, yes: boolean): void;
 	/** Host, review: show another category to everyone. */
 	reviewNav(category: number): void;
+	/** Host (signed in, `canJudge`), review: asks the AI to judge the answers of a category. Advisory: scores never change. */
+	askJudge(category: number): void;
 	/** Host, review: finish the review and score the round. */
 	finishReview(): void;
 	/** Host, round summary. */

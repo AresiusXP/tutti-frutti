@@ -60,7 +60,8 @@ exists after the first release. Merge the release PR (publishes images + chart) 
 
 1. A database + user for the game on the shared Postgres (needed from Phase 2).
 2. Secret `tutti-frutti-secrets` in namespace `tutti-frutti` with keys
-   `database-url`, `session-secret`, `google-client-id`, `google-client-secret`.
+   `database-url`, `session-secret`, `google-client-id`, `google-client-secret`
+   (plus `cloudflare-account-id` and `cloudflare-api-token` to turn on the optional AI judge).
 3. A public DNS record for `tuttifrutti.aresius.xyz`: add `tuttifrutti` to `dnsRecords` in `argocd-apps/values/porkbun-cronjob.yaml` (the hourly Porkbun cronjob creates it).
 4. GHCR packages `tutti-frutti-server`, `tutti-frutti-web` and `charts/tutti-frutti` may stay
    **private**: ArgoCD needs a scheme-less `repo-creds` template (`ghcr.io/aresiusxp`), the

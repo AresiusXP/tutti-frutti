@@ -79,6 +79,22 @@ spec:
                   name: {{ .Values.server.secrets.existingSecret }}
                   key: {{ .Values.server.secrets.keys.googleClientSecret }}
                   optional: {{ .Values.server.secrets.optional }}
+            # The AI judge of the review. Both keys are optional on purpose: without
+            # them the feature is off and the host is never offered it.
+            - name: CLOUDFLARE_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.server.secrets.existingSecret }}
+                  key: {{ .Values.server.secrets.keys.cloudflareAccountId }}
+                  optional: true
+            - name: CLOUDFLARE_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.server.secrets.existingSecret }}
+                  key: {{ .Values.server.secrets.keys.cloudflareApiToken }}
+                  optional: true
+            - name: JUDGE_DAILY_NEURONS
+              value: {{ .Values.server.judge.dailyNeurons | quote }}
             {{- with .Values.server.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

@@ -45,6 +45,14 @@ type Config struct {
 	// MaxRooms bounds the number of live rooms (MAX_ROOMS, default 1000,
 	// 1..100000).
 	MaxRooms int
+	// CloudflareAccountID and CloudflareAPIToken enable the AI judge of the
+	// review when both are set (CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN):
+	// a Workers AI token on a Cloudflare account on the Free plan.
+	CloudflareAccountID string
+	CloudflareAPIToken  string
+	// JudgeDailyNeurons is the Workers AI budget per UTC day the judge keeps to
+	// (JUDGE_DAILY_NEURONS, default 9000, 1..10000: the Free plan allows 10000).
+	JudgeDailyNeurons int
 }
 
 // googleCallbackPath is the path of the OAuth redirect URI under PUBLIC_URL
@@ -52,6 +60,9 @@ type Config struct {
 const googleCallbackPath = "/api/auth/google/callback"
 
 const (
+	defaultJudgeDailyNeurons = 9000
+	maxJudgeDailyNeurons     = 10000 // the Workers AI Free plan's daily allowance
+
 	defaultMaxRooms = 1000
 	maxMaxRooms     = 100000
 
@@ -69,6 +80,9 @@ func Load(getenv func(string) string) (Config, error) {
 		SessionSecret:      getenv("SESSION_SECRET"),
 		GoogleClientID:     getenv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: getenv("GOOGLE_CLIENT_SECRET"),
+
+		CloudflareAccountID: strings.TrimSpace(getenv("CLOUDFLARE_ACCOUNT_ID")),
+		CloudflareAPIToken:  strings.TrimSpace(getenv("CLOUDFLARE_API_TOKEN")),
 	}
 
 	port, err := strconv.Atoi(cfg.Port)
@@ -98,6 +112,18 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if cfg.GoogleEnabled() && cfg.PublicURL == "" {
 		return Config{}, fmt.Errorf("config: Google login needs PUBLIC_URL (the OAuth redirect URI is PUBLIC_URL%s)", googleCallbackPath)
+	}
+
+	if (cfg.CloudflareAccountID == "") != (cfg.CloudflareAPIToken == "") {
+		return Config{}, fmt.Errorf("config: CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN must be set together")
+	}
+	cfg.JudgeDailyNeurons = defaultJudgeDailyNeurons
+	if raw := strings.TrimSpace(getenv("JUDGE_DAILY_NEURONS")); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 || n > maxJudgeDailyNeurons {
+			return Config{}, fmt.Errorf("config: invalid JUDGE_DAILY_NEURONS %q (want 1..%d)", raw, maxJudgeDailyNeurons)
+		}
+		cfg.JudgeDailyNeurons = n
 	}
 
 	origins, err := parseOrigins(getenv("ALLOWED_ORIGINS"))
@@ -174,6 +200,11 @@ func (c Config) SecureCookies() bool {
 // GoogleEnabled reports whether Google login is configured.
 func (c Config) GoogleEnabled() bool {
 	return c.GoogleClientID != "" && c.GoogleClientSecret != ""
+}
+
+// JudgeEnabled reports whether the AI judge is configured.
+func (c Config) JudgeEnabled() bool {
+	return c.CloudflareAccountID != "" && c.CloudflareAPIToken != ""
 }
 
 // GoogleRedirectURL is the OAuth redirect URI registered with Google:

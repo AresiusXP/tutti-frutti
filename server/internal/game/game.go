@@ -106,6 +106,11 @@ type Round struct {
 	ReviewCategory int             `json:"reviewCategory"`
 	RejectVotes    []RejectVote    `json:"rejectVotes"`
 	Proposals      []MergeProposal `json:"proposals"`
+	// JudgePending lists the categories whose AI judging is under way (the
+	// room layer drops it on a restore: the call died with the process).
+	JudgePending []int `json:"judgePending,omitempty"`
+	// Verdicts are the AI judge's advisory opinions (see judge.go).
+	Verdicts []AIVerdict `json:"verdicts,omitempty"`
 }
 
 // Game is the whole state of one room's game. It is a plain value that
@@ -207,6 +212,8 @@ func (g *Game) apply(now time.Time, actor string, cmd Command) ([]Event, error) 
 		return nil, g.voteMerge(p, c)
 	case ReviewNav:
 		return nil, g.reviewNav(p, c)
+	case AskJudge:
+		return nil, g.askJudge(p, c)
 	case FinishReview:
 		return g.finishReview(p)
 	case NextRound:

@@ -6,6 +6,7 @@ name: tutti-frutti
 #   server -> postgres
 #
 # Optional Google login: export GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET before `up`.
+# Optional AI judge: export CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN too.
 
 services:
   postgres:
@@ -37,6 +38,9 @@ services:
       SESSION_SECRET: dev-only-session-secret-do-not-use-in-production
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Optional AI judge (needs Google login to be offered to the host).
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

@@ -91,6 +91,10 @@ type State struct {
 	ServerTime int64 `json:"serverTime"`
 	// View is the engine's filtered snapshot for the receiving player.
 	View game.View `json:"view"`
+	// CanJudge is true when the receiving player may ask the AI judge: the
+	// server has one and the player is signed in with an account. The client
+	// shows the "ask the AI" button to the host only when it is set.
+	CanJudge bool `json:"canJudge"`
 }
 
 // Pong is the payload of TypePong.
@@ -130,6 +134,11 @@ const (
 	ErrRoomClosed = "room_closed"
 	// ErrServerBusy: the server refused new rooms (MaxRooms reached).
 	ErrServerBusy = "server_busy"
+	// ErrJudgeUnavailable: ask_judge while the server has no AI judge.
+	ErrJudgeUnavailable = "judge_unavailable"
+	// ErrLoginRequired: ask_judge from a guest; the AI judge is for signed-in
+	// hosts (it keeps the shared allowance from being burnt anonymously).
+	ErrLoginRequired = "login_required"
 )
 
 // WebSocket close codes. Clients reconnect with exponential backoff after

@@ -119,6 +119,12 @@ export interface State {
    * View is the engine's filtered snapshot for the receiving player.
    */
   view: View;
+  /**
+   * CanJudge is true when the receiving player may ask the AI judge: the
+   * server has one and the player is signed in with an account. The client
+   * shows the "ask the AI" button to the host only when it is set.
+   */
+  canJudge: boolean;
 }
 /**
  * Pong is the payload of TypePong.
@@ -183,6 +189,15 @@ export const ErrRoomClosed = "room_closed";
  * ErrServerBusy: the server refused new rooms (MaxRooms reached).
  */
 export const ErrServerBusy = "server_busy";
+/**
+ * ErrJudgeUnavailable: ask_judge while the server has no AI judge.
+ */
+export const ErrJudgeUnavailable = "judge_unavailable";
+/**
+ * ErrLoginRequired: ask_judge from a guest; the AI judge is for signed-in
+ * hosts (it keeps the shared allowance from being burnt anonymously).
+ */
+export const ErrLoginRequired = "login_required";
 /**
  * ClosePolicy: rate limit exceeded or repeated malformed frames.
  */

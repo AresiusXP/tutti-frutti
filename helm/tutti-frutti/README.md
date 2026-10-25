@@ -50,6 +50,8 @@ Secret (`server.secrets.existingSecret`, default `tutti-frutti-secrets`):
 | `session-secret` | `SESSION_SECRET` | Signing guest/session cookies |
 | `google-client-id` | `GOOGLE_CLIENT_ID` | Google OIDC login |
 | `google-client-secret` | `GOOGLE_CLIENT_SECRET` | Google OIDC login |
+| `cloudflare-account-id` | `CLOUDFLARE_ACCOUNT_ID` | AI judge (optional, with the next key): Cloudflare account on the Free plan |
+| `cloudflare-api-token` | `CLOUDFLARE_API_TOKEN` | AI judge: API token with only the Workers AI permission |
 
 ```bash
 kubectl -n tutti-frutti create secret generic tutti-frutti-secrets \
@@ -59,11 +61,15 @@ kubectl -n tutti-frutti create secret generic tutti-frutti-secrets \
   --from-literal=google-client-secret='<secret>'
 ```
 
-All four references are `optional: true` for now (`server.secrets.optional`) so
+The first four references are `optional: true` for now (`server.secrets.optional`) so
 the Phase 0 placeholder deploy starts without the Secret. Set it to `false` once
 the server needs the database / sessions / Google login so a missing Secret or
 key fails the rollout loudly. Secret and key names can be changed under
 `server.secrets`.
+
+The two Cloudflare keys are always optional: without them the AI judge is off and the
+host is never offered it (`server.judge.dailyNeurons` sets its daily Neuron budget, 9000 by
+default; the Free plan allows 10000, and Cloudflare refuses calls after that).
 
 Other server env vars: `PORT` (fixed `8080`), `LOG_LEVEL` (`server.logLevel`) and
 `PUBLIC_URL` (derived from `ingress.host`; override with `server.publicUrl`).

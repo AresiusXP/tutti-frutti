@@ -68,6 +68,17 @@ const definitions: Record<string, Definition> = {
 			])
 		]
 	},
+	// the AI judge: the host can ask (button), the AI is working, verdicts are in; then what a guest sees
+	'review-judge-ask': { category: COMIDA, canJudge: true },
+	'review-judge-pending': { category: COMIDA, canJudge: true, judgePending: [COMIDA] },
+	'review-judge-verdicts': {
+		category: COMIDA,
+		canJudge: true,
+		judged: [COMIDA],
+		rejectVotes: rejectCaro
+	},
+	'review-judge-guest-pending': { youId: 'p2', category: COMIDA, judgePending: [COMIDA] },
+	'review-judge-guest': { youId: 'p2', category: COMIDA, judged: [COMIDA] },
 	'review-last-category': { category: 5 },
 	'review-offline': {
 		category: COMIDA,

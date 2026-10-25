@@ -56,6 +56,10 @@ type RoundView struct {
 	// RejectVotes and Proposals are only filled during the review.
 	RejectVotes []RejectVote   `json:"rejectVotes"`
 	Proposals   []ProposalView `json:"proposals"`
+	// JudgePending are the categories the AI judge is working on and Verdicts
+	// its advisory opinions; both are only filled during the review.
+	JudgePending []int       `json:"judgePending"`
+	Verdicts     []AIVerdict `json:"verdicts"`
 	// Result is the live result in the review and the final one in the round
 	// summary and final phases; nil before the review.
 	Result *RoundResult `json:"result,omitempty"`
@@ -140,6 +144,8 @@ func (g *Game) roundView(viewer string) RoundView {
 		ReviewCategory:  r.ReviewCategory,
 		RejectVotes:     []RejectVote{},
 		Proposals:       []ProposalView{},
+		JudgePending:    []int{},
+		Verdicts:        []AIVerdict{},
 	}
 	if rv.Participants == nil {
 		rv.Participants = []string{}
@@ -174,6 +180,8 @@ func (g *Game) roundView(viewer string) RoundView {
 	if g.Phase == PhaseReview {
 		voters := g.connectedParticipants()
 		rv.RejectVotes = slices.Clone(r.RejectVotes)
+		rv.JudgePending = append(rv.JudgePending, r.JudgePending...)
+		rv.Verdicts = append(rv.Verdicts, r.Verdicts...)
 		for _, pr := range r.Proposals {
 			pr.Votes = slices.Clone(pr.Votes)
 			rv.Proposals = append(rv.Proposals, ProposalView{

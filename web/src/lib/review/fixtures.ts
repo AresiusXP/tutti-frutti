@@ -8,6 +8,7 @@
  */
 import { DEFAULT_CATEGORY_IDS, makeSettings, makeView, player } from '$lib/game/fixtures';
 import type {
+	AIVerdict,
 	Lang,
 	MergeProposal,
 	Player,
@@ -90,6 +91,11 @@ export interface ReviewState {
 	rejectVotes: RejectVote[];
 	proposals: MergeProposal[];
 	nextProposalId: number;
+	/** The viewer may ask the AI judge (`state.canJudge`). */
+	canJudge: boolean;
+	/** Categories the AI is working on. */
+	judgePending: number[];
+	verdicts: AIVerdict[];
 	/** Totals before this round. */
 	baseTotals: Record<string, number>;
 	/** The scored round, once the review is finished. */
@@ -107,6 +113,14 @@ export interface ReviewOptions {
 	rounds?: number;
 	rejectVotes?: RejectVote[];
 	proposals?: Array<Omit<MergeProposal, 'id'> & { id?: number }>;
+	/** The viewer is signed in and the server has an AI judge. */
+	canJudge?: boolean;
+	/** Categories the AI is working on right now. */
+	judgePending?: number[];
+	/** Categories that already carry (sample) verdicts. */
+	judged?: number[];
+	/** Explicit verdicts (added to the sample ones of `judged`). */
+	verdicts?: AIVerdict[];
 	/** Players without a socket. */
 	offline?: string[];
 	/** Players that left (seat flagged `left`). */
@@ -168,9 +182,13 @@ export function reviewState(options: ReviewOptions = {}): ReviewState {
 		rejectVotes: options.rejectVotes ?? [],
 		proposals: (options.proposals ?? []).map((p, i) => ({ ...p, id: p.id ?? i + 1 })),
 		nextProposalId: (options.proposals?.length ?? 0) + 1,
+		canJudge: options.canJudge ?? false,
+		judgePending: [...(options.judgePending ?? [])],
+		verdicts: [...(options.verdicts ?? [])],
 		baseTotals: Object.fromEntries(ids.map((id, i) => [id, BASE_TOTALS[id] ?? 20 + (i % 5) * 5])),
 		frozen: null
 	};
+	for (const c of options.judged ?? []) state.verdicts.push(...sampleVerdicts(state, c));
 	if (options.finalTotals) {
 		const live = scoreState(state);
 		for (const id of ids) {
@@ -202,6 +220,38 @@ export function endGame(state: ReviewState): void {
 
 function totalOf(state: ReviewState, id: string): number {
 	return (state.baseTotals[id] ?? 0) + (state.frozen?.players[id]?.total ?? 0);
+}
+
+const DOUBT: Record<Lang, string> = {
+	es: 'No estoy seguro de que exista',
+	en: 'Not sure this is a real one',
+	nl: 'Niet zeker of dit echt bestaat'
+};
+const VALID: Record<Lang, string> = {
+	es: 'Respuesta conocida',
+	en: 'A well-known answer',
+	nl: 'Een bekend antwoord'
+};
+
+/**
+ * Stand-in for the AI judge in the demo and the fixtures: one verdict per answer that is not empty and
+ * starts with the letter (like the server), alternating valid / doubtful so both chips show up.
+ */
+export function sampleVerdicts(state: ReviewState, category: number): AIVerdict[] {
+	const cells = scoreState(state).players;
+	const verdicts: AIVerdict[] = [];
+	for (const id of state.participants) {
+		const status = cells[id]?.cells[category]?.status;
+		if (status === undefined || status === 'empty' || status === 'wrong_letter') continue;
+		const doubtful = verdicts.length % 2 === 1;
+		verdicts.push({
+			category,
+			player: id,
+			verdict: doubtful ? 'doubtful' : 'valid',
+			reason: doubtful ? DOUBT[state.lang] : VALID[state.lang]
+		});
+	}
+	return verdicts;
 }
 
 function norm(text: string, lang: Lang): string {
@@ -326,6 +376,8 @@ export function buildReviewView(state: ReviewState): View {
 		reviewCategory: state.category,
 		rejectVotes: state.phase === 'review' ? [...state.rejectVotes] : [],
 		proposals: state.phase === 'review' ? proposals : [],
+		judgePending: state.phase === 'review' ? [...state.judgePending] : [],
+		verdicts: state.phase === 'review' ? state.verdicts.map((v) => ({ ...v })) : [],
 		result: live
 	};
 	const scored = state.phase !== 'review';

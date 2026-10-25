@@ -5,15 +5,24 @@
  * assert the exact commands sent.
  */
 import { FakeSession } from '$lib/game/fake.svelte';
-import { buildReviewView, endGame as finishGame, freeze, type ReviewState } from './fixtures';
+import {
+	buildReviewView,
+	endGame as finishGame,
+	freeze,
+	sampleVerdicts,
+	type ReviewState
+} from './fixtures';
 import { pairBlocker } from './merge';
 
 export class ReviewDemoSession extends FakeSession {
 	#state: ReviewState;
+	/** How long the stand-in AI "thinks" (ms); 0 answers on the spot. */
+	judgeDelay = 1500;
 
 	constructor(state: ReviewState) {
 		super(buildReviewView(state));
 		this.#state = state;
+		this.canJudge = state.canJudge;
 	}
 
 	#sync() {
@@ -77,6 +86,27 @@ export class ReviewDemoSession extends FakeSession {
 		super.reviewNav(category);
 		this.#state.category = category;
 		this.#sync();
+	}
+
+	override askJudge(category: number) {
+		super.askJudge(category);
+		const s = this.#state;
+		if (!this.isHost) return this.fail('not_host', 'ask_judge');
+		if (!s.canJudge) return this.fail('login_required', 'ask_judge');
+		if (s.judgePending.includes(category)) return this.fail('judge_pending', 'ask_judge');
+		if (s.verdicts.some((v) => v.category === category)) {
+			return this.fail('already_judged', 'ask_judge');
+		}
+		if (sampleVerdicts(s, category).length === 0) return this.fail('nothing_to_judge', 'ask_judge');
+		s.judgePending.push(category);
+		this.#sync();
+		const answer = () => {
+			s.judgePending = s.judgePending.filter((c) => c !== category);
+			s.verdicts.push(...sampleVerdicts(s, category));
+			this.#sync();
+		};
+		if (this.judgeDelay <= 0) answer();
+		else setTimeout(answer, this.judgeDelay);
 	}
 
 	override finishReview() {

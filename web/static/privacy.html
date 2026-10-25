@@ -35,7 +35,7 @@
 				<section class="doc" id="en" lang="en">
 					<h1>Privacy Policy</h1>
 					<p class="meta">
-						Last updated: 18 October 2026 · Applies to
+						Last updated: 25 October 2026 · Applies to
 						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>
 					</p>
 
@@ -54,6 +54,9 @@
 							<li>
 								No advertising, no analytics, no tracking, no third-party scripts or fonts, and we never
 								sell or share your data.
+							</li>
+							<li>
+								If a signed-in host taps the optional AI judge, the answers of that category (never nicknames) are sent to Cloudflare to get a suggestion. Cloudflare does not train AI models on them.
 							</li>
 							<li>
 								You can delete your account and everything saved with it at any time, inside the app.
@@ -126,6 +129,22 @@
 						>, including the Limited Use requirements.
 					</p>
 
+					<h3>When a signed-in host uses the AI judge (optional)</h3>
+					<p>
+						Only a host who is signed in with Google sees the <em>Ask the AI</em> button in the review. When they tap it, our
+						server sends the category name, the round's letter, the game language and the answers typed in that category
+						(never nicknames, account IDs or anything else that identifies a player) to Cloudflare's Workers AI service, so
+						that a language model can suggest whether each answer fits the category.
+					</p>
+					<p>
+						The suggestion (valid or doubtful, with a short reason) is shown to everyone in the room, is kept in the room like
+						the rest of the game (section 4) and never changes the score: the players still decide by voting. According to
+						Cloudflare it processes the text only to produce the suggestion, does not keep it and does not use it to train AI
+						models; it may keep operational metadata needed to run the service (for example which account and model were
+						used). Our server also keeps, in memory only and for at most 24 hours, the verdicts it already got for a category
+						and an answer text, so repeated answers are not sent again; it holds no information about who wrote them.
+					</p>
+
 					<h3>Technical data</h3>
 					<p>
 						Like any web server, ours handles your IP address and browser details to answer your requests.
@@ -183,6 +202,9 @@
 							removed by an automatic hourly cleanup.
 						</li>
 						<li>
+							<strong>AI judge suggestions</strong> live in the room (first item) and disappear with it. The server's in-memory cache of verdicts is emptied at every restart and after 24 hours at most.
+						</li>
+						<li>
 							<strong>Account data</strong> is kept until you delete your account.
 						</li>
 						<li><strong>Server access logs</strong> are kept for about 7 days.</li>
@@ -191,12 +213,14 @@
 					<h2>5. Who we share it with</h2>
 					<p>
 						Nobody. We do not sell, rent or share personal data, and we use no advertising or analytics
-						services. The only third party involved is <strong>Google</strong>, and only if you choose to
-						sign in: your browser is sent to Google to sign in, and Google tells us your account ID and display
-						name. Google's own
+						services. Two third parties are involved, each only when you use the matching optional feature.
+						<strong>Google</strong>, only if you choose to sign in: your browser is sent to Google to sign in, and Google
+						tells us your account ID and display name. Google's own
 						<a href="https://policies.google.com/privacy" rel="noopener noreferrer">privacy policy</a>
-						applies to that step. Everything else is served from our own server, without external fonts,
-						scripts or images.
+						applies to that step. <strong>Cloudflare</strong>, only when a signed-in host taps <em>Ask the AI</em>: it receives
+						the text described in section 2 and acts on our behalf as a service provider (data processor);
+						<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer">Cloudflare's privacy policy</a>
+						applies. Everything else is served from our own server, without external fonts, scripts or images.
 					</p>
 
 					<h2>6. Your choices and rights</h2>
@@ -260,7 +284,7 @@
 				<section class="doc" id="es" lang="es">
 					<h1>Política de privacidad</h1>
 					<p class="meta">
-						Última actualización: 18 de octubre de 2026 · Rige para
+						Última actualización: 25 de octubre de 2026 · Rige para
 						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>
 					</p>
 
@@ -278,6 +302,9 @@
 							<li>
 								Sin publicidad, sin analítica, sin rastreo, sin scripts ni fuentes de terceros, y nunca
 								vendemos ni compartimos tus datos.
+							</li>
+							<li>
+								Si quien organiza la partida inició sesión y toca el botón opcional de la IA, las respuestas de esa categoría (nunca los apodos) se envían a Cloudflare para obtener una sugerencia. Cloudflare no las usa para entrenar modelos de IA.
 							</li>
 							<li>
 								Podés eliminar tu cuenta y todo lo guardado con ella cuando quieras, desde la app.
@@ -353,6 +380,24 @@
 						>, incluidos los requisitos de uso limitado.
 					</p>
 
+					<h3>Cuando quien organiza usa el juez de IA (opcional)</h3>
+					<p>
+						Solo quien organiza la partida y inició sesión con Google ve el botón <em>Preguntar a la IA</em> durante la
+						revisión. Cuando lo toca, nuestro servidor envía el nombre de la categoría, la letra de la ronda, el idioma de la
+						partida y las respuestas escritas en esa categoría (nunca apodos, IDs de cuenta ni nada que identifique a un
+						jugador) al servicio Workers AI de Cloudflare, para que un modelo de lenguaje sugiera si cada respuesta
+						corresponde a la categoría.
+					</p>
+					<p>
+						La sugerencia (válida o dudosa, con un motivo breve) la ve todo el mundo en la sala, se guarda en la sala como el
+						resto de la partida (sección 4) y nunca cambia el puntaje: los jugadores siguen decidiendo con sus votos. Según
+						Cloudflare, procesa el texto solo para generar la sugerencia, no lo conserva y no lo usa para entrenar modelos de
+						IA; puede guardar metadatos operativos necesarios para prestar el servicio (por ejemplo, qué cuenta y qué modelo
+						se usaron). Nuestro servidor además guarda, solo en memoria y como máximo 24 horas, los veredictos que ya obtuvo
+						para una categoría y un texto de respuesta, para no enviar de nuevo las respuestas repetidas; no tiene ninguna
+						información sobre quién las escribió.
+					</p>
+
 					<h3>Datos técnicos</h3>
 					<p>
 						Como cualquier servidor web, el nuestro procesa tu dirección IP y datos de tu navegador para
@@ -410,6 +455,9 @@
 							6 horas lo elimina una limpieza automática cada hora.
 						</li>
 						<li>
+							<strong>Las sugerencias de la IA</strong> viven en la sala (primer punto) y desaparecen con ella. La memoria de veredictos del servidor se vacía en cada reinicio y, como máximo, a las 24 horas.
+						</li>
+						<li>
 							<strong>Los datos de la cuenta</strong> se guardan hasta que eliminás tu cuenta.
 						</li>
 						<li>
@@ -420,11 +468,16 @@
 					<h2>5. Con quién los compartimos</h2>
 					<p>
 						Con nadie. No vendemos, alquilamos ni compartimos datos personales, y no usamos servicios de
-						publicidad ni de analítica. El único tercero involucrado es <strong>Google</strong>, y solo si
-						elegís iniciar sesión: tu navegador va a Google para iniciar sesión y Google nos informa tu ID de
-						cuenta y tu nombre visible. En ese paso rige la
+						publicidad ni de analítica. Hay dos terceros involucrados, cada uno solo cuando usás la función opcional
+						correspondiente. <strong>Google</strong>, solo si elegís iniciar sesión: tu navegador va a Google para iniciar
+						sesión y Google nos informa tu ID de cuenta y tu nombre visible. En ese paso rige la
 						<a href="https://policies.google.com/privacy" rel="noopener noreferrer"
 							>política de privacidad de Google</a
+						>. <strong>Cloudflare</strong>, solo cuando quien organiza la partida e inició sesión toca
+						<em>Preguntar a la IA</em>: recibe el texto descrito en la sección 2 y actúa en nuestro nombre como proveedor de
+						servicios (encargado del tratamiento); rige la
+						<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer"
+							>política de privacidad de Cloudflare</a
 						>. Todo lo demás se sirve desde nuestro propio servidor, sin fuentes, scripts ni imágenes externas.
 					</p>
 
@@ -489,7 +542,7 @@
 				<section class="doc" id="nl" lang="nl">
 					<h1>Privacybeleid</h1>
 					<p class="meta">
-						Laatst bijgewerkt: 18 oktober 2026 · Geldt voor
+						Laatst bijgewerkt: 25 oktober 2026 · Geldt voor
 						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>
 					</p>
 
@@ -507,6 +560,9 @@
 							<li>
 								Geen advertenties, geen analyse, geen tracking, geen scripts of lettertypen van derden, en we
 								verkopen of delen je gegevens nooit.
+							</li>
+							<li>
+								Als een ingelogde host op de optionele AI-scheidsrechter tikt, worden de antwoorden van die categorie (nooit bijnamen) naar Cloudflare gestuurd voor een suggestie. Cloudflare traint er geen AI-modellen mee.
 							</li>
 							<li>
 								Je kunt je account en alles wat daarbij is opgeslagen op elk moment verwijderen, in de app.
@@ -584,6 +640,25 @@
 						>, inclusief de eisen voor beperkt gebruik.
 					</p>
 
+					<h3>Als een ingelogde host de AI-scheidsrechter gebruikt (optioneel)</h3>
+					<p>
+						Alleen een host die met Google is ingelogd ziet de knop <em>Vraag het de AI</em> in de beoordeling. Als die wordt
+						ingedrukt, stuurt onze server de naam van de categorie, de letter van de ronde, de taal van het spel en de
+						antwoorden die in die categorie zijn getypt (nooit bijnamen, account-ID's of iets anders dat een speler
+						identificeert) naar de Workers AI-dienst van Cloudflare, zodat een taalmodel kan voorstellen of elk antwoord bij
+						de categorie past.
+					</p>
+					<p>
+						De suggestie (geldig of twijfelachtig, met een korte reden) is zichtbaar voor iedereen in de kamer, wordt net als
+						de rest van het spel in de kamer bewaard (sectie 4) en verandert de score nooit: de spelers beslissen nog steeds
+						door te stemmen. Volgens Cloudflare verwerkt het de tekst alleen om de suggestie te maken, bewaart het die niet en
+						gebruikt het die niet om AI-modellen te trainen; het kan operationele metagegevens bewaren die nodig zijn om de
+						dienst te laten draaien (bijvoorbeeld welk account en welk model zijn gebruikt). Onze server bewaart bovendien,
+						alleen in het geheugen en hooguit 24 uur, de oordelen die al zijn opgehaald voor een categorie en een
+						antwoordtekst, zodat herhaalde antwoorden niet opnieuw worden verstuurd; het heeft geen informatie over wie ze
+						heeft geschreven.
+					</p>
+
 					<h3>Technische gegevens</h3>
 					<p>
 						Zoals elke webserver verwerkt de onze je IP-adres en browsergegevens om je verzoeken te
@@ -641,6 +716,9 @@
 							dan 6 uur wordt door een automatische opruiming elk uur verwijderd.
 						</li>
 						<li>
+							<strong>Suggesties van de AI</strong> staan in de kamer (eerste punt) en verdwijnen daarmee. Het geheugen met oordelen van de server wordt bij elke herstart geleegd en na hooguit 24 uur.
+						</li>
+						<li>
 							<strong>Accountgegevens</strong> blijven bewaard tot je je account verwijdert.
 						</li>
 						<li>
@@ -651,12 +729,17 @@
 					<h2>5. Met wie we het delen</h2>
 					<p>
 						Met niemand. We verkopen, verhuren of delen geen persoonsgegevens en gebruiken geen advertentie- of
-						analysediensten. De enige derde partij is <strong>Google</strong>, en alleen als je kiest om in te
-						loggen: je browser gaat naar Google om in te loggen en Google geeft ons je account-ID en
-						weergavenaam. Voor die stap geldt de
+						analysediensten. Er zijn twee derde partijen, elk alleen als je de bijbehorende optionele functie gebruikt.
+						<strong>Google</strong>, alleen als je kiest om in te loggen: je browser gaat naar Google om in te loggen en Google
+						geeft ons je account-ID en weergavenaam. Voor die stap geldt de
 						<a href="https://policies.google.com/privacy" rel="noopener noreferrer"
 							>privacyverklaring van Google</a
-						>. Al het andere komt van onze eigen server, zonder externe lettertypen, scripts of afbeeldingen.
+						>. <strong>Cloudflare</strong>, alleen als een ingelogde host op <em>Vraag het de AI</em> tikt: het ontvangt de
+						tekst uit sectie 2 en handelt namens ons als dienstverlener (verwerker); de
+						<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer"
+							>privacyverklaring van Cloudflare</a
+						>
+						geldt. Al het andere komt van onze eigen server, zonder externe lettertypen, scripts of afbeeldingen.
 					</p>
 
 					<h2>6. Jouw keuzes en rechten</h2>

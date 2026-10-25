@@ -74,6 +74,12 @@
 //     pass with an empty electorate). Snapshots from before the setting existed
 //     decode with StopVote false, so that game restores with the feature off.
 //     View.Round.StopVote is only present in the playing phase.
+//   - The AI judge is advisory and never changes a score (see judge.go): the
+//     host's AskJudge only marks the category as pending (Round.JudgePending);
+//     the room layer does the call and reports back with the trusted
+//     ApplyVerdicts / JudgeFailed. Verdicts live in Round.Verdicts, are in
+//     the view during the review only, and a snapshot restore drops the
+//     pending questions.
 //   - The review has no timer; the host drives it. Reject votes and merge
 //     proposals are evaluated live with the connected participants at
 //     evaluation time (a vote from a disconnected player stops counting).

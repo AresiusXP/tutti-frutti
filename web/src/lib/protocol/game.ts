@@ -30,6 +30,9 @@ export const CodeAlreadySame = "already_same";
 export const CodeProposalExists = "proposal_exists";
 export const CodeInvalidMerge = "invalid_merge";
 export const CodeUnknownProposal = "unknown_proposal";
+export const CodeJudgePending = "judge_pending";
+export const CodeAlreadyJudged = "already_judged";
+export const CodeNothingToJudge = "nothing_to_judge";
 export const CodeUnknownCommand = "unknown_command";
 export const CodeBadPayload = "bad_payload";
 /**
@@ -40,7 +43,7 @@ export const CodeInternal = "internal";
  * Wire error codes: the stable snake_case value of each sentinel error above
  * (what ErrorCode returns and what clients map to messages).
  */
-export type Code = typeof CodeNotHost | typeof CodeWrongPhase | typeof CodeNotYourTurn | typeof CodeLobbyFull | typeof CodeInvalidSettings | typeof CodeBastaNotAllowed | typeof CodeStopVoteDisabled | typeof CodeStopVotePending | typeof CodeNoStopVote | typeof CodeStopNotNeeded | typeof CodeUnknownPlayer | typeof CodeNotParticipant | typeof CodeNotEnoughPlayers | typeof CodeKicked | typeof CodeCannotKickSelf | typeof CodeInvalidName | typeof CodeInvalidAvatar | typeof CodeInvalidCategory | typeof CodeAnswerTooLong | typeof CodeSelfVote | typeof CodeEmptyAnswer | typeof CodeAlreadySame | typeof CodeProposalExists | typeof CodeInvalidMerge | typeof CodeUnknownProposal | typeof CodeUnknownCommand | typeof CodeBadPayload | typeof CodeInternal;
+export type Code = typeof CodeNotHost | typeof CodeWrongPhase | typeof CodeNotYourTurn | typeof CodeLobbyFull | typeof CodeInvalidSettings | typeof CodeBastaNotAllowed | typeof CodeStopVoteDisabled | typeof CodeStopVotePending | typeof CodeNoStopVote | typeof CodeStopNotNeeded | typeof CodeUnknownPlayer | typeof CodeNotParticipant | typeof CodeNotEnoughPlayers | typeof CodeKicked | typeof CodeCannotKickSelf | typeof CodeInvalidName | typeof CodeInvalidAvatar | typeof CodeInvalidCategory | typeof CodeAnswerTooLong | typeof CodeSelfVote | typeof CodeEmptyAnswer | typeof CodeAlreadySame | typeof CodeProposalExists | typeof CodeInvalidMerge | typeof CodeUnknownProposal | typeof CodeJudgePending | typeof CodeAlreadyJudged | typeof CodeNothingToJudge | typeof CodeUnknownCommand | typeof CodeBadPayload | typeof CodeInternal;
 
 //////////
 // source: command.go
@@ -59,6 +62,7 @@ export const CmdVoteReject = "vote_reject";
 export const CmdProposeMerge = "propose_merge";
 export const CmdVoteMerge = "vote_merge";
 export const CmdReviewNav = "review_nav";
+export const CmdAskJudge = "ask_judge";
 export const CmdFinishReview = "finish_review";
 export const CmdNextRound = "next_round";
 export const CmdEndGame = "end_game";
@@ -69,7 +73,7 @@ export const CmdRematch = "rematch";
  * not be able to flip its own connected flag, so the room layer reports them
  * through Game.SetConnected instead.
  */
-export type Cmd = typeof CmdJoin | typeof CmdLeave | typeof CmdUpdateSettings | typeof CmdKick | typeof CmdStartGame | typeof CmdStopLetter | typeof CmdSetAnswer | typeof CmdBasta | typeof CmdAskStop | typeof CmdVoteStop | typeof CmdVoteReject | typeof CmdProposeMerge | typeof CmdVoteMerge | typeof CmdReviewNav | typeof CmdFinishReview | typeof CmdNextRound | typeof CmdEndGame | typeof CmdRematch;
+export type Cmd = typeof CmdJoin | typeof CmdLeave | typeof CmdUpdateSettings | typeof CmdKick | typeof CmdStartGame | typeof CmdStopLetter | typeof CmdSetAnswer | typeof CmdBasta | typeof CmdAskStop | typeof CmdVoteStop | typeof CmdVoteReject | typeof CmdProposeMerge | typeof CmdVoteMerge | typeof CmdReviewNav | typeof CmdAskJudge | typeof CmdFinishReview | typeof CmdNextRound | typeof CmdEndGame | typeof CmdRematch;
 /**
  * Command is an intent sent by a player. Commands are passed to Game.Apply by
  * value.
@@ -226,6 +230,11 @@ export const EventStopAsked: EventType = "stop_asked";
  * as EventBasta (PlayerID = who asked), without a stop_rejected.
  */
 export const EventStopRejected: EventType = "stop_rejected";
+/**
+ * EventJudgeFailed: the AI judge could not judge a category (Round,
+ * Reason JudgeReasonBusy or JudgeReasonError); the host may ask again.
+ */
+export const EventJudgeFailed: EventType = "judge_failed";
 /**
  * EventTimeUp: the round time limit expired (no caller).
  */
@@ -431,6 +440,15 @@ export interface Round {
   reviewCategory: number /* int */;
   rejectVotes: RejectVote[];
   proposals: MergeProposal[];
+  /**
+   * JudgePending lists the categories whose AI judging is under way (the
+   * room layer drops it on a restore: the call died with the process).
+   */
+  judgePending?: number /* int */[];
+  /**
+   * Verdicts are the AI judge's advisory opinions (see judge.go).
+   */
+  verdicts?: AIVerdict[];
 }
 /**
  * Game is the whole state of one room's game. It is a plain value that
@@ -473,6 +491,89 @@ export interface Game {
   banned?: string[];
   nextSeq: number /* int */;
   nextProposalId: number /* int */;
+}
+
+//////////
+// source: judge.go
+
+/**
+ * VerdictValid: the answer looks like a valid example of the category.
+ */
+export const VerdictValid = "valid";
+/**
+ * VerdictDoubtful: it does not, or the judge is not sure.
+ */
+export const VerdictDoubtful = "doubtful";
+/**
+ * Verdicts of the AI judge (AIVerdict.Verdict).
+ */
+export type Verdict = typeof VerdictValid | typeof VerdictDoubtful;
+/**
+ * JudgeReasonBusy: the judge's rate limit or daily budget is used up.
+ */
+export const JudgeReasonBusy = "busy";
+/**
+ * JudgeReasonError: the judge failed or answered nonsense.
+ */
+export const JudgeReasonError = "error";
+/**
+ * Reasons of EventJudgeFailed (Event.Reason).
+ */
+export type JudgeReason = typeof JudgeReasonBusy | typeof JudgeReasonError;
+/**
+ * MaxVerdictReasonLen is the longest stored AIVerdict.Reason, in runes.
+ */
+export const MaxVerdictReasonLen = 100;
+/**
+ * AIVerdict is the AI judge's opinion on one answer. It is shown to everybody
+ * as a suggestion and has no effect on the score.
+ */
+export interface AIVerdict {
+  category: number /* int */;
+  player: string;
+  /**
+   * Verdict is VerdictValid or VerdictDoubtful.
+   */
+  verdict: string;
+  /**
+   * Reason is a short explanation (at most MaxVerdictReasonLen runes).
+   */
+  reason?: string;
+}
+/**
+ * AskJudge asks the AI judge to judge the answers of a review category (host
+ * only, review phase, once per category unless the attempt failed).
+ */
+export interface AskJudge {
+  category: number /* int */;
+}
+/**
+ * JudgeAnswer is one answer to judge.
+ */
+export interface JudgeAnswer {
+  Player: string;
+  Text: string;
+}
+/**
+ * JudgeQuery is what the room layer sends to the judge for one category.
+ */
+export interface JudgeQuery {
+  /**
+   * Round and Category identify the question; the result is dropped when the
+   * round moved on.
+   */
+  Round: number /* int */;
+  Category: number /* int */;
+  Lang: Lang;
+  /**
+   * Label is the category label in the lobby language.
+   */
+  Label: string;
+  Letter: string;
+  /**
+   * Answers are the non-empty answers that start with the letter.
+   */
+  Answers: JudgeAnswer[];
 }
 
 //////////
@@ -775,6 +876,12 @@ export interface RoundView {
    */
   rejectVotes: RejectVote[];
   proposals: ProposalView[];
+  /**
+   * JudgePending are the categories the AI judge is working on and Verdicts
+   * its advisory opinions; both are only filled during the review.
+   */
+  judgePending: number /* int */[];
+  verdicts: AIVerdict[];
   /**
    * Result is the live result in the review and the final one in the round
    * summary and final phases; nil before the review.

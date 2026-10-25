@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import Button from '$lib/components/Button.svelte';
 	import Screen from '$lib/components/Screen.svelte';
@@ -20,6 +21,7 @@
 	} from '$lib/review/merge';
 	import { playerName } from '$lib/review/players';
 	import ProposalCard from '$lib/review/ProposalCard.svelte';
+	import { toasts } from '$lib/toast.svelte';
 	import { mergeTally, rejectTally } from '$lib/review/votes';
 
 	/**
@@ -59,6 +61,52 @@
 		answerGroups(mergeCtx.participants, mergeCtx.result, mergeCtx.proposals, category)
 	);
 	const pickable = $derived(firstPickable(mergeCtx));
+
+	const verdicts = $derived(
+		(round?.verdicts ?? []).filter((verdict) => verdict.category === category)
+	);
+	const checking = $derived((round?.judgePending ?? []).includes(category));
+	const judged = $derived(verdicts.length > 0);
+	/** The host tapped "Ask the AI" and the server has not answered yet (no double asks). */
+	let asked = $state<number | null>(null);
+	const asking = $derived(checking || asked === category);
+	const canAsk = $derived(session.isHost && session.canJudge);
+
+	function askJudge() {
+		if (asking || judged) return;
+		asked = category;
+		session.askJudge(category);
+	}
+
+	$effect(() => {
+		if (checking || judged) asked = null;
+	});
+	$effect(() => {
+		void category;
+		asked = null;
+	});
+	$effect(() => {
+		if (session.status !== 'connected') asked = null;
+	});
+	$effect(() => {
+		if (session.lastError) asked = null;
+	});
+
+	// Only the host (the one who asked) hears that the AI failed; everybody else just sees the spinner go away.
+	let seenEvent = untrack(() => session.events.at(-1)?.seq ?? 0);
+	$effect(() => {
+		const events = session.events;
+		untrack(() => {
+			for (const event of events) {
+				if (event.seq <= seenEvent) continue;
+				seenEvent = event.seq;
+				if (event.type !== 'judge_failed') continue;
+				asked = null;
+				if (!session.isHost) continue;
+				toasts.show(event.reason === 'busy' ? m.review_judge_busy() : m.review_judge_error());
+			}
+		});
+	});
 
 	const visited = new SvelteSet<number>();
 	$effect(() => {
@@ -202,6 +250,47 @@
 					</button>
 				</div>
 			{/if}
+			{#if canAsk || checking || judged}
+				<div class="flex flex-col gap-1" data-testid="judge">
+					{#if canAsk && !judged}
+						<button
+							type="button"
+							class="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-blueberry px-4 font-black transition active:translate-y-0.5 {asking
+								? 'bg-night-2 text-cream-muted'
+								: 'bg-night text-cream'}"
+							disabled={asking}
+							aria-busy={asking}
+							onclick={askJudge}
+						>
+							<span aria-hidden="true">{asking ? '⏳' : '✨'}</span>
+							{asking ? m.review_judge_working() : m.review_judge_ask()}
+						</button>
+						<span class="sr-only" role="status">{asking ? m.review_judge_working() : ''}</span>
+					{:else if checking}
+						<p
+							class="flex min-h-8 items-center justify-center gap-2 text-sm font-bold text-cream-muted"
+							role="status"
+							aria-busy="true"
+						>
+							<span aria-hidden="true">⏳</span>
+							{m.review_judge_working()}
+						</p>
+					{:else if judged}
+						<p
+							class="flex min-h-8 flex-wrap items-center justify-center gap-x-2 text-sm text-cream-muted"
+							role="status"
+						>
+							{#if canAsk}
+								<span class="font-bold">
+									<span aria-hidden="true">✓</span>
+									{m.review_judge_done()}
+								</span>
+							{/if}
+							<span>{m.review_judge_caption()}</span>
+						</p>
+					{/if}
+				</div>
+			{/if}
 			<ul class="flex flex-col gap-2">
 				{#each round.participants as id (id)}
 					{@const player = players.find((p) => p.id === id)}
@@ -227,6 +316,7 @@
 								.filter((p) => p !== undefined)}
 							canVote={participant && id !== meId}
 							merge={mergeUi(id)}
+							verdict={verdicts.find((v) => v.player === id)}
 							onreject={() => reject(id)}
 							onpick={() => merge({ type: 'pick', player: id })}
 						/>

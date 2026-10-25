@@ -1,7 +1,7 @@
 <script lang="ts">
 	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import type { Cell, Player } from '$lib/protocol';
+	import type { AIVerdict, Cell, Player } from '$lib/protocol';
 	import { classifyCell } from './badge';
 	import type { MergeUi } from './merge';
 	import { avatarOf } from './players';
@@ -23,6 +23,8 @@
 		/** The viewer may vote on this answer (participant, not the author). */
 		canVote: boolean;
 		merge?: MergeUi;
+		/** The AI's advisory opinion on this answer (never changes the points). */
+		verdict?: AIVerdict;
 		onreject?: () => void;
 		onpick?: () => void;
 	}
@@ -37,6 +39,7 @@
 		voters,
 		canVote,
 		merge = { kind: 'none' },
+		verdict,
 		onreject,
 		onpick
 	}: Props = $props();
@@ -116,6 +119,29 @@
 			{#if sharedWith > 0 && badge.kind === 'shared'}
 				<span class="rounded-full bg-night-3 px-2.5 py-0.5 text-sm text-cream">
 					{sharedWith === 1 ? m.review_shared_one() : m.review_shared_many({ count: sharedWith })}
+				</span>
+			{/if}
+		</div>
+	{/if}
+
+	{#if verdict}
+		{@const valid = verdict.verdict === 'valid'}
+		<div
+			class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1"
+			data-testid="verdict"
+			data-verdict={valid ? 'valid' : 'doubtful'}
+		>
+			<span
+				class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-black text-night {valid
+					? 'bg-lime'
+					: 'bg-tangerine'}"
+			>
+				<span aria-hidden="true">{valid ? '✓' : '?'}</span>
+				{valid ? m.review_judge_valid() : m.review_judge_doubtful()}
+			</span>
+			{#if verdict.reason}
+				<span class="min-w-0 text-sm [overflow-wrap:anywhere] text-cream-muted">
+					{verdict.reason}
 				</span>
 			{/if}
 		</div>

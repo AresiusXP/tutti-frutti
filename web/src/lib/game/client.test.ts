@@ -159,6 +159,55 @@ describe('derived state', () => {
 	});
 });
 
+describe('AI judge', () => {
+	it('canJudge is false before the first state and without the field (older fixtures)', async () => {
+		const h = harness();
+		await h.settle();
+		expect(h.session.canJudge).toBe(false);
+		await h.join(lobbyView());
+		expect(h.session.canJudge).toBe(false);
+	});
+
+	it('follows the latest state frame', async () => {
+		const h = await connected();
+		h.sock().state(lobbyView(), Date.now(), 'KT7P', true);
+		expect(h.session.canJudge).toBe(true);
+		h.sock().state(lobbyView(), Date.now(), 'KT7P', false);
+		expect(h.session.canJudge).toBe(false);
+		h.sock().state(lobbyView(), Date.now(), 'KT7P', true);
+		h.sock().state(lobbyView());
+		expect(h.session.canJudge).toBe(false);
+	});
+
+	it('keeps the verdicts of the state and records judge_failed like any event', async () => {
+		const view = lobbyView();
+		view.round = makeRound({
+			judgePending: [2],
+			verdicts: [{ category: 1, player: 'p2', verdict: 'doubtful', reason: 'Not a country' }]
+		});
+		const h = await connected({}, view);
+		expect(h.session.view?.round?.judgePending).toEqual([2]);
+		expect(h.session.view?.round?.verdicts[0]).toMatchObject({ verdict: 'doubtful' });
+		h.sock().receive('event', { type: 'judge_failed', reason: 'busy' });
+		expect(h.session.events[0]).toMatchObject({ type: 'judge_failed', reason: 'busy' });
+	});
+
+	it.each([
+		'not_host',
+		'judge_pending',
+		'already_judged',
+		'nothing_to_judge',
+		'judge_unavailable',
+		'login_required'
+	])('surfaces %s through lastError', async (code) => {
+		const h = await connected();
+		h.session.askJudge(1);
+		h.sock().receive('error', { code, ref: 'ask_judge' });
+		expect(h.session.lastError).toMatchObject({ code, ref: 'ask_judge' });
+		expect(h.session.status).toBe('connected');
+	});
+});
+
 describe('vote to stop', () => {
 	const stopVote = {
 		callerId: 'p2',
@@ -776,6 +825,7 @@ describe('commands', () => {
 		],
 		['voteMerge', (h) => h.session.voteMerge(7, true), 'vote_merge', { proposalId: 7, yes: true }],
 		['reviewNav', (h) => h.session.reviewNav(4), 'review_nav', { category: 4 }],
+		['askJudge', (h) => h.session.askJudge(3), 'ask_judge', { category: 3 }],
 		['finishReview', (h) => h.session.finishReview(), 'finish_review', undefined],
 		['nextRound', (h) => h.session.nextRound(), 'next_round', undefined],
 		['endGame', (h) => h.session.endGame(), 'end_game', undefined],

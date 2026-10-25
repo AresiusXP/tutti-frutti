@@ -15,6 +15,8 @@ const round = (points: Record<string, number> = {}) => ({
 	reviewCategory: 0,
 	rejectVotes: [],
 	proposals: [],
+	judgePending: [],
+	verdicts: [],
 	result: {
 		round: 3,
 		letter: 'F',

@@ -698,6 +698,45 @@ def build_panels() -> list[dict]:
         7,
     )
 
+    # AI judge (part of the gameplay row: it is a review feature)
+    lo.add(
+        timeseries(
+            "AI judge requests by outcome (per h)",
+            "Categories the host asked the AI judge about (tuttifrutti_judge_requests_total, only when the server has Cloudflare "
+            "credentials): ok = answered, cache_hit = answered from the cache without a call, busy = out of daily budget, rate limit "
+            "or refused by Cloudflare, error = the call failed or the reply was unusable. Empty means nobody used it.",
+            [(f"sum by (outcome) (rate(tuttifrutti_judge_requests_total{{{M}}}[{RI}])) * 3600", "{{outcome}}")],
+            stack=True,
+            bars=True,
+            decimals=2,
+            overrides=[
+                color_override("byName", "ok", GREEN),
+                color_override("byName", "cache_hit", BLUE),
+                color_override("byName", "busy", YELLOW),
+                color_override("byName", "error", RED),
+            ],
+            legend="table",
+            legend_calcs=("sum",),
+            no_value="no judging yet",
+        ),
+        12,
+        7,
+    )
+    lo.add(
+        timeseries(
+            "AI judge Workers AI Neurons used today",
+            "Neurons spent today (UTC) by this process (tuttifrutti_judge_neurons_used). The Free plan allows 10000 a day and "
+            "Cloudflare refuses calls after that; the server stops asking at JUDGE_DAILY_NEURONS (default 9000). It restarts from 0 "
+            "when the server restarts.",
+            [(f"max(tuttifrutti_judge_neurons_used{{{M}}})", "Neurons")],
+            decimals=0,
+            max_=10000,
+            no_value="judge off",
+        ),
+        12,
+        7,
+    )
+
     # --------------------------------------------------------------- Connections
     lo.row("Connections")
     lo.add(

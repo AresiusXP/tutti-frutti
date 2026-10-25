@@ -22,6 +22,9 @@ const (
 	// asker left or lost their connection). A vote that passes is announced
 	// as EventBasta (PlayerID = who asked), without a stop_rejected.
 	EventStopRejected EventType = "stop_rejected"
+	// EventJudgeFailed: the AI judge could not judge a category (Round,
+	// Reason JudgeReasonBusy or JudgeReasonError); the host may ask again.
+	EventJudgeFailed EventType = "judge_failed"
 	// EventTimeUp: the round time limit expired (no caller).
 	EventTimeUp EventType = "time_up"
 	// EventRoundLocked: answers are locked and the review begins (Round).
