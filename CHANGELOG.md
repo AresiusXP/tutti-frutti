@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.2.2...v1.3.0) (2026-10-25)
+
+
+### Features
+
+* add advisory AI judge to the review phase ([02f2aae](https://github.com/AresiusXP/tutti-frutti/commit/02f2aaed2b46400a572b51bde40eb68e6165db30))
+* **catalog:** add 30 built-in categories (50 -&gt; 80) ([cd6943e](https://github.com/AresiusXP/tutti-frutti/commit/cd6943e798d26cb4ec45a352bdd63b5ebcdd167d))
+
 ## [1.2.2](https://github.com/AresiusXP/tutti-frutti/compare/v1.2.1...v1.2.2) (2026-10-21)
 
 
