@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/AresiusXP/tutti-frutti/compare/v1.2.1...v1.2.2) (2026-10-21)
+
+
+### Documentation
+
+* stop presenting Basta as an alias of the game ([594559b](https://github.com/AresiusXP/tutti-frutti/commit/594559b1cc07a213e2698992d47a7e1194a905e2))
+
 ## [1.2.1](https://github.com/AresiusXP/tutti-frutti/compare/v1.2.0...v1.2.1) (2026-10-21)
 
 
