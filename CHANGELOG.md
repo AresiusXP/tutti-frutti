@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/AresiusXP/tutti-frutti/compare/v1.3.0...v1.3.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **web:** shorten Spanish privacy link ([#29](https://github.com/AresiusXP/tutti-frutti/issues/29)) ([f0e9e05](https://github.com/AresiusXP/tutti-frutti/commit/f0e9e0509ca72b378f7694b67a01344d6bf28743))
+
 ## [1.3.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.2.2...v1.3.0) (2026-10-25)
 
 
