@@ -8,7 +8,7 @@ describe('PrivacyLink', () => {
 	beforeEach(() => i18n.set('es'));
 
 	it.each([
-		['es', 'Política de privacidad'],
+		['es', 'Privacidad'],
 		['en', 'Privacy policy'],
 		['nl', 'Privacybeleid']
 	] as const)(
