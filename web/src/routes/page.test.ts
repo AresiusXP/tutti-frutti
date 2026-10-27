@@ -115,7 +115,7 @@ describe('Home actions', () => {
 	describe('support link', () => {
 		it('sits next to the privacy link, outside the SPA, in every language', () => {
 			for (const [locale, support, privacy] of [
-				['es', /^Invitame un café/, 'Política de privacidad'],
+				['es', /^Invitame un café/, 'Privacidad'],
 				['en', /^Support the game/, 'Privacy policy'],
 				['nl', /^Steun het spel/, 'Privacybeleid']
 			] as const) {
