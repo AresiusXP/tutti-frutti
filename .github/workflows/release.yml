@@ -6,6 +6,9 @@
 #                         vX.Y.Z tag + GitHub release (and bumps Chart.yaml)
 #     -> images (matrix)  builds/pushes ghcr.io/<owner>/tutti-frutti-{server,web}:X.Y.Z
 #     -> chart            packages/pushes oci://ghcr.io/<owner>/charts/tutti-frutti
+#     -> register         bumps targetRevision of the tutti-frutti entry in
+#                         <owner>/argocd-apps (bootstrap/values.yaml) on main, so ArgoCD
+#                         deploys the release; needs the ARGOCD_APPS_DEPLOY_KEY secret
 #
 # Why publishing lives in this same workflow: the tag is created by release-please
 # with the default GITHUB_TOKEN, and events caused by GITHUB_TOKEN do not trigger
@@ -18,6 +21,11 @@
 # Published versions are immutable: an image tag that already exists is never
 # rebuilt (floating base-image tags could otherwise change a released version)
 # unless `force_images` is explicitly ticked.
+#
+# ARGOCD_APPS_DEPLOY_KEY is the private half of a write deploy key (title
+# `tutti-frutti-release`) registered on <owner>/argocd-apps only. `register` only ever
+# moves the deployed version FORWARD (re-running an old tag is a no-op) and skips
+# pre-releases. In-cluster Renovate remains the fallback if it fails.
 
 name: Release
 
@@ -192,3 +200,78 @@ jobs:
           fi
           helm push "$RUNNER_TEMP/${CHART_NAME}-${version}.tgz" "oci://ghcr.io/${owner}/charts"
           echo "Published oci://ghcr.io/${owner}/charts/${CHART_NAME}:${version}" >> "$GITHUB_STEP_SUMMARY"
+
+  # Deploy: bump the chart version ArgoCD tracks in the GitOps repo.
+  register:
+    needs: [release-please, chart]
+    if: ${{ !cancelled() && needs.chart.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name || inputs.tag }}
+      GITOPS_REPO: ${{ github.repository_owner }}/argocd-apps
+      VALUES_FILE: bootstrap/values.yaml
+      APP_NAME: tutti-frutti
+
+    steps:
+      - name: Check out the GitOps repo
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          ref: main
+          ssh-key: ${{ secrets.ARGOCD_APPS_DEPLOY_KEY }}
+
+      - name: Bump targetRevision
+        run: |
+          version="${TAG#v}"
+          if [[ "$version" == *-* ]]; then
+            echo "::notice::Pre-release ${version} is not registered in ArgoCD"
+            exit 0
+          fi
+
+          # Only the `- name: tutti-frutti` block is read/edited (no yq: it would reformat the file).
+          range="/^  - name: ${APP_NAME}\$/,/^    namespace:/"
+          current="$(sed -n "${range}"' s/^    targetRevision: *//p' "$VALUES_FILE")"
+          if [[ ! "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Cannot read the current targetRevision of ${APP_NAME} in ${VALUES_FILE} (got '${current}')"
+            exit 1
+          fi
+          if [[ "$current" == "$version" ]]; then
+            echo "::notice::${APP_NAME} is already at ${version} in ${GITOPS_REPO}"
+            exit 0
+          fi
+          if [[ "$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -n1)" != "$version" ]]; then
+            echo "::notice::${GITOPS_REPO} already has ${current}, newer than ${version}; not downgrading"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            sed -i "${range}"' s/^\(    targetRevision: \).*/\1'"${version}"'/' "$VALUES_FILE"
+            if [[ "$(git diff --numstat -- "$VALUES_FILE" | cut -f1,2)" != $'1\t1' ]]; then
+              echo "::error::Expected exactly one changed line in ${VALUES_FILE}"
+              git diff
+              exit 1
+            fi
+            git commit -q -a \
+              -m "feat(tutti-frutti): release chart ${version}" \
+              -m "Registered automatically by ${GITHUB_REPOSITORY} ${TAG}: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+            if git push origin HEAD:main; then
+              echo "Registered ${APP_NAME} ${version} in ${GITOPS_REPO} (was ${current})" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}); resyncing with main"
+            git reset -q --hard HEAD~1
+            git fetch -q origin main
+            git reset -q --hard origin/main
+            current="$(sed -n "${range}"' s/^    targetRevision: *//p' "$VALUES_FILE")"
+            if [[ "$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -n1)" != "$version" || "$current" == "$version" ]]; then
+              echo "::notice::${GITOPS_REPO} is now at ${current}; nothing left to do"
+              exit 0
+            fi
+          done
+          echo "::error::Could not push to ${GITOPS_REPO} after 5 attempts"
+          exit 1

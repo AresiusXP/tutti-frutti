@@ -565,8 +565,12 @@ docs/                  this file
   chart to `oci://ghcr.io/aresiusxp/charts` (tags created by `GITHUB_TOKEN`
   do not trigger other workflows, so publishing lives in the same workflow).
   Chart image tags default to `.Chart.AppVersion`.
-* **Delivery**: in-cluster Renovate bumps the chart version in
-  `argocd-apps/bootstrap/values.yaml` (branch automerge for this chart); ArgoCD syncs.
+* **Delivery**: the last job of the Release workflow (`register`) bumps the chart
+  version in `argocd-apps/bootstrap/values.yaml` on `main` right after the chart is
+  published, and ArgoCD syncs. It uses a write deploy key limited to that repo (Actions
+  secret `ARGOCD_APPS_DEPLOY_KEY`), only moves the version forward and skips
+  pre-releases. In-cluster Renovate (branch automerge for this chart, daily 13:00) is the
+  fallback. Rollback = revert the bump commit in `argocd-apps`.
 * **Dependencies**: Renovate (`renovate.json`) opens the update PRs; every PR must
   carry its lockfile (`npm ci` has to pass). The build toolchain is Node 24 (CI,
   `web/Dockerfile`), Go 1.27 (`server/go.mod` is what `setup-go` reads; the
