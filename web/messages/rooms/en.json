@@ -1,0 +1,20 @@
+{
+	"rooms_visibility": "Who can join?",
+	"rooms_private": "Private",
+	"rooms_public": "Public",
+	"rooms_browse": "Browse games",
+	"rooms_title": "Public games",
+	"rooms_casual": "Casual game — lifetime statistics are not recorded",
+	"rooms_language": "Game language",
+	"rooms_all": "All",
+	"rooms_refresh": "Refresh",
+	"rooms_loading": "Looking for games…",
+	"rooms_empty": "No games waiting right now",
+	"rooms_create": "Create a public game",
+	"rooms_players": "{count}/{max} players",
+	"rooms_rounds": "{count} rounds",
+	"rooms_unlimited": "Unlimited rounds",
+	"rooms_time": "{seconds} s",
+	"rooms_no_timer": "No timer",
+	"rooms_join": "Join {code}"
+}

@@ -122,14 +122,14 @@ func TestRoomInfoEndpoint(t *testing.T) {
 		keys = append(keys, k)
 	}
 	slices.Sort(keys)
-	if r.status != 200 || !slices.Equal(keys, []string{"code", "joinable", "lang", "maxPlayers", "phase", "players"}) {
+	if r.status != 200 || !slices.Equal(keys, []string{"code", "joinable", "lang", "maxPlayers", "phase", "players", "visibility"}) {
 		t.Fatalf("info = %d %s", r.status, r.body)
 	}
 	if got := r.header.Get("Cache-Control"); got != "no-store" {
 		t.Fatalf("Cache-Control = %q", got)
 	}
 	if info, ok := s.roomInfo(code); !ok || info.Code != code || info.Phase != game.PhaseLobby || info.Players != 1 ||
-		info.MaxPlayers != game.MaxPlayers || info.Lang != game.LangES || !info.Joinable {
+		info.MaxPlayers != game.MaxPlayers || info.Lang != game.LangES || !info.Joinable || info.Visibility != "private" {
 		t.Fatalf("info = %+v", info)
 	}
 	// The code is forgiving about case.

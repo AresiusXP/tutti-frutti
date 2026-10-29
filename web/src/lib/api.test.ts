@@ -25,6 +25,27 @@ const fail = async (promise: Promise<unknown>): Promise<ApiError> => {
 	throw new Error('expected a rejection');
 };
 
+describe('api.listRooms', () => {
+	it.each(['es', 'en', 'nl', undefined] as const)(
+		'lists %s with cancellation and credentials',
+		async (lang) => {
+			const { api: a, fetchMock } = api(() => json({ rooms: [] }));
+			const signal = new AbortController().signal;
+			await expect(a.listRooms(lang, { signal })).resolves.toEqual({ rooms: [] });
+			expect(fetchMock).toHaveBeenCalledWith(`/api/rooms${lang ? `?lang=${lang}` : ''}`, {
+				signal,
+				credentials: 'same-origin'
+			});
+		}
+	);
+	it('parses HTTP-date Retry-After', async () => {
+		const date = new Date(Date.now() + 60_000).toUTCString();
+		const e = await fail(api(() => json({}, 429, { 'Retry-After': date })).api.listRooms());
+		expect(e.retryAfter).toBeGreaterThanOrEqual(59);
+		expect(e.retryAfter).toBeLessThanOrEqual(60);
+	});
+});
+
 describe('api.ensureSession', () => {
 	it('GETs /api/session with same-origin credentials', async () => {
 		const { api: a, fetchMock } = api(() => json({ guest: true }));
@@ -122,6 +143,11 @@ describe('api.getRoom', () => {
 });
 
 describe('api.createRoom', () => {
+	it.each(['public', 'private'])('sends explicit %s visibility', async (visibility) => {
+		const { api: a, fetchMock } = api(() => json({ code: 'KT7P' }));
+		await a.createRoom({ name: 'Ana', avatar: { emoji: '🍌', color: 'banana' }, visibility });
+		expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string).visibility).toBe(visibility);
+	});
 	const req = { name: 'Ana', avatar: { emoji: '🍌', color: 'banana' }, lang: 'es' as const };
 
 	it('POSTs JSON with same-origin credentials and returns the code', async () => {

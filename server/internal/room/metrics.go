@@ -104,6 +104,11 @@ type metrics struct {
 
 	statsQueue  prometheus.Gauge
 	statsOutbox prometheus.Gauge
+
+	publicLobbies    prometheus.Gauge
+	publicHumans     prometheus.Gauge
+	automatedPlayers prometheus.Gauge
+	fillWait         prometheus.Histogram
 }
 
 func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
@@ -175,6 +180,15 @@ func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
 		statsOutbox: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "tuttifrutti_stats_outbox_pending",
 			Help: "Finished games the rooms keep in their outbox until the store confirms them."}),
+		publicLobbies: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "tuttifrutti_public_lobbies", Help: "Public lobbies currently eligible for discovery."}),
+		publicHumans: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "tuttifrutti_public_humans", Help: "Connected human players in public rooms, excluding unjoined sockets and automated seats."}),
+		automatedPlayers: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "tuttifrutti_automated_players", Help: "Active automated seats in public rooms (no sockets)."}),
+		fillWait: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Name: "tuttifrutti_public_fill_wait_seconds", Help: "Time spent alone before each automated seat is added to a public lobby.",
+			Buckets: []float64{10, 20, 30, 40, 55, 90, 180, 300}}),
 	}
 	// Constant cardinality: every series exists from the start.
 	for _, r := range []string{statsOK, statsError, statsDropped} {
@@ -217,7 +231,22 @@ func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
 	m.restoreErrors = register(reg, m.restoreErrors, log)
 	m.statsQueue = register(reg, m.statsQueue, log)
 	m.statsOutbox = register(reg, m.statsOutbox, log)
+	m.publicLobbies = register(reg, m.publicLobbies, log)
+	m.publicHumans = register(reg, m.publicHumans, log)
+	m.automatedPlayers = register(reg, m.automatedPlayers, log)
+	m.fillWait = register(reg, m.fillWait, log)
 	return m
+}
+
+// publicPopulation applies actor-owned deltas, including subtraction on close.
+func (m *metrics) publicPopulation(visibleDelta, humanDelta, automatedDelta int) {
+	m.publicLobbies.Add(float64(visibleDelta))
+	m.publicHumans.Add(float64(humanDelta))
+	m.automatedPlayers.Add(float64(automatedDelta))
+}
+
+func (m *metrics) filled(wait time.Duration) {
+	m.fillWait.Observe(max(0, wait.Seconds()))
 }
 
 // register registers c and returns it; when an equivalent collector is

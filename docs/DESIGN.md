@@ -15,7 +15,7 @@ to end the round. Hosted on the homelab at **https://tuttifrutti.aresius.xyz**.
 | Client | SvelteKit (adapter-static) + Tailwind + Paraglide i18n, installable PWA. UI languages: Spanish (Argentina), English and Dutch; a first visit follows the browser language (Spanish for any other), the ES/EN/NL switch is remembered |
 | Server | Go, WebSockets, **single replica**, authoritative game state in memory, snapshots to Postgres on every phase change (and every ~5 s while playing) |
 | Identity | Nickname + avatar (emoji + colour) for guests. Optional Google login (OIDC) adds profile + lifetime stats |
-| Lobbies | Private, 4-char code, invite link, QR. Max 10 players |
+| Lobbies | Private (invite/code/QR) or public (discoverable waiting lobbies); 4-char code, max 10 players. Public games are casual, without lifetime statistics |
 | Letter | Hidden alphabet cycles from A; the round's *chooser* taps STOP. Used letters are skipped |
 | Basta | The caller triggers a 3 s grace countdown for everyone else, then inputs lock |
 | Vote to stop | Whoever has not filled every category can ask everyone to stop: every other connected player must say yes within 15 s, and it then counts as their Basta (host setting, on by default) |
@@ -102,6 +102,8 @@ where the 18+ images keep `<major>/docker`).
 * A player's *screen* language is independent from the *lobby* language.
   Category labels always render in the **lobby** language.
 * Settings can only change in `LOBBY` (and again after a rematch).
+* Public rooms start with a **90 s time limit**; private rooms keep the default
+  of no limit. Hosts can change it in the lobby.
 
 ### Letter phase
 
@@ -301,7 +303,7 @@ Round total = sum over categories; added to the player's running total.
   or *End game*. Game also ends when the round count is reached or no letters
   are left.
 * Final: podium; **Rematch** (same lobby & settings incl. custom categories,
-  scores reset); stats updated for logged-in players.
+  scores reset); stats updated for logged-in players in private games only.
 
 ### Lobby management
 
@@ -309,6 +311,83 @@ Round total = sum over categories; added to the player's running total.
 * Host can kick players.
 * Disconnected players keep their seat for the whole game.
 * Joining mid-game: starts playing next round with 0 points.
+
+### Public rooms and automated opponents
+
+* **Visibility** is chosen at creation (`private` or `public`) and is immutable
+  for the life of the room, including rematches. Omitted visibility and snapshots
+  written before this feature mean **private**. Private means unlisted, not
+  password-protected: anyone holding the code can still join. Sharing links and
+  QR codes works for both kinds.
+* **Discovery:** `GET /api/rooms?lang=es|en|nl` (omit the filter for all languages)
+  returns `{rooms: [...]}`, at most 50 waiting lobbies, ordered by creation time
+  then code. Only claimed public lobbies with a successfully joined, connected
+  human host and capacity for another seat are listed. No started/final,
+  human-empty, unclaimed, closing or draining rooms. The actor publishes an
+  immutable summary; the hub never reads actor-owned game state. Entries contain
+  only code, language, occupied seats/capacity, category labels, rounds and time
+  limit: no roster, identities, account links or answers. Lists are advisory;
+  admission is revalidated by the actor. Invite-based mid-game joining remains.
+* **Presentation:** public/private creation choice, a separate room browser,
+  and a visibility indicator. Public creation, browsing, invite gates, lobbies
+  and final screens explain **Casual game — lifetime statistics are not recorded**.
+  This applies to every public game, including human-only games; private stats
+  rules are unchanged. Public rooms do not collect account-to-seat links for
+  statistics or produce statistics outbox records.
+* **Filling:** with `PUBLIC_BOTS_ENABLED=true`, a public lobby whose human host
+  is connected and alone gets one automated seat after a random **20–30 s** and
+  a second after **40–55 s total**, capped at two. Timing starts at a successful
+  human WebSocket join, not REST creation. An interruption resets the wait;
+  another tab of the same identity does not count as another human. Private
+  rooms never fill. The human host still presses Start.
+* **Eligibility:** the first release supports 3–6 selected categories drawn
+  from the six classics, in Spanish, English or Dutch, with a finite round time
+  limit. Unsupported/custom categories or turning the timer off stop filling
+  and remove automated seats while still in the lobby. A local curated corpus
+  (`internal/bot`) has several answers where practical and intentional gaps;
+  missing words stay blank. No runtime LLM calls and no judge quota are used.
+* **Human priority:** successful human lobby joins cancel further filling and
+  remove excess automated seats toward a starter group of three, never removing
+  a human's disconnected seat. A full lobby containing automated seats can
+  admit a validated human by replacing one. Invalid or banned joins cannot
+  displace anybody. Bots already playing stay until the game ends; no mid-round
+  replacement or reassignment of their answers/scores. Kicking an automated
+  seat suppresses filling until rematch, including across restart.
+* **Play:** ordinary nicknames, emoji avatars and player cards; no bot labels,
+  notices or player-facing bot setting. Counts are labelled players, not people
+  online. Internally `Game.Automated` records trusted server-controlled seats,
+  never exposed as a Player/View property. Normal joins cannot claim their
+  reserved `bot:` identities. Choices use only the revealed letter and local
+  corpus, never human answers or the hidden alphabet clock. Answers arrive
+  progressively at varied delays, sometimes with blanks. Bots stop their own
+  letter turn and can call Basta/Stop only through ordinary engine validation.
+* **Authority:** automated seats can score and rotate as chooser, but never
+  become host, ask for a stop vote, or cast reject/merge/stop votes. They are
+  excluded from voting denominators. Humans may reject and merge their answers;
+  one human's stop request passes immediately with an empty electorate. The
+  server sends `RoundView.reviewVoters` as an explicit array (empty outside
+  review) and the client uses that electorate for thresholds. Human host control
+  of review, next round, ending and rematches is unchanged.
+* **Lifecycle:** actions run inside the existing room actor, using its single
+  injectable timer; no fake sockets or per-bot goroutines. The engine stays
+  pure. Actions are invalidated on round/phase/rematch changes and applied at
+  current time, never backdated. When no human is connected, automated presence
+  and actions stop, discovery hides the room, and normal reconnect/idle expiry
+  remains. When all humans explicitly leave, the room closes. Bot activity does
+  not extend human activity timestamps. Restore retains seats, answers and
+  scores but starts disconnected and waits for a human to return; stale action
+  schedules are rebuilt rather than replayed.
+* **Operations:** `PUBLIC_BOTS_ENABLED` (default true) disables **new additions**
+  when false; existing opponents finish normally. `PUBLIC_BOTS_MAX` defaults to
+  2 (allowed 1–2). `PUBLIC_BOTS_FIRST_MIN_SECONDS`/`MAX_SECONDS` default 20/30;
+  `PUBLIC_BOTS_SECOND_MIN_SECONDS`/`MAX_SECONDS` default 40/55, measured from the
+  same wait start. Bounds are 1–300 s, each min ≤ max, second min > first max.
+  Helm equivalents live under `server.publicBots`. Human activity and automated
+  seats have separate metrics so synthetic occupancy never masquerades as
+  actual traffic. Disabling additions needs only a server config rollout, not
+  removal of discovery or a frontend release.
+  Lowering the maximum trims waiting lobbies, including on restore; an
+  in-progress game keeps its existing opponents through its final phase.
 
 ## 4. Category catalog
 
@@ -340,7 +419,7 @@ Round total = sum over categories; added to the player's running total.
 
 ### REST (`/api`)
 
-`POST /rooms` · `GET /rooms/{code}` · `GET /session` · `GET /me` ·
+`POST /rooms` · `GET /rooms` (public directory) · `GET /rooms/{code}` · `GET /session` · `GET /me` ·
 `PUT /me/profile` · `GET /me/stats` · `DELETE /me` ·
 `GET /auth/google/login?returnTo=` · `GET /auth/google/callback` ·
 `POST /auth/logout` · `GET /categories?lang=` · plus `/healthz`, `/readyz`,
@@ -368,7 +447,11 @@ Envelope `{ "t": string, "d": object, "v": protocolVersion }`.
 * `ask_judge` takes `{category}`; its error codes are `judge_pending`, `already_judged` and
   `nothing_to_judge` from the engine and `judge_unavailable` and `login_required` from the room
   layer (see "AI judge"). The `state` payload also carries `canJudge`. These are additive (an
-  old client simply never offers the button), so the protocol version stays 3.
+  old client simply never offers the button), so the judge alone kept version 3.
+  **Version 4** adds public-room metadata (`State.visibility`) and authoritative
+  `RoundView.reviewVoters`; older clients must reload because their review vote
+  thresholds count every connected seat. Room REST types also come from
+  `internal/api` and are generated, not duplicated in the web client.
   Connection state is **not** a wire command: the room layer calls the trusted
   `Game.SetConnected(now, playerID, connected)` on connect/disconnect, and a wire
   `set_connected` is rejected as an unknown command (a client must not be able to
@@ -414,6 +497,11 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 1. **Home** — logo, nickname, avatar (emoji + colour), **Create game**, **Join**
    (4-box code input), links: Google login, ES/EN/NL, privacy policy and
    *support the game* (side by side on one row, see "Support links").
+   Creation has a Private/Public choice (private by default) and a **Browse public
+   games** link. The `/rooms` browser filters by lobby language, shows settings
+   and occupied seats, and refreshes about every 15 s only while visible, with
+   cancellation, no overlapping fetches and rate-limit backoff. Empty state
+   offers public creation; stale listing joins fail gracefully.
 2. **Lobby** — huge code, **Share** (Web Share API), **QR**, player list with 👑,
    settings card (host editable), category picker (search, groups, "Clásicas"
    and "Sorprendeme" presets, reorderable selection, custom category input,
@@ -637,15 +725,15 @@ the persistence contract is `server/internal/store`.
 
 ### Connection flow
 
-1. Client calls `POST /api/rooms {name, avatar, lang?}` (creates the room; the
+1. Client calls `POST /api/rooms {name, avatar, lang?, visibility?}` (creates the room; the
    caller is the host seat, still disconnected) or learns a code from a friend.
-   `GET /api/rooms/{code}` → `{code, phase, players, maxPlayers, lang, joinable}`
+   `GET /api/rooms/{code}` → `{code, phase, players, maxPlayers, lang, joinable, visibility}`
    or 404 `room_not_found`. While the server drains (deploy/reboot) an unknown
    room answers **503 `server_busy` + `Retry-After: 2`** instead of 404: the room
    is restored from its snapshot by the next pod, so clients must retry, never
    give up. The same holds for the WebSocket (`server_busy` + close 1012).
 2. Client opens `wss://host/ws` (cookie authenticates). The **first frame must be
-   `join`** (`protocol.JoinRequest`, `v` = the protocol version: 3 since the vote to stop,
+   `join`** (`protocol.JoinRequest`, `v` = the protocol version: 4 since public rooms, 3 since the vote to stop,
    2 since Dutch).
    The server looks the room up, applies `game.Join` and then the trusted `Game.SetConnected(now, id, true)`.
 3. After every accepted command the room broadcasts `state` (a per-viewer
@@ -672,7 +760,8 @@ the persistence contract is `server/internal/store`.
   broadcasts. Late ticks catch up (engine guarantees).
 * **Single timer:** the one per-room timer covers the engine deadline, periodic
   and heartbeat snapshots, the join deadlines and the idle/unclaimed deadlines (the
-  idle reaper is therefore not a central goroutine; only the snapshot janitor is).
+  idle reaper is therefore not a central goroutine; only the snapshot janitor is),
+  as well as public-lobby filling and automated-player actions.
 * **Room codes:** 4 characters from `BCDFGHJKLMNPQRSTVWXZ23456789`, crypto/rand,
   retry on collision; `MaxRooms` (default 1000) → `server_busy`.
 * **Closing:** a room with nobody connected for `IdleTTL` (30 min) is closed; a
@@ -688,6 +777,9 @@ the persistence contract is `server/internal/store`.
   room's snapshot. A failed snapshot delete is retried with backoff and keeps the
   room code reserved until it succeeds (otherwise a stale row could resurrect an
   old room under a reused code).
+  Additive visibility and filling-suppression metadata retain schema version 1;
+  old snapshots restore private. Automated identities persist inside the game,
+  never as sockets; scheduled actions are rebuilt after a human returns.
 * **Restore (startup):** `Hub.Start` loads all snapshots, rebuilds the rooms with
   **every player disconnected** (`SetConnected(false)`; nobody has a socket yet),
   sets `lastActive = now` (so the idle clock restarts) and re-arms timers.
@@ -732,6 +824,10 @@ the persistence contract is `server/internal/store`.
   *global* bucket; the numbers are sized for that (a group of friends and a
   reconnect storm after a deploy never hit them). Switching the Service to
   `Local` would make them truly per-client.
+* **Discovery** has its own 300/min, burst-60 bucket for `GET /api/rooms`; it
+  cannot consume room lookup or WebSocket reconnect capacity. Successful lists
+  and errors use `Cache-Control: no-store`; a draining server answers 503
+  `server_busy` with `Retry-After: 2`, rather than pretending there are no rooms.
 * Metrics (Prometheus): the full list, with types, labels and what each one feeds, is the
   metrics table of "Observability (Phase 5)". Every label value comes from a fixed set in
   the code, never from client input (a test per package and the integration tests assert it).
@@ -874,6 +970,10 @@ dashboard and the alerts disagree.
 | Metric                                                | Type      | Labels                                                                  | Meaning                                                                                                                                    |
 | ----------------------------------------------------- | --------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `tuttifrutti_rooms`                                   | gauge     |                                                                         | Live rooms in memory (cap `MAX_ROOMS`, chart `server.maxRooms`)                                                                            |
+| `tuttifrutti_public_lobbies`                          | gauge     |                                                                         | Public lobbies currently eligible for discovery |
+| `tuttifrutti_public_humans`                           | gauge     |                                                                         | Successfully joined connected humans in public rooms, never automated seats or unjoined sockets |
+| `tuttifrutti_automated_players`                       | gauge     |                                                                         | Active automated seats in public rooms; no sockets |
+| `tuttifrutti_public_fill_wait_seconds`                | histogram |                                                                         | Wait since a connected host became alone until each automated seat was added; count is successful additions |
 | `tuttifrutti_connections`                             | gauge     |                                                                         | Clients attached to a room (joined)                                                                                                        |
 | `tuttifrutti_ws_connections_open`                     | gauge     |                                                                         | All live sockets, joined or not (cap 2000 → `503 server_busy`)                                                                             |
 | `tuttifrutti_commands_total`                          | counter   | `type` (19 commands, `unknown`), `result` (`ok` or the error code)      | Client frames handled by a room                                                                                                            |
@@ -946,6 +1046,7 @@ means and what to check; a purple annotation marks every server (re)start):
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Overview                 | Server up, uptime, rooms, connected players, open sockets (orange 1500 / red 1900), rooms created/min, games started (1 h), container restarts (24 h); rooms/players/sockets over time                                                                                                                                                                                                  |
 | Gameplay                 | Games finished in range (by reason), rounds, Basta calls, time-ups, share of rounds ended by Basta, letter auto-stops, rejected-command share; rounds started vs Basta vs time-ups per min; games started and finished per hour; letter auto-stops per min; commands by type; rejected commands by result; rejected-command ratio (total and by type); votes to stop by result          |
+| Gameplay (public rooms)  | Connected humans versus automated seats and discoverable lobbies; fills per hour; fill wait p50/p95 |
 | Connections              | Upgrades by status, close codes (readable legend), reconnect churn, 429s by route, frames in/out, policy closes (1008) next to slow-client drops (send queue full)                                                                                                                                                                                                                      |
 | Persistence              | Snapshot errors (stat and rate), time since last successful save (stat and over time), rooms restored / restore duration / restore errors at the last start, snapshots deleted (stat and per hour, by source), snapshot saves by result, save error ratio, save latency p50/p95/p99, save queue, pod readiness, `/readyz` responses (503 = DB ping failing), container restarts, uptime |
 | Accounts                 | Logins by result, stats recorded by result (empty until used), stats backlog (recorder queue and room outboxes)                                                                                                                                                                                                                                                                         |
@@ -1158,7 +1259,8 @@ context (own cookies and storage); a test is a conversation between players. Bas
 `http://localhost:8000`); `E2E_COMPOSE_PROJECT` names the stack for the server-restart test (skipped without it).
 
 **Projects.** `chromium` (every spec but the next two, ~2 min), `slow` (`*.slow.spec.ts`: the 60 s round time limit and the 15 s
-vote-to-stop timeout, which must run against the server's own clock; the shortest allowed limit is 60 s) and `restart`
+vote-to-stop timeout, plus public-lobby filling, which must run against the server's own clock;
+the shortest allowed round limit is 60 s) and `restart`
 (`*.restart.spec.ts`: restarts the server container, so it runs alone after the other two via project dependencies).
 Two workers, one retry in CI, trace on failure, no video, HTML + list reporters.
 
@@ -1212,6 +1314,17 @@ other host) and on the Final screen (host and guest, outside the footer, axe cle
 and Montevideo whatever the screen language; it is `target=_blank` with `noopener noreferrer`, at least 48 px tall, wholly
 on screen, with no Spanish on the English and Dutch screens; switching the language changes the label and never the
 destination. The links are never opened.
+(15) public creation and browsing in es/en/nl: 90 s default, directory eligibility
+only after a successful WebSocket join, language filtering, private-room
+exclusion, browse admission, private invites and casual captions. (16, `slow`)
+real delayed filling and two-round public games in all three languages: answer
+progress without leaking hidden answers, human-only stop/reject voting, an
+automated chooser, final presentation, and human-arrival cancellation/pruning.
+The WebSocket clients in the test helpers are authenticated guest clients, not
+the production server-controlled seats; both use the generated protocol version.
+(17) public browsing and creation at 360×740 in es/en/nl: empty and populated
+directory, axe/one heading, no horizontal overflow or Spanish on en/nl screens,
+48 px unobscured controls, public-create preselection, and Home's vertical fit.
 
 **Rules of the suite.** (A spec of its own checks that the guard, the no-Spanish check (English and Dutch) and the accessibility check really fail when they should; the main assertions were also mutation-checked against deliberately broken servers and messages.) Labels come from the app's real `web/messages/**` (never retyped, so they cannot drift); the
 exact Basta words and the game rules (alphabets, hard letters, points) are written out in the tests, so drift from this

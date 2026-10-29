@@ -38,6 +38,9 @@ const (
 	createBurst = 10                     // ...in bursts of 10
 	lookupRate  = rate.Limit(300.0 / 60) // GET /api/rooms/{code}: 300 per minute...
 	lookupBurst = 60                     // ...in bursts of 60
+	// Browsing has its own budget: polling cannot starve preflight/reconnects.
+	browseRate  = rate.Limit(300.0 / 60)
+	browseBurst = 60
 	// The login and callback endpoints share one bucket (each login spends two
 	// tokens): 60 per minute in bursts of 30 lets a dozen friends log in at
 	// once, while a flood costs us nothing but redirects.
@@ -100,6 +103,9 @@ type Limits struct {
 	// LookupRate and LookupBurst bound GET /api/rooms/{code}.
 	LookupRate  rate.Limit
 	LookupBurst int
+	// BrowseRate and BrowseBurst bound GET /api/rooms independently of lookup.
+	BrowseRate  rate.Limit
+	BrowseBurst int
 	// AuthRate and AuthBurst bound GET /api/auth/google/login and /callback
 	// together.
 	AuthRate  rate.Limit
@@ -118,6 +124,12 @@ func (l Limits) withDefaults() Limits {
 	}
 	if l.LookupBurst <= 0 {
 		l.LookupBurst = lookupBurst
+	}
+	if l.BrowseRate <= 0 {
+		l.BrowseRate = browseRate
+	}
+	if l.BrowseBurst <= 0 {
+		l.BrowseBurst = browseBurst
 	}
 	if l.AuthRate <= 0 {
 		l.AuthRate = authRate
@@ -149,6 +161,7 @@ type Server struct {
 	readyChecks []func(context.Context) error
 	createLimit *ratelimit.Keyed
 	lookupLimit *ratelimit.Keyed
+	browseLimit *ratelimit.Keyed
 	authLimit   *ratelimit.Keyed
 }
 
@@ -175,6 +188,7 @@ func New(opts Options) *Server {
 		readyChecks: opts.ReadyChecks,
 		createLimit: ratelimit.NewKeyed(lim.CreateRate, lim.CreateBurst, limiterIdleTTL, opts.Now),
 		lookupLimit: ratelimit.NewKeyed(lim.LookupRate, lim.LookupBurst, limiterIdleTTL, opts.Now),
+		browseLimit: ratelimit.NewKeyed(lim.BrowseRate, lim.BrowseBurst, limiterIdleTTL, opts.Now),
 		authLimit:   ratelimit.NewKeyed(lim.AuthRate, lim.AuthBurst, limiterIdleTTL, opts.Now),
 	}
 	if s.registry == nil {

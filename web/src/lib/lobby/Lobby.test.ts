@@ -47,6 +47,14 @@ describe('Lobby', () => {
 	});
 
 	describe('the host', () => {
+		it('shows public games as casual without an editable visibility setting', () => {
+			i18n.set('en');
+			const session = host();
+			session.visibility = 'public';
+			render(Lobby, { session });
+			expect(screen.getByText('Casual game — lifetime statistics are not recorded')).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Private' })).toBeNull();
+		});
 		it('sees the code, the players, the settings and Start', () => {
 			render(Lobby, { session: host() });
 			expect(screen.getByRole('button', { name: 'KT7P: tocá para copiar' }).textContent).toContain(

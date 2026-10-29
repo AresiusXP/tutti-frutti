@@ -18,6 +18,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/AresiusXP/tutti-frutti/server/internal/api"
 	"github.com/AresiusXP/tutti-frutti/server/internal/auth"
 	"github.com/AresiusXP/tutti-frutti/server/internal/catalog"
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
@@ -36,6 +37,8 @@ type fakeRooms struct {
 	infos   map[string]room.Info
 	created []room.CreateRequest
 	looked  []string
+	public  []api.PublicRoom
+	browsed []game.Lang
 }
 
 func (f *fakeRooms) Create(ctx context.Context, req room.CreateRequest) (string, error) {
@@ -62,6 +65,13 @@ func (f *fakeRooms) Connect(string, room.Client) (room.Session, error) {
 }
 
 func (f *fakeRooms) Stats() room.Stats { return room.Stats{} }
+
+func (f *fakeRooms) PublicRooms(lang game.Lang) []api.PublicRoom {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.browsed = append(f.browsed, lang)
+	return slices.Clone(f.public)
+}
 
 type restEnv struct {
 	srv    *Server

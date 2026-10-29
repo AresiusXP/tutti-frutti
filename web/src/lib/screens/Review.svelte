@@ -41,6 +41,7 @@
 	const meId = $derived(view?.youId ?? '');
 	const hostName = $derived(playerName(players, view?.hostId ?? ''));
 	const participant = $derived(session.isParticipant);
+	const voter = $derived(round?.reviewVoters.includes(meId) ?? false);
 	const proposals = $derived(
 		(round?.proposals ?? [])
 			.filter((proposal) => proposal.category === category)
@@ -151,8 +152,7 @@
 
 	function reject(id: string) {
 		const mine = rejectTally(
-			round?.participants ?? [],
-			players,
+			round?.reviewVoters ?? [],
 			round?.rejectVotes ?? [],
 			category,
 			id,
@@ -224,8 +224,8 @@
 							{b}
 							answerA={round.answers[proposal.playerA]?.[category] ?? ''}
 							answerB={round.answers[proposal.playerB]?.[category] ?? ''}
-							tally={mergeTally(proposal, round.participants, players, meId)}
-							canVote={participant}
+							tally={mergeTally(proposal, round.reviewVoters, meId)}
+							canVote={voter}
 							onvote={(yes) => session.voteMerge(proposal.id, yes)}
 						/>
 					{/each}
@@ -234,7 +234,7 @@
 		{/if}
 
 		<section aria-label={m.review_answers()} class="flex flex-col gap-2">
-			{#if participant && (pickable.length > 0 || mergeState.step !== 'idle')}
+			{#if voter && (pickable.length > 0 || mergeState.step !== 'idle')}
 				<div class="flex justify-end">
 					<button
 						type="button"
@@ -295,14 +295,7 @@
 				{#each round.participants as id (id)}
 					{@const player = players.find((p) => p.id === id)}
 					{#if player}
-						{@const tally = rejectTally(
-							round.participants,
-							players,
-							round.rejectVotes,
-							category,
-							id,
-							meId
-						)}
+						{@const tally = rejectTally(round.reviewVoters, round.rejectVotes, category, id, meId)}
 						<AnswerCard
 							{player}
 							isMe={id === meId}
@@ -314,7 +307,7 @@
 							voters={tally.voters
 								.map((v) => players.find((p) => p.id === v))
 								.filter((p) => p !== undefined)}
-							canVote={participant && id !== meId}
+							canVote={voter && id !== meId}
 							merge={mergeUi(id)}
 							verdict={verdicts.find((v) => v.player === id)}
 							onreject={() => reject(id)}

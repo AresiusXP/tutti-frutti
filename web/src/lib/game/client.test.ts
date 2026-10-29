@@ -160,6 +160,20 @@ describe('derived state', () => {
 });
 
 describe('AI judge', () => {
+	it('takes visibility only from state and defaults old fixtures to private', async () => {
+		const h = harness();
+		expect(h.session.visibility).toBe('private');
+		await h.join(lobbyView());
+		h.sock().receive('state', {
+			code: 'KT7P',
+			serverTime: Date.now(),
+			view: lobbyView(),
+			visibility: 'public'
+		});
+		expect(h.session.visibility).toBe('public');
+		h.sock().state(lobbyView());
+		expect(h.session.visibility).toBe('private');
+	});
 	it('canJudge is false before the first state and without the field (older fixtures)', async () => {
 		const h = harness();
 		await h.settle();

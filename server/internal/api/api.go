@@ -1,5 +1,4 @@
-// Package api defines the JSON bodies of the account endpoints of the REST API
-// (GET /api/session, GET /api/me, PUT /api/me/profile, GET /api/me/stats).
+// Package api defines the JSON bodies of room and account REST endpoints.
 // Like internal/protocol it is a source for TypeScript types: `go tool tygo
 // generate` (server/tygo.yaml) emits web/src/lib/protocol/api.ts from it, and
 // CI fails when the generated file is stale. The contract is documented in

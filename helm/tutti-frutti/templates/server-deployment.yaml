@@ -49,6 +49,18 @@ spec:
               value: {{ include "tutti-frutti.publicUrl" . | quote }}
             - name: MAX_ROOMS
               value: {{ .Values.server.maxRooms | quote }}
+            - name: PUBLIC_BOTS_ENABLED
+              value: {{ .Values.server.publicBots.enabled | quote }}
+            - name: PUBLIC_BOTS_MAX
+              value: {{ .Values.server.publicBots.max | quote }}
+            - name: PUBLIC_BOTS_FIRST_MIN_SECONDS
+              value: {{ .Values.server.publicBots.firstMinSeconds | quote }}
+            - name: PUBLIC_BOTS_FIRST_MAX_SECONDS
+              value: {{ .Values.server.publicBots.firstMaxSeconds | quote }}
+            - name: PUBLIC_BOTS_SECOND_MIN_SECONDS
+              value: {{ .Values.server.publicBots.secondMinSeconds | quote }}
+            - name: PUBLIC_BOTS_SECOND_MAX_SECONDS
+              value: {{ .Values.server.publicBots.secondMaxSeconds | quote }}
             - name: TRUST_FORWARDED_FOR
               value: {{ .Values.server.trustForwardedFor | quote }}
             {{- with .Values.server.allowedOrigins }}

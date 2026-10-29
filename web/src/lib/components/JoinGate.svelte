@@ -91,6 +91,9 @@
 			<span class="animate-bounce-in text-7xl" aria-hidden="true">{icon}</span>
 			<h1 class="text-3xl leading-tight font-black">{title}</h1>
 			<p class="max-w-xs text-lg text-cream-muted">{text}</p>
+			{#if 'info' in check && check.info.visibility === 'public'}
+				<p class="text-sm text-cream-muted">{m.rooms_casual()}</p>
+			{/if}
 		</div>
 		{#snippet footer()}
 			{#if retry}
@@ -158,6 +161,9 @@
 			</p>
 		</div>
 
+		{#if check.kind === 'ready' && check.info.visibility === 'public'}
+			<p class="text-center text-sm text-cream-muted">{m.rooms_casual()}</p>
+		{/if}
 		<section class="flex flex-col gap-2 rounded-3xl bg-night-2/80 p-2 ring-1 ring-night-3">
 			<div class="flex items-end gap-2">
 				<AvatarBadge avatar={profile.avatar} size={48} />

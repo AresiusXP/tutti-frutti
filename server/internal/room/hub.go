@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	mathrand "math/rand/v2"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -59,11 +60,13 @@ type Hub struct {
 
 	mu           sync.Mutex
 	rooms        map[string]*room
-	retiring     map[string]*room // closed rooms whose snapshot may still be deleted
+	retiring     map[string]*room       // closed rooms whose snapshot may still be deleted
+	directory    map[string]publicEntry // immutable actor-published summaries
 	shuttingDown bool
 	started      bool
 
-	conns atomic.Int64
+	conns     atomic.Int64
+	botRandMu sync.Mutex
 
 	shutdownOnce sync.Once
 	shutdownErr  error
@@ -127,6 +130,28 @@ func NewHub(cfg Config) *Hub {
 	if cfg.CodeSource == nil {
 		cfg.CodeSource = rand.Reader
 	}
+	if cfg.BotRand == nil {
+		cfg.BotRand = mathrand.IntN
+	}
+	if cfg.MaxBots <= 0 {
+		cfg.MaxBots = 2
+	}
+	cfg.MaxBots = min(cfg.MaxBots, 2)
+	if cfg.BotFirstDelayMin <= 0 {
+		cfg.BotFirstDelayMin = 20 * time.Second
+	}
+	if cfg.BotFirstDelayMax <= 0 {
+		cfg.BotFirstDelayMax = 30 * time.Second
+	}
+	if cfg.BotSecondDelayMin <= 0 {
+		cfg.BotSecondDelayMin = 40 * time.Second
+	}
+	if cfg.BotSecondDelayMax <= 0 {
+		cfg.BotSecondDelayMax = 55 * time.Second
+	}
+	cfg.BotFirstDelayMax = max(cfg.BotFirstDelayMin, cfg.BotFirstDelayMax)
+	cfg.BotSecondDelayMin = max(cfg.BotFirstDelayMin, cfg.BotSecondDelayMin)
+	cfg.BotSecondDelayMax = max(cfg.BotSecondDelayMin, cfg.BotSecondDelayMax)
 	log := cfg.Logger.With("component", "room")
 	ctx, cancel := context.WithCancel(context.Background())
 	h := &Hub{
@@ -140,6 +165,7 @@ func NewHub(cfg Config) *Hub {
 		quit:        make(chan struct{}),
 		rooms:       map[string]*room{},
 		retiring:    map[string]*room{},
+		directory:   map[string]publicEntry{},
 		heartbeat:   heartbeatFor(cfg.SnapshotMaxAge),
 		saveTimeout: defaultSaveTimeout,
 		minBackoff:  defaultMinBackoff,
@@ -261,6 +287,7 @@ func (h *Hub) restore(ctx context.Context) ([]*room, error) {
 			continue
 		}
 		r := h.newRoom(p.Code, g, p.CreatedAt, true)
+		r.visibility, r.botSuppressed = p.Visibility, p.BotSuppressed
 		r.restoreStats(p)
 		h.spawnLocked(r)
 		h.mu.Unlock()
@@ -333,7 +360,9 @@ func (h *Hub) Create(ctx context.Context, req CreateRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	h.spawnLocked(h.newRoom(code, g, now, false))
+	r := h.newRoom(code, g, now, false)
+	r.visibility, _ = normalizeVisibility(req.Visibility)
+	h.spawnLocked(r)
 	return code, nil
 }
 
@@ -341,6 +370,10 @@ func (h *Hub) Create(ctx context.Context, req CreateRequest) (string, error) {
 // and ids) and builds the lobby: the host seat is not connected until the
 // host's socket joins.
 func newGame(req CreateRequest, now time.Time) (*game.Game, error) {
+	visibility, err := normalizeVisibility(req.Visibility)
+	if err != nil {
+		return nil, err
+	}
 	name, err := game.CleanName(req.Name)
 	if err != nil {
 		return nil, err
@@ -353,6 +386,9 @@ func newGame(req CreateRequest, now time.Time) (*game.Game, error) {
 	}
 
 	g := game.NewGame(game.Player{ID: req.PlayerID, Name: name, Avatar: req.Avatar}, now)
+	if visibility == visibilityPublic {
+		g.Settings.TimeLimitSeconds = 90
+	}
 	if lang := req.Lang; lang.Valid() && lang != g.Settings.Lang {
 		s := g.Settings
 		s.Lang = lang
@@ -496,6 +532,7 @@ func (h *Hub) Shutdown(ctx context.Context) error {
 func (h *Hub) shutdown(ctx context.Context) error {
 	h.mu.Lock()
 	h.shuttingDown = true
+	clear(h.directory)
 	rooms := make([]*room, 0, len(h.rooms))
 	for _, r := range h.rooms {
 		rooms = append(rooms, r)
@@ -577,16 +614,17 @@ func (h *Hub) shutdown(ctx context.Context) error {
 // claimed: their players have a seat and reconnect with backoff.
 func (h *Hub) newRoom(code string, g *game.Game, createdAt time.Time, restored bool) *room {
 	r := &room{
-		h:         h,
-		code:      code,
-		log:       h.log.With("room", code),
-		clock:     h.clock,
-		g:         g,
-		createdAt: createdAt,
-		mb:        newMailbox(),
-		sessions:  map[*session]struct{}{},
-		players:   map[string]*session{},
-		claimed:   restored,
+		h:          h,
+		code:       code,
+		log:        h.log.With("room", code),
+		clock:      h.clock,
+		g:          g,
+		createdAt:  createdAt,
+		mb:         newMailbox(),
+		sessions:   map[*session]struct{}{},
+		players:    map[string]*session{},
+		claimed:    restored,
+		visibility: visibilityPrivate,
 	}
 	r.saver = newSaver(h, code)
 	return r
@@ -618,6 +656,7 @@ func (h *Hub) retire(r *room) {
 	defer h.mu.Unlock()
 	if h.rooms[r.code] == r {
 		delete(h.rooms, r.code)
+		delete(h.directory, r.code)
 		h.retiring[r.code] = r
 		h.m.rooms.Dec()
 	}

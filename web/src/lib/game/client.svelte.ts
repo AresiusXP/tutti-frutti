@@ -166,6 +166,7 @@ export class WsRoomSession implements RoomSession {
 	#events = $state.raw<SessionEvent[]>([]);
 	#lastError = $state.raw<SessionError | null>(null);
 	#canJudge = $state(false);
+	#visibility = $state<'private' | 'public'>('private');
 
 	readonly #d: SessionDeps;
 	readonly #api: Api;
@@ -253,6 +254,9 @@ export class WsRoomSession implements RoomSession {
 
 	get canJudge(): boolean {
 		return this.#canJudge;
+	}
+	get visibility(): 'private' | 'public' {
+		return this.#visibility;
 	}
 
 	serverNow(): number {
@@ -566,6 +570,7 @@ export class WsRoomSession implements RoomSession {
 		const first = !this.#joined;
 		this.#view = view;
 		this.#canJudge = state.canJudge === true;
+		this.#visibility = state.visibility === 'public' ? 'public' : 'private';
 		const round = view.round?.number ?? null;
 		if (first || round !== this.#answerRound) this.#sentAnswers.clear();
 		this.#answerRound = round;

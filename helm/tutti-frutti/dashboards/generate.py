@@ -737,6 +737,48 @@ def build_panels() -> list[dict]:
         7,
     )
 
+    lo.add(
+        timeseries(
+            "Public games: humans and automated seats",
+            "Actual connected human players in public rooms, active automated seats, and discoverable waiting lobbies. "
+            "Bots never create sockets or inflate the human series. Use this to decide when automatic filling is no longer needed.",
+            [
+                (f"sum(tuttifrutti_public_humans{{{M}}})", "humans"),
+                (f"sum(tuttifrutti_automated_players{{{M}}})", "automated seats"),
+                (f"sum(tuttifrutti_public_lobbies{{{M}}})", "discoverable lobbies"),
+            ],
+            decimals=0,
+        ),
+        8,
+        7,
+    )
+    lo.add(
+        timeseries(
+            "Public lobby fills (per h)",
+            "Automated seats admitted after a human waited alone. The histogram count counts successful additions only; "
+            "a room can receive at most two at a time. Disabling PUBLIC_BOTS_ENABLED stops new additions, not existing opponents.",
+            [(f"sum(rate(tuttifrutti_public_fill_wait_seconds_count{{{M}}}[{RI}])) * 3600", "seats added")],
+            decimals=1,
+        ),
+        8,
+        7,
+    )
+    lo.add(
+        timeseries(
+            "Public lobby fill wait",
+            "Median and 95th percentile of the wait since a connected host became alone until each automated seat joined. "
+            "The second seat is measured from the same start. Empty when nobody needed assistance in the selected window.",
+            [
+                (f"histogram_quantile(0.5, sum by (le) (rate(tuttifrutti_public_fill_wait_seconds_bucket{{{M}}}[{RI}])))", "p50"),
+                (f"histogram_quantile(0.95, sum by (le) (rate(tuttifrutti_public_fill_wait_seconds_bucket{{{M}}}[{RI}])))", "p95"),
+            ],
+            unit="s",
+            decimals=1,
+        ),
+        8,
+        7,
+    )
+
     # --------------------------------------------------------------- Connections
     lo.row("Connections")
     lo.add(

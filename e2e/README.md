@@ -21,7 +21,8 @@ e2e/
     no-spanish.ts        "nothing Spanish on this screen" check for the en and nl screens
     network.ts           drop / restore a player's connection
     compose.ts           restart the server container
-    bots.ts              browserless players over WebSocket, protocol version 3 (fill a lobby, speak to the server as a spectator)
+    bots.ts              browserless players over WebSocket, generated protocol version (currently 4), snapshots and heartbeat
+    rooms.ts             paced REST creation, cookie-preserving host sockets and public directory requests
     a11y.ts              axe helper: serious/critical + two moderate rules fail, exactly one `h1` per screen, an (empty) allow-list for known findings
     rules.ts             alphabets, hard letters, default categories (es, en, nl), the Basta words, the 15 s vote as DESIGN.md states them
     layout.ts            `expectUnobscured`: a control is wholly on screen and nothing lies over it (phone-size checks)
@@ -80,7 +81,7 @@ name, works the same way: `EDGE_PORT=18400 POSTGRES_PORT=15400 docker compose -p
 ## Projects
 
 - **`chromium`** — Pixel 7 emulation at 390×844, every spec except the next two. The default fast loop.
-- **`slow`** — `*.slow.spec.ts`: waits for the _server's_ clock (a 60 s round time limit, the shortest allowed; the 15 s of a vote to stop, which no setting shortens).
+- **`slow`** — `*.slow.spec.ts`: waits for the _server's_ clock (a 60 s round time limit, the shortest allowed; the 15 s of a vote to stop; public fallback's 20–30 s / 40–55 s fills).
 - **`restart`** — `*.restart.spec.ts`: restarts the server container (`docker compose -p $E2E_COMPOSE_PROJECT restart
 server`). Every other test would notice, so it runs **alone, after the other two** (project dependencies; if
   one of them fails it does not run — fix that first, or `--project=restart --no-deps`).
@@ -105,6 +106,48 @@ Traces are kept for failures (`trace: 'retain-on-failure'`); there is no video.
 | `11-browser-language`       | First visit: a `nl-NL` / `nl-BE` browser gets Dutch, `en-GB` English, `es-ES` and `fr-FR` Spanish (the switch shows it, nothing Spanish on the Dutch/English Home); a language chosen with ES / EN / NL beats the browser language and survives a reload, a new tab and a later visit.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `12-stop-vote`              | The vote to stop (host switch `Permitir pedir que paren`, on by default). **es:** (a) with a category empty the button stays enabled and opens a confirmation (`alertdialog`, focus on "keep playing", Escape closes it and `ask_stop` is never sent), confirmed: the asker's banner "0 de 2", the voters' non-modal prompt (typing in a field while it is open), yes by yes "1 de 2" / "waiting", the last yes shows the Basta overlay with the asker's name, lock, review, the asker's empty cell has no points, hand-computed totals (the asker sent no `basta`); (b) a no rejects at once (only the asker gets the toast, nobody is named), she asks again right away (no cooldown) and it passes; (d) switched off: the guests' chip says so and the button is **disabled** until everything is valid; (e) somebody with everything valid calls Basta while the vote is open: the prompts vanish, the overlay names that player, no toast for the asker; (f) a voter going offline / closing the tab leaves the electorate (the others' yes passes it; live "0 de 1"), the asker going offline cancels it (and a new vote starts from zero); (g) a spectator sees the onlooker line, has no buttons, and a bot spectator's `vote_stop` is refused with `not_participant` and does not count. **en, nl:** (h) the whole vote (switch, confirmation, prompt, rejection, second vote, overlay, review) with the exact words, `Stop!` and **no Spanish on any screen**. **360×740, Dutch, a 16-letter name:** the focused field is wholly visible (inside the screen, nothing over it) with the prompt open, for every field, and the buttons are ≥ 48 px. |
 | `12-stop-vote-timeout.slow` | 15 s without unanimity (one yes, one silence) reject the vote: the toast (es `Se acabó el tiempo`, en `Time ran out`, nl `De stemtijd is om`) only for the asker after about 15 s, prompts and banner vanish, the round goes on and she can ask again. Real time: no clock can be moved in the stack.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+
+### Public discovery and fallback
+
+`15-public-rooms.spec.ts` adds six tests, one API/WS and one browser flow per language (es/en/nl):
+
+- An unclaimed REST-created public room stays absent until its host successfully joins over WebSocket.
+- The directory returns the public lobby's settings, filters by language, excludes private rooms and drops
+  a room once the game starts. Public creation defaults to 90 seconds; omitted visibility stays private
+  with no time limit.
+- Public creation through Home, `/rooms` discovery, the fresh visitor's nickname gate and join all work;
+  the casual caption appears and an explicit private room still works through its invite link.
+
+`16-public-fallback.slow.spec.ts` adds four tests:
+
+- In every language, wait for the **production** first fill (20–30 seconds, with a one-second transport
+  tolerance) and second fill (40–55 seconds), then complete a two-round game. The WS host shortens the
+  phases using ordinary commands. Automated seats make answer progress while answers remain hidden,
+  do not enter stop/reject electorates, and take their chooser turn. The host finishes in a real browser,
+  where the final screen shows the casual caption and no automated-player labels. Wire player objects
+  have ordinary seat fields only.
+- An early human arrival cancels pending fill past both deadlines; later human arrivals prune two
+  existing automated seats down to one and then zero.
+
+`17-public-accessibility.spec.ts` adds three locale cases at **360×740**: empty and populated
+discovery, axe and exactly one heading, no horizontal overflow, no Spanish on EN/NL screens,
+48 px unobscured controls, public-create preselection, and Home without vertical scrolling.
+It fetches real directory data and projects it onto the fixture's code for deterministic isolation.
+
+Run against the already-built stack with bots enabled and default production timings:
+
+```bash
+cd e2e
+E2E_BASE_URL=http://localhost:8000 npx playwright test tests/15-public-rooms.spec.ts tests/16-public-fallback.slow.spec.ts
+```
+
+Budget **about 4–6 minutes** for these ten tests (the four slow tests share a spec and run sequentially).
+Each fallback game has a 180-second ceiling; the arrival test has a 120-second ceiling. Waits use
+Playwright assertions over received snapshots and normal 20-second protocol heartbeats: no fixed sleeps,
+clock manipulation, or accelerated server fill configuration. The directory-only tests can run with
+`--project=chromium -g 'directory lists'`; authoring checks are `npm run lint` and `npx playwright test --list`.
+Authenticated lifetime-stat persistence remains covered by the server tests; these guest E2E cases verify
+the public casual presentation.
 
 ## How the tests are written
 

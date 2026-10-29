@@ -7,6 +7,7 @@ import { HomePage, ROOM_URL, type AvatarChoice } from './pages/home';
 import { CategoryPicker, LobbyPage } from './pages/lobby';
 import { LetterPage, PlayingPage } from './pages/playing';
 import { FinalPage, ReviewPage, SummaryPage } from './pages/review';
+import { RoomsPage } from './pages/rooms';
 
 export type ScreenName = 'lobby' | 'letter' | 'playing' | 'review' | 'summary' | 'final';
 
@@ -48,6 +49,7 @@ export class Player {
 	readonly summary = new SummaryPage(this);
 	readonly final = new FinalPage(this);
 	readonly closed = new ClosedPage(this);
+	readonly rooms = new RoomsPage(this);
 
 	/** The `t` of every frame this player's first tab has sent over its room sockets, in order. */
 	readonly #sent: string[] = [];

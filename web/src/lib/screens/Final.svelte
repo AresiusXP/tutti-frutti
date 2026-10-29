@@ -49,6 +49,9 @@
 		{/snippet}
 
 		<Confetti />
+		{#if session.visibility === 'public'}
+			<p class="text-center text-sm text-cream-muted">{m.rooms_casual()}</p>
+		{/if}
 
 		{#if podium.places.length > 0}
 			<Podium places={podium.places} winnerIds={podium.winnerIds} />

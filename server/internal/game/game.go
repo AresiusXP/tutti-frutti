@@ -121,6 +121,9 @@ type Game struct {
 	Players  []Player `json:"players"`
 	HostID   string   `json:"hostId"`
 	Settings Settings `json:"settings"`
+	// Automated holds server-controlled seat ids for persistence only. These
+	// seats play normally, but never host or vote.
+	Automated []string `json:"automated,omitempty"`
 	// UsedLetters are the letters already played, in order.
 	UsedLetters []string `json:"usedLetters"`
 	// RoundNum is the current round number (0 in the lobby).
@@ -184,6 +187,12 @@ func (g *Game) apply(now time.Time, actor string, cmd Command) ([]Event, error) 
 	p := g.seat(actor)
 	if p == nil {
 		return nil, ErrUnknownPlayer
+	}
+	if g.IsAutomated(actor) {
+		switch cmd.(type) {
+		case AskStop, VoteStop, VoteReject, ProposeMerge, VoteMerge:
+			return nil, ErrNotParticipant
+		}
 	}
 	switch c := cmd.(type) {
 	case Leave:
@@ -319,9 +328,14 @@ func (g *Game) isParticipant(id string) bool {
 	return g.Round != nil && slices.Contains(g.Round.Participants, id)
 }
 
+// IsAutomated reports whether id belongs to a server-controlled seat.
+func (g *Game) IsAutomated(id string) bool {
+	return slices.Contains(g.Automated, id)
+}
+
 // requireHost checks that p is the host.
 func (g *Game) requireHost(p *Player) error {
-	if p.ID != g.HostID {
+	if p.ID != g.HostID || g.IsAutomated(p.ID) {
 		return ErrNotHost
 	}
 	return nil

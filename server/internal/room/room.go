@@ -154,7 +154,19 @@ type room struct {
 	saver *saver
 
 	// Owned by the room's goroutine.
-	g *game.Game
+	g                     *game.Game
+	visibility            string
+	botSuppressed         bool
+	botFillAt             [2]time.Time
+	botFillStep           int
+	botLonely             bool
+	botLonelySince        time.Time
+	publicVisibleReported int
+	publicHumansReported  int
+	publicBotsReported    int
+	botPhase              game.Phase
+	botRound              *game.Round
+	botPlans              []botPlan
 	// users links player ids to the accounts they joined with (guests have no
 	// entry); gameID identifies the game in progress ("" in the lobby); pending
 	// is the outbox of finished games whose statistics the store has not
@@ -291,7 +303,8 @@ func (r *room) summary() Info {
 		Players:    seated,
 		MaxPlayers: game.MaxPlayers,
 		Lang:       r.g.Settings.Lang,
-		Joinable:   !r.stopping && seated < game.MaxPlayers && r.g.Phase != game.PhaseFinal,
+		Joinable:   !r.stopping && (seated < game.MaxPlayers || r.g.Phase == game.PhaseLobby && r.humanSeated() < game.MaxPlayers) && r.g.Phase != game.PhaseFinal,
+		Visibility: r.visibility,
 	}
 }
 
@@ -308,8 +321,12 @@ func (r *room) seated() int {
 func (r *room) onInit() {
 	now := r.clock.Now()
 	r.lastActive = now
+	// Restore respects the current lobby cap before publishing or re-saving.
+	// There are no joined clients yet; existing games retain their participants.
+	_, _ = r.reconcileBots(now)
 	r.resumeStats(now)
 	r.persist(now)
+	r.publishPublic()
 	r.rearm()
 }
 
@@ -401,7 +418,7 @@ func (r *room) onJoin(now time.Time, s *session, d json.RawMessage) {
 	}
 
 	prev := r.g.Phase
-	events, err := r.g.Apply(now, s.id, game.Join{Name: req.Name, Avatar: req.Avatar})
+	events, err := r.applyJoin(now, s.id, game.Join{Name: req.Name, Avatar: req.Avatar})
 	if err != nil {
 		r.rejectEngine(now, s, game.CmdJoin, prev, events, err)
 		return
@@ -448,12 +465,22 @@ func (r *room) onCommand(now time.Time, s *session, t string, d json.RawMessage)
 		}
 	}
 	prev := r.g.Phase
+	kickedBot := false
+	if c, ok := cmd.(game.Kick); ok {
+		kickedBot = r.g.IsAutomated(c.PlayerID)
+	}
 	events, err := r.g.Apply(now, s.id, cmd)
 	if err != nil {
 		r.rejectEngine(now, s, t, prev, events, err)
 		return
 	}
 	r.h.m.command(t, resultOK)
+	if kickedBot {
+		r.botSuppressed = true
+	}
+	if t == game.CmdRematch {
+		r.botSuppressed = false
+	}
 	if t == game.CmdAskStop && r.g.Round.StopVote == nil {
 		// Nobody was left to ask: the vote passed at once (see countEvents).
 		r.h.m.stopVote(stopAsked)
@@ -512,6 +539,9 @@ func (r *room) onWake(gen uint64) {
 		r.commit(now, prev, events, false)
 		return
 	}
+	if r.runBot(now) {
+		return
+	}
 	if r.saveDue(now) {
 		r.persist(now)
 	}
@@ -525,6 +555,7 @@ func (r *room) beginShutdown() (seq uint64, ok bool) {
 		return 0, false
 	}
 	r.stopping = true
+	r.publishPublic()
 	r.stopWake()
 	if frame := r.frame(protocol.TypeEvent, game.Event{Type: protocol.EventServerRestarting}); frame != nil {
 		for s := range r.sessions {
@@ -549,6 +580,7 @@ func (r *room) closeRoom(code int, reason string, deleteSnapshot bool) {
 		return
 	}
 	r.closed = true
+	r.publishPublic()
 	r.stopWake()
 	for _, s := range slices.Collect(maps.Keys(r.sessions)) {
 		r.detach(s)
@@ -568,13 +600,17 @@ func (r *room) closeRoom(code int, reason string, deleteSnapshot bool) {
 // room if nobody is left in it, save what needs saving and re-arm the timer.
 // prev is the phase before the engine call; lobbyChange asks for a snapshot.
 func (r *room) commit(now time.Time, prev game.Phase, events []game.Event, lobbyChange bool) {
+	more, botsChanged := r.reconcileBots(now)
+	events = append(events, more...)
+	lobbyChange = lobbyChange || botsChanged
 	r.countEvents(events)
 	r.trackStats(now, events)
 	r.broadcast(now, events)
-	if r.seated() == 0 {
+	if r.humanSeated() == 0 {
 		r.closeRoom(protocol.CloseRoomClosed, "everyone left", true)
 		return
 	}
+	r.publishPublic()
 	r.dirty = true
 	if lobbyChange || r.g.Phase != prev {
 		r.persist(now)
@@ -641,6 +677,7 @@ func (r *room) broadcast(now time.Time, events []game.Event) {
 			ServerTime: now.UnixMilli(),
 			View:       r.g.View(s.id),
 			CanJudge:   r.canJudge(s),
+			Visibility: r.visibility,
 		}))
 	}
 }
@@ -733,7 +770,7 @@ func (r *room) frame(t string, v any) []byte {
 // out, or whose session expired, does not lose it. The price: signing in after the
 // game started earns no credit for that game.
 func (r *room) linkUser(s *session) {
-	if r.h.recorder == nil || r.tookPart(s.id) {
+	if r.visibility == visibilityPublic || r.g.IsAutomated(s.id) || r.h.recorder == nil || r.tookPart(s.id) {
 		return
 	}
 	if s.userID == "" {
@@ -762,7 +799,7 @@ func (r *room) tookPart(id string) bool {
 // drops the links of seats that no longer exist. It runs before the room is
 // saved, so the snapshot of a phase change carries the game id and the outbox.
 func (r *room) trackStats(now time.Time, events []game.Event) {
-	if r.h.recorder == nil {
+	if r.visibility == visibilityPublic || r.h.recorder == nil {
 		return
 	}
 	for _, ev := range events {
@@ -789,6 +826,9 @@ func (r *room) trackStats(now time.Time, events []game.Event) {
 // offers it for delivery. A game that adds nothing (see buildRecord) leaves
 // nothing behind.
 func (r *room) gameOver(now time.Time) {
+	if r.visibility == visibilityPublic {
+		return
+	}
 	if r.gameID == "" { // a game that did not announce its start
 		r.gameID = store.NewID()
 	}
@@ -857,7 +897,7 @@ func (r *room) offer(rec store.GameRecord) bool {
 
 // offerPending offers every record of the outbox the recorder does not have.
 func (r *room) offerPending() {
-	if r.h.recorder == nil {
+	if r.visibility == visibilityPublic || r.h.recorder == nil {
 		return
 	}
 	for _, rec := range slices.Clone(r.pending) {
@@ -890,7 +930,7 @@ func (r *room) onStatsDone(id string, o statsOutcome) {
 // about to be deleted, so the records the recorder does not have yet are offered
 // one last time (the recorder keeps them for as long as the process lives).
 func (r *room) handOffPending() {
-	if r.h.recorder == nil {
+	if r.visibility == visibilityPublic || r.h.recorder == nil {
 		return
 	}
 	for _, rec := range r.pending {
@@ -903,6 +943,9 @@ func (r *room) handOffPending() {
 
 // restoreStats takes the account state of a restored snapshot.
 func (r *room) restoreStats(p Persisted) {
+	if r.visibility == visibilityPublic {
+		return
+	}
 	r.users, r.gameID, r.pending = p.Users, p.GameID, p.Pending
 	r.syncOutbox()
 	r.legacyFinal = p.Outbox == 0 && p.GameID != "" && r.g.Phase == game.PhaseFinal && len(p.Pending) == 0
@@ -920,7 +963,7 @@ func (r *room) restoreStats(p Persisted) {
 // recorded), and everything in the outbox is offered again (recording is
 // idempotent).
 func (r *room) resumeStats(now time.Time) {
-	if r.h.recorder == nil {
+	if r.visibility == visibilityPublic || r.h.recorder == nil {
 		return
 	}
 	if r.g.Phase != game.PhaseLobby && r.gameID == "" {
@@ -950,13 +993,15 @@ func (r *room) activeAt(now time.Time) time.Time {
 // game in progress and the outbox of games whose statistics are not confirmed.
 func (r *room) encode(now time.Time) ([]byte, error) {
 	return encodeRoomState(Persisted{
-		Code:       r.code,
-		CreatedAt:  r.createdAt,
-		LastActive: r.activeAt(now),
-		Users:      r.users,
-		GameID:     r.gameID,
-		Pending:    r.pending,
-		Outbox:     outboxVersion,
+		Code:          r.code,
+		CreatedAt:     r.createdAt,
+		LastActive:    r.activeAt(now),
+		Users:         r.users,
+		GameID:        r.gameID,
+		Pending:       r.pending,
+		Outbox:        outboxVersion,
+		Visibility:    r.visibility,
+		BotSuppressed: r.botSuppressed,
 	}, r.g)
 }
 
@@ -1027,6 +1072,9 @@ func (r *room) nextWake() time.Time {
 		}
 	}
 	if d, ok := r.g.NextDeadline(); ok {
+		consider(d)
+	}
+	if d := r.nextBotDeadline(); !d.IsZero() {
 		consider(d)
 	}
 	if r.needsPeriodicSave() {

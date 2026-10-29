@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Config is the runtime configuration of the server.
@@ -45,6 +46,19 @@ type Config struct {
 	// MaxRooms bounds the number of live rooms (MAX_ROOMS, default 1000,
 	// 1..100000).
 	MaxRooms int
+	// BotsEnabled permits new automatic bot additions to public rooms
+	// (PUBLIC_BOTS_ENABLED, default true). Existing bots keep playing when off.
+	BotsEnabled bool
+	// MaxBots caps automated seats per public room (PUBLIC_BOTS_MAX, default 2,
+	// 1..2); disable additions with BotsEnabled rather than a zero cap.
+	MaxBots int
+	// Bot delays are measured since public waiting started, in whole seconds
+	// (PUBLIC_BOTS_FIRST_MIN_SECONDS/MAX_SECONDS and SECOND_MIN_SECONDS/MAX_SECONDS).
+	// Each bound is 1..300, min <= max, and the second min exceeds the first max.
+	BotFirstDelayMin  time.Duration
+	BotFirstDelayMax  time.Duration
+	BotSecondDelayMin time.Duration
+	BotSecondDelayMax time.Duration
 	// CloudflareAccountID and CloudflareAPIToken enable the AI judge of the
 	// review when both are set (CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN):
 	// a Workers AI token on a Cloudflare account on the Free plan.
@@ -83,6 +97,13 @@ func Load(getenv func(string) string) (Config, error) {
 
 		CloudflareAccountID: strings.TrimSpace(getenv("CLOUDFLARE_ACCOUNT_ID")),
 		CloudflareAPIToken:  strings.TrimSpace(getenv("CLOUDFLARE_API_TOKEN")),
+
+		BotsEnabled:       true,
+		MaxBots:           2,
+		BotFirstDelayMin:  20 * time.Second,
+		BotFirstDelayMax:  30 * time.Second,
+		BotSecondDelayMin: 40 * time.Second,
+		BotSecondDelayMax: 55 * time.Second,
 	}
 
 	port, err := strconv.Atoi(cfg.Port)
@@ -147,6 +168,47 @@ func Load(getenv func(string) string) (Config, error) {
 			return Config{}, fmt.Errorf("config: invalid MAX_ROOMS %q (want 1..%d)", raw, maxMaxRooms)
 		}
 		cfg.MaxRooms = n
+	}
+
+	if raw := strings.TrimSpace(getenv("PUBLIC_BOTS_ENABLED")); raw != "" {
+		b, err := strconv.ParseBool(raw)
+		if err != nil {
+			return Config{}, fmt.Errorf("config: invalid PUBLIC_BOTS_ENABLED %q (want true or false)", raw)
+		}
+		cfg.BotsEnabled = b
+	}
+	if raw := strings.TrimSpace(getenv("PUBLIC_BOTS_MAX")); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 || n > 2 {
+			return Config{}, fmt.Errorf("config: invalid PUBLIC_BOTS_MAX %q (want 1..2; use PUBLIC_BOTS_ENABLED=false to disable additions)", raw)
+		}
+		cfg.MaxBots = n
+	}
+	for _, delay := range []struct {
+		key string
+		dst *time.Duration
+	}{
+		{"PUBLIC_BOTS_FIRST_MIN_SECONDS", &cfg.BotFirstDelayMin},
+		{"PUBLIC_BOTS_FIRST_MAX_SECONDS", &cfg.BotFirstDelayMax},
+		{"PUBLIC_BOTS_SECOND_MIN_SECONDS", &cfg.BotSecondDelayMin},
+		{"PUBLIC_BOTS_SECOND_MAX_SECONDS", &cfg.BotSecondDelayMax},
+	} {
+		if raw := strings.TrimSpace(getenv(delay.key)); raw != "" {
+			n, err := strconv.Atoi(raw)
+			if err != nil || n < 1 || n > 300 {
+				return Config{}, fmt.Errorf("config: invalid %s %q (want 1..300 seconds)", delay.key, raw)
+			}
+			*delay.dst = time.Duration(n) * time.Second
+		}
+	}
+	if cfg.BotFirstDelayMin > cfg.BotFirstDelayMax {
+		return Config{}, fmt.Errorf("config: PUBLIC_BOTS_FIRST_MIN_SECONDS must be <= PUBLIC_BOTS_FIRST_MAX_SECONDS")
+	}
+	if cfg.BotSecondDelayMin > cfg.BotSecondDelayMax {
+		return Config{}, fmt.Errorf("config: PUBLIC_BOTS_SECOND_MIN_SECONDS must be <= PUBLIC_BOTS_SECOND_MAX_SECONDS")
+	}
+	if cfg.BotSecondDelayMin <= cfg.BotFirstDelayMax {
+		return Config{}, fmt.Errorf("config: PUBLIC_BOTS_SECOND_MIN_SECONDS must be > PUBLIC_BOTS_FIRST_MAX_SECONDS")
 	}
 
 	return cfg, nil

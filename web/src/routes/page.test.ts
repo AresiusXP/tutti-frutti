@@ -41,6 +41,7 @@ const info = (over: Partial<RoomInfo> = {}): RoomInfo => ({
 	maxPlayers: 10,
 	lang: 'es',
 	joinable: true,
+	visibility: 'private',
 	...over
 });
 
@@ -135,6 +136,32 @@ describe('Home actions', () => {
 	});
 
 	describe('create', () => {
+		it('offers public creation with a casual caption', async () => {
+			i18n.set('en');
+			vi.mocked(api.createRoom).mockResolvedValue({ code: 'KT7P' });
+			render(Home);
+			expect(screen.getByRole('button', { name: 'Private' }).getAttribute('aria-pressed')).toBe(
+				'true'
+			);
+			await fireEvent.click(screen.getByRole('button', { name: 'Public' }));
+			expect(screen.getByText('Casual game — lifetime statistics are not recorded')).toBeTruthy();
+			await fireEvent.click(screen.getByRole('button', { name: 'Create game' }));
+			expect(api.createRoom).toHaveBeenCalledWith(
+				expect.objectContaining({ visibility: 'public' })
+			);
+		});
+		it('honours the public CTA and allows browsing without a nickname', async () => {
+			i18n.set('en');
+			profile.setNickname('');
+			route.url = new URL('http://localhost/?visibility=public');
+			render(Home);
+			await tick();
+			expect(screen.getByRole('button', { name: 'Public' }).getAttribute('aria-pressed')).toBe(
+				'true'
+			);
+			await fireEvent.click(screen.getByRole('button', { name: 'Browse games' }));
+			expect(goto).toHaveBeenCalledWith('/rooms');
+		});
 		it('is disabled until there is a nickname', async () => {
 			profile.setNickname('');
 			render(Home);
@@ -152,7 +179,8 @@ describe('Home actions', () => {
 			expect(api.createRoom).toHaveBeenCalledWith({
 				name: 'Ana',
 				avatar: { emoji: '🍓', color: 'strawberry' },
-				lang: 'en'
+				lang: 'en',
+				visibility: 'private'
 			});
 			expect(hasRoomMark('KT7P')).toBe(true);
 			i18n.set('es');

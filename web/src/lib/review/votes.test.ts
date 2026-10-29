@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { player } from '$lib/game/fixtures';
-import type { Player, ProposalView, RejectVote } from '$lib/protocol';
-import { electorate, majority, mergeTally, rejectTally } from './votes';
+import type { ProposalView, RejectVote } from '$lib/protocol';
+import { majority, mergeTally, rejectTally } from './votes';
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `p${i + 1}`);
-const seats = (n: number, offline: string[] = [], left: string[] = []): Player[] =>
-	ids(n).map((id) =>
-		player(id, id.toUpperCase(), { connected: !offline.includes(id), left: left.includes(id) })
-	);
 const votes = (voters: string[], target = 'p1', category = 0): RejectVote[] =>
 	voters.map((voter) => ({ voter, target, category }));
 
@@ -20,13 +15,19 @@ describe('majority', () => {
 	});
 });
 
-describe('electorate', () => {
-	it('keeps connected participants that did not leave, in participant order', () => {
-		const players = seats(5, ['p2'], ['p4']);
-		expect(electorate(['p5', 'p4', 'p3', 'p2', 'p1'], players)).toEqual(['p5', 'p3', 'p1']);
-	});
-	it('ignores players that are not participants (spectators)', () => {
-		expect(electorate(['p1', 'p2'], seats(4))).toEqual(['p1', 'p2']);
+describe('authoritative electorate', () => {
+	it('uses a single voter among three seats and respects an empty electorate', () => {
+		expect(rejectTally(['p1'], votes(['p1'], 'p2'), 0, 'p2', 'p1')).toMatchObject({
+			votes: 1,
+			needed: 1,
+			eligible: 1,
+			rejected: true
+		});
+		expect(rejectTally([], votes(['p1'], 'p2'), 0, 'p2', 'p1')).toMatchObject({
+			votes: 0,
+			eligible: 0,
+			rejected: false
+		});
 	});
 });
 
@@ -55,7 +56,13 @@ describe('rejectTally mirrors the server thresholds', () => {
 	];
 	for (const [name, n, voters, offline, want] of table) {
 		it(name, () => {
-			const tally = rejectTally(ids(n), seats(n, offline), votes(voters), 0, 'p1', 'p2');
+			const tally = rejectTally(
+				ids(n).filter((id) => !offline.includes(id)),
+				votes(voters),
+				0,
+				'p1',
+				'p2'
+			);
 			expect(tally.rejected).toBe(want);
 		});
 	}
@@ -63,7 +70,7 @@ describe('rejectTally mirrors the server thresholds', () => {
 
 describe('rejectTally details', () => {
 	it('counts votes against the votes needed', () => {
-		const tally = rejectTally(ids(4), seats(4), votes(['p2']), 0, 'p1', 'p3');
+		const tally = rejectTally(ids(4), votes(['p2']), 0, 'p1', 'p3');
 		expect(tally).toMatchObject({
 			votes: 1,
 			needed: 2,
@@ -75,17 +82,17 @@ describe('rejectTally details', () => {
 	});
 
 	it('flags my own vote', () => {
-		expect(rejectTally(ids(4), seats(4), votes(['p3']), 0, 'p1', 'p3').mine).toBe(true);
+		expect(rejectTally(ids(4), votes(['p3']), 0, 'p1', 'p3').mine).toBe(true);
 	});
 
 	it('keeps my vote visible even when it does not count', () => {
-		const tally = rejectTally(ids(3), seats(3, ['p3']), votes(['p3']), 0, 'p1', 'p3');
+		const tally = rejectTally(ids(2), votes(['p3']), 0, 'p1', 'p3');
 		expect(tally.mine).toBe(true);
 		expect(tally.votes).toBe(0);
 	});
 
 	it("never counts the author's own vote", () => {
-		const tally = rejectTally(ids(3), seats(3), votes(['p1']), 0, 'p1');
+		const tally = rejectTally(ids(3), votes(['p1']), 0, 'p1');
 		expect(tally.votes).toBe(0);
 		expect(tally.rejected).toBe(false);
 	});
@@ -96,35 +103,28 @@ describe('rejectTally details', () => {
 			...votes(['p2', 'p3'], 'p4', 0),
 			...votes(['p3'], 'p1', 0)
 		];
-		const tally = rejectTally(ids(4), seats(4), all, 0, 'p1');
+		const tally = rejectTally(ids(4), all, 0, 'p1');
 		expect(tally.voters).toEqual(['p3']);
 	});
 
 	it('ignores votes of non-participants and players who left', () => {
-		const players = seats(5, [], ['p4']);
-		const tally = rejectTally(
-			['p1', 'p2', 'p3', 'p4'],
-			players,
-			votes(['p4', 'p5', 'p2']),
-			0,
-			'p1'
-		);
+		const tally = rejectTally(['p1', 'p2', 'p3'], votes(['p4', 'p5', 'p2']), 0, 'p1');
 		expect(tally.voters).toEqual(['p2']);
 		expect(tally.eligible).toBe(2);
 	});
 
 	it('does not count the same voter twice', () => {
-		const tally = rejectTally(ids(4), seats(4), votes(['p2', 'p2']), 0, 'p1');
+		const tally = rejectTally(ids(4), votes(['p2', 'p2']), 0, 'p1');
 		expect(tally.votes).toBe(1);
 	});
 
 	it('has nobody to convince when the author is alone', () => {
-		const tally = rejectTally(['p1'], seats(1), [], 0, 'p1');
+		const tally = rejectTally(['p1'], [], 0, 'p1');
 		expect(tally).toMatchObject({ eligible: 0, needed: 1, rejected: false });
 	});
 
 	it('works without a viewer', () => {
-		expect(rejectTally(ids(3), seats(3), votes(['p2']), 0, 'p1').mine).toBe(false);
+		expect(rejectTally(ids(3), votes(['p2']), 0, 'p1').mine).toBe(false);
 	});
 });
 
@@ -153,7 +153,7 @@ describe('mergeTally', () => {
 		[5, 3, true]
 	] as const) {
 		it(`${n} players need a majority: ${yes} yes ${want ? 'passes' : 'does not pass'}`, () => {
-			const tally = mergeTally(proposal({ yes, passed: yes * 2 > n }), ids(n), seats(n));
+			const tally = mergeTally(proposal({ yes, passed: yes * 2 > n }), ids(n));
 			expect(tally.total).toBe(n);
 			expect(tally.needed).toBe(majority(n));
 			expect(tally.passed).toBe(want);
@@ -162,9 +162,24 @@ describe('mergeTally', () => {
 	}
 
 	it('uses the connected participants as the electorate', () => {
-		const tally = mergeTally(proposal(), ids(4), seats(4, ['p4']), 'p2');
+		const tally = mergeTally(proposal(), ids(3), 'p2');
 		expect(tally.total).toBe(3);
 		expect(tally.needed).toBe(2);
+	});
+
+	it('uses the authoritative single voter or empty electorate for merges', () => {
+		expect(mergeTally(proposal({ passed: true }), ['p1'], 'p1')).toMatchObject({
+			total: 1,
+			needed: 1,
+			yes: 1,
+			passed: true
+		});
+		expect(mergeTally(proposal({ yes: 0 }), [], 'p1')).toMatchObject({
+			total: 0,
+			needed: 1,
+			yes: 0,
+			passed: false
+		});
 	});
 
 	it('reports my own vote, yes or no, or none', () => {
@@ -174,9 +189,9 @@ describe('mergeTally', () => {
 				{ voter: 'p2', yes: false }
 			]
 		});
-		expect(mergeTally(p, ids(3), seats(3), 'p1').mine).toBe(true);
-		expect(mergeTally(p, ids(3), seats(3), 'p2').mine).toBe(false);
-		expect(mergeTally(p, ids(3), seats(3), 'p3').mine).toBeNull();
-		expect(mergeTally(p, ids(3), seats(3)).mine).toBeNull();
+		expect(mergeTally(p, ids(3), 'p1').mine).toBe(true);
+		expect(mergeTally(p, ids(3), 'p2').mine).toBe(false);
+		expect(mergeTally(p, ids(3), 'p3').mine).toBeNull();
+		expect(mergeTally(p, ids(3)).mine).toBeNull();
 	});
 });

@@ -30,6 +30,20 @@ beforeEach(() => {
 });
 
 describe('Review header and navigation', () => {
+	it('uses one authoritative voter among three seats for rejection thresholds', async () => {
+		const view = reviewView();
+		view.players = view.players.slice(0, 3);
+		view.round!.participants = ['p1', 'p2', 'p3'];
+		view.round!.reviewVoters = ['p1'];
+		const session = new FakeSession(view);
+		render(Review, { session });
+		const reject = within(card('p2')).getByRole('button', { name: /Rechazar 0\/1/ });
+		await fireEvent.click(reject);
+		expect(session.sent).toContainEqual({ cmd: 'voteReject', args: [1, 'p2'] });
+		session.setView({ ...view, round: { ...view.round!, reviewVoters: [] } });
+		await tick();
+		expect(within(card('p2')).queryByRole('button', { name: /Rechazar/ })).toBeNull();
+	});
 	it('shows the category carousel title, the letter and one card per participant', () => {
 		open({ category: 1 });
 		expect(screen.getByRole('heading', { level: 1 }).textContent?.trim()).toBe('País · 2/6');

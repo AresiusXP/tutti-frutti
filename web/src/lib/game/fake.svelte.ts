@@ -32,6 +32,7 @@ export class FakeSession implements RoomSession {
 	lastError = $state<SessionError | null>(null);
 	/** Like `state.canJudge`: the "Ask the AI" button is offered to the host. */
 	canJudge = $state(false);
+	visibility = $state<'private' | 'public'>('private');
 
 	/** Every command called, in order. Not reactive. */
 	sent: SentCommand[] = [];

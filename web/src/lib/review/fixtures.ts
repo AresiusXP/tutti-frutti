@@ -18,7 +18,12 @@ import type {
 	RoundView,
 	View
 } from '$lib/protocol';
-import { electorate, rejectTally } from './votes';
+import { rejectTally } from './votes';
+
+/** Fixture-only simulation of the server electorate. */
+function electorate(participants: readonly string[], players: readonly Player[]): string[] {
+	return participants.filter((id) => players.some((p) => p.id === id && p.connected && !p.left));
+}
 
 export const FIXTURE_LETTER = 'F';
 
@@ -290,8 +295,7 @@ export function scoreState(state: ReviewState): RoundResult {
 			const raw = (state.answers[id]?.[c] ?? '').trim();
 			const answer = norm(raw, state.lang);
 			const rejected = rejectTally(
-				state.participants,
-				state.players,
+				electorate(state.participants, state.players),
 				state.rejectVotes,
 				c,
 				id
@@ -369,6 +373,7 @@ export function buildReviewView(state: ReviewState): View {
 		number: state.roundNum,
 		letter: state.letter,
 		participants: [...state.participants],
+		reviewVoters: state.phase === 'review' ? online : [],
 		answers: Object.fromEntries(state.participants.map((id) => [id, [...state.answers[id]]])),
 		filled: Object.fromEntries(
 			state.participants.map((id) => [id, state.answers[id].filter((a) => a !== '').length])

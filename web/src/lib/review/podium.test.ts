@@ -10,6 +10,7 @@ const round = (points: Record<string, number> = {}) => ({
 	number: 3,
 	letter: 'F',
 	participants: Object.keys(points),
+	reviewVoters: [],
 	answers: {},
 	filled: {},
 	reviewCategory: 0,

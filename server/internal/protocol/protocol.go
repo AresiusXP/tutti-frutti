@@ -35,7 +35,9 @@ import (
 // lobby setting Settings.StopVote, RoundView.StopVote and the events stop_asked
 // and stop_rejected. A version 2 client would show a vote it cannot answer and
 // never offer the setting, so it must reload.
-const Version = 3
+// Version 4 adds public casual rooms and authoritative review electorates.
+// Older clients compute voting thresholds from all seats and must reload.
+const Version = 4
 
 // Frame types that are not game commands.
 const (
@@ -95,6 +97,8 @@ type State struct {
 	// server has one and the player is signed in with an account. The client
 	// shows the "ask the AI" button to the host only when it is set.
 	CanJudge bool `json:"canJudge"`
+	// Visibility is private or public. Public games are casual (no lifetime stats).
+	Visibility string `json:"visibility"`
 }
 
 // Pong is the payload of TypePong.

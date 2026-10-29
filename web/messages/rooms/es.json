@@ -1,0 +1,20 @@
+{
+	"rooms_visibility": "¿Quién puede entrar?",
+	"rooms_private": "Privada",
+	"rooms_public": "Pública",
+	"rooms_browse": "Buscar partidas",
+	"rooms_title": "Partidas públicas",
+	"rooms_casual": "Partida casual — no se guardan estadísticas de por vida",
+	"rooms_language": "Idioma de la partida",
+	"rooms_all": "Todos",
+	"rooms_refresh": "Actualizar",
+	"rooms_loading": "Buscando partidas…",
+	"rooms_empty": "No hay partidas esperando ahora",
+	"rooms_create": "Creá una partida pública",
+	"rooms_players": "{count}/{max} jugadores",
+	"rooms_rounds": "{count} rondas",
+	"rooms_unlimited": "Rondas ilimitadas",
+	"rooms_time": "{seconds} s",
+	"rooms_no_timer": "Sin tiempo límite",
+	"rooms_join": "Entrar a {code}"
+}

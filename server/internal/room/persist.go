@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +25,9 @@ type Persisted struct {
 	Version int `json:"version"`
 	// Code is the room code (it must match the snapshot's Code).
 	Code string `json:"code"`
+	// Visibility is additive in schema v1; older snapshots are private.
+	Visibility    string `json:"visibility,omitempty"`
+	BotSuppressed bool   `json:"botSuppressed,omitempty"`
 	// CreatedAt is when the room was created.
 	CreatedAt time.Time `json:"createdAt"`
 	// LastActive is the last time somebody was connected to the room.
@@ -68,6 +72,14 @@ func encodePersisted(code string, createdAt, lastActive time.Time, g *game.Game)
 // encodeRoomState marshals p with the game g (the Version and Game fields are
 // filled in here).
 func encodeRoomState(p Persisted, g *game.Game) ([]byte, error) {
+	visibility, err := normalizeVisibility(p.Visibility)
+	if err != nil {
+		return nil, err
+	}
+	p.Visibility = visibility
+	if visibility == visibilityPublic {
+		p.Users, p.GameID, p.Pending = nil, "", nil
+	}
 	raw, err := json.Marshal(g)
 	if err != nil {
 		return nil, fmt.Errorf("marshal game: %w", err)
@@ -86,6 +98,11 @@ func decodePersisted(snap store.Snapshot) (Persisted, *game.Game, error) {
 	if p.Version != persistedVersion {
 		return p, nil, fmt.Errorf("unsupported snapshot version %d", p.Version)
 	}
+	visibility, err := normalizeVisibility(p.Visibility)
+	if err != nil {
+		return p, nil, err
+	}
+	p.Visibility = visibility
 	if p.Code != snap.Code || !validCode(p.Code) {
 		return p, nil, fmt.Errorf("snapshot code %q does not match %q", p.Code, snap.Code)
 	}
@@ -95,6 +112,12 @@ func decodePersisted(snap store.Snapshot) (Persisted, *game.Game, error) {
 	}
 	if err := sanitize(&g); err != nil {
 		return p, nil, err
+	}
+	if p.Visibility == visibilityPrivate && len(g.Automated) > 0 {
+		return p, nil, errors.New("automated seats in private snapshot")
+	}
+	if p.Visibility == visibilityPublic {
+		p.Users, p.GameID, p.Pending = nil, "", nil
 	}
 	p.Users, p.GameID = cleanLinks(&g, p.Users, p.GameID)
 	p.Pending, p.droppedPending = cleanPending(p.Pending)
@@ -129,7 +152,7 @@ func cleanPending(pending []store.GameRecord) ([]store.GameRecord, int) {
 func cleanLinks(g *game.Game, users map[string]string, gameID string) (map[string]string, string) {
 	var clean map[string]string
 	for id, userID := range users {
-		if !store.ValidID(userID) || !slices.ContainsFunc(g.Players, func(p game.Player) bool { return p.ID == id }) {
+		if g.IsAutomated(id) || !store.ValidID(userID) || !slices.ContainsFunc(g.Players, func(p game.Player) bool { return p.ID == id }) {
 			continue
 		}
 		if clean == nil {
@@ -154,6 +177,28 @@ func sanitize(g *game.Game) error {
 	}
 	if len(g.Players) == 0 {
 		return errors.New("game has no players")
+	}
+	if g.IsAutomated(g.HostID) || strings.HasPrefix(g.HostID, "bot:") {
+		return errors.New("automated host in snapshot")
+	}
+	seenBots := map[string]bool{}
+	for _, id := range g.Automated {
+		if !strings.HasPrefix(id, "bot:") || seenBots[id] || !slices.ContainsFunc(g.Players, func(p game.Player) bool { return p.ID == id }) {
+			return errors.New("invalid automated seat in snapshot")
+		}
+		seenBots[id] = true
+	}
+	seatedBots := 0
+	for _, p := range g.Players {
+		if strings.HasPrefix(p.ID, "bot:") && !g.IsAutomated(p.ID) {
+			return errors.New("unmarked automated seat in snapshot")
+		}
+		if !p.Left && g.IsAutomated(p.ID) {
+			seatedBots++
+		}
+	}
+	if seatedBots > 2 {
+		return errors.New("too many automated seats in snapshot")
 	}
 	if !g.Settings.Lang.Valid() {
 		return fmt.Errorf("unknown language %q", g.Settings.Lang)

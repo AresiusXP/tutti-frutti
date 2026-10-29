@@ -24,10 +24,11 @@ const roomCodeAlphabet = "BCDFGHJKLMNPQRSTVWXZ23456789"
 const roomCodeLen = 4
 
 // createRoomRequest is the body of POST /api/rooms.
-type createRoomRequest struct {
-	Name   string      `json:"name"`
-	Avatar game.Avatar `json:"avatar"`
-	Lang   game.Lang   `json:"lang,omitempty"`
+type createRoomRequest = api.CreateRoomRequest
+
+// Listing is optional for transport doubles, but implemented by the room hub.
+type publicRoomLister interface {
+	PublicRooms(game.Lang) []api.PublicRoom
 }
 
 func (s *Server) registerREST() {
@@ -37,6 +38,10 @@ func (s *Server) registerREST() {
 	}
 	if s.rooms == nil {
 		return
+	}
+	if _, ok := s.rooms.(publicRoomLister); ok {
+		s.mux.Handle("GET /api/rooms",
+			ratelimit.Middleware(s.browseLimit, s.limitKey)(http.HandlerFunc(s.handlePublicRooms)))
 	}
 	s.mux.Handle("GET /api/rooms/{code}",
 		ratelimit.Middleware(s.lookupLimit, s.limitKey)(http.HandlerFunc(s.handleRoomInfo)))
@@ -94,19 +99,47 @@ func (s *Server) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_lang")
 		return
 	}
+	if req.Visibility != "" && req.Visibility != "private" && req.Visibility != "public" {
+		writeError(w, http.StatusBadRequest, "bad_request")
+		return
+	}
 
 	playerID := s.guests.Ensure(w, r)
 	code, err := s.rooms.Create(r.Context(), room.CreateRequest{
-		PlayerID: playerID,
-		Name:     req.Name,
-		Avatar:   req.Avatar,
-		Lang:     req.Lang,
+		PlayerID:   playerID,
+		Name:       req.Name,
+		Avatar:     req.Avatar,
+		Lang:       req.Lang,
+		Visibility: req.Visibility,
 	})
 	if err != nil {
 		s.writeCreateError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]string{"code": code})
+	writeJSON(w, http.StatusCreated, api.CreateRoomResponse{Code: code})
+}
+
+func (s *Server) handlePublicRooms(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	lang := game.Lang(r.URL.Query().Get("lang"))
+	if lang != "" && !lang.Valid() {
+		writeError(w, http.StatusBadRequest, "invalid_lang")
+		return
+	}
+	draining := !s.ready.Load()
+	if d, ok := s.rooms.(interface{ ShuttingDown() bool }); ok {
+		draining = draining || d.ShuttingDown()
+	}
+	if draining {
+		w.Header().Set("Retry-After", "2")
+		writeError(w, http.StatusServiceUnavailable, "server_busy")
+		return
+	}
+	rooms := s.rooms.(publicRoomLister).PublicRooms(lang)
+	if rooms == nil {
+		rooms = []api.PublicRoom{}
+	}
+	writeJSON(w, http.StatusOK, api.PublicRoomsResponse{Rooms: rooms})
 }
 
 func (s *Server) writeCreateError(w http.ResponseWriter, r *http.Request, err error) {

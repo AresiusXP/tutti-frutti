@@ -75,6 +75,8 @@ export interface RoomSession {
 	readonly isParticipant: boolean;
 	/** True when the server has an AI judge and this player is signed in (latest `state`; false when absent). */
 	readonly canJudge: boolean;
+	/** Authoritative room visibility from the latest state; private until known. */
+	readonly visibility: 'private' | 'public';
 
 	/** The last 20 events, oldest first. */
 	readonly events: readonly SessionEvent[];

@@ -331,7 +331,7 @@ func TestInfo(t *testing.T) {
 	}
 
 	got, ok := e.hub.Info(code)
-	want := Info{Code: code, Phase: game.PhaseLobby, Players: 1, MaxPlayers: game.MaxPlayers, Lang: game.LangEN, Joinable: true}
+	want := Info{Code: code, Phase: game.PhaseLobby, Players: 1, MaxPlayers: game.MaxPlayers, Lang: game.LangEN, Joinable: true, Visibility: visibilityPrivate}
 	if !ok || got != want {
 		t.Errorf("Info = %+v, %v; want %+v", got, ok, want)
 	}

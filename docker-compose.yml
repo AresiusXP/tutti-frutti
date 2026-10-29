@@ -34,6 +34,13 @@ services:
       PORT: "8080"
       LOG_LEVEL: debug
       PUBLIC_URL: http://localhost:${EDGE_PORT:-8000}
+      # Automatic public-room bot additions; false leaves existing bots playing.
+      PUBLIC_BOTS_ENABLED: "${PUBLIC_BOTS_ENABLED:-true}"
+      PUBLIC_BOTS_MAX: "${PUBLIC_BOTS_MAX:-2}"
+      PUBLIC_BOTS_FIRST_MIN_SECONDS: "${PUBLIC_BOTS_FIRST_MIN_SECONDS:-20}"
+      PUBLIC_BOTS_FIRST_MAX_SECONDS: "${PUBLIC_BOTS_FIRST_MAX_SECONDS:-30}"
+      PUBLIC_BOTS_SECOND_MIN_SECONDS: "${PUBLIC_BOTS_SECOND_MIN_SECONDS:-40}"
+      PUBLIC_BOTS_SECOND_MAX_SECONDS: "${PUBLIC_BOTS_SECOND_MAX_SECONDS:-55}"
       DATABASE_URL: postgres://tutti:tutti@postgres:5432/tutti?sslmode=disable
       SESSION_SECRET: dev-only-session-secret-do-not-use-in-production
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}

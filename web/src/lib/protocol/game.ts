@@ -461,6 +461,11 @@ export interface Game {
   hostId: string;
   settings: Settings;
   /**
+   * Automated holds server-controlled seat ids for persistence only. These
+   * seats play normally, but never host or vote.
+   */
+  automated?: string[];
+  /**
    * UsedLetters are the letters already played, in order.
    */
   usedLetters: string[];
@@ -871,6 +876,10 @@ export interface RoundView {
    * StopVote is the open vote to stop (playing phase only).
    */
   stopVote?: StopVoteView;
+  /**
+   * ReviewVoters is the live human electorate in join order; empty outside review.
+   */
+  reviewVoters: string[];
   /**
    * RejectVotes and Proposals are only filled during the review.
    */

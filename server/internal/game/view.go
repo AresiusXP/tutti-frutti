@@ -53,6 +53,8 @@ type RoundView struct {
 	ReviewCategory int       `json:"reviewCategory"`
 	// StopVote is the open vote to stop (playing phase only).
 	StopVote *StopVoteView `json:"stopVote,omitempty"`
+	// ReviewVoters is the live human electorate in join order; empty outside review.
+	ReviewVoters []string `json:"reviewVoters"`
 	// RejectVotes and Proposals are only filled during the review.
 	RejectVotes []RejectVote   `json:"rejectVotes"`
 	Proposals   []ProposalView `json:"proposals"`
@@ -142,6 +144,7 @@ func (g *Game) roundView(viewer string) RoundView {
 		TimeLimitEndsAt: r.PlayingEndsAt,
 		GraceEndsAt:     r.GraceEndsAt,
 		ReviewCategory:  r.ReviewCategory,
+		ReviewVoters:    []string{},
 		RejectVotes:     []RejectVote{},
 		Proposals:       []ProposalView{},
 		JudgePending:    []int{},
@@ -179,6 +182,11 @@ func (g *Game) roundView(viewer string) RoundView {
 	}
 	if g.Phase == PhaseReview {
 		voters := g.connectedParticipants()
+		for _, id := range r.Participants {
+			if voters[id] {
+				rv.ReviewVoters = append(rv.ReviewVoters, id)
+			}
+		}
 		rv.RejectVotes = slices.Clone(r.RejectVotes)
 		rv.JudgePending = append(rv.JudgePending, r.JudgePending...)
 		rv.Verdicts = append(rv.Verdicts, r.Verdicts...)

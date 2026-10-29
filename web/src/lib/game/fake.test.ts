@@ -4,6 +4,12 @@ import { FakeSession } from './fake.svelte';
 import { makeRound, makeSettings, makeStopVote, makeView } from './fixtures';
 
 describe('FakeSession: AI judge', () => {
+	it('defaults visibility to private and permits scripted public state', () => {
+		const session = new FakeSession(makeView());
+		expect(session.visibility).toBe('private');
+		session.visibility = 'public';
+		expect(session.visibility).toBe('public');
+	});
 	it('records askJudge and starts with canJudge off', () => {
 		const session = new FakeSession(makeView());
 		expect(session.canJudge).toBe(false);

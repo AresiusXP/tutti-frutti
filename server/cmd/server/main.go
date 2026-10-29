@@ -93,11 +93,17 @@ func run() error {
 	// The AI judge is optional: without the Cloudflare settings the host is
 	// never offered it. A nil *judge.Cloudflare must not reach the interface.
 	roomCfg := room.Config{
-		Store:      st,
-		Logger:     logger,
-		Registerer: reg,
-		MaxRooms:   cfg.MaxRooms,
-		Recorder:   st,
+		Store:             st,
+		Logger:            logger,
+		Registerer:        reg,
+		MaxRooms:          cfg.MaxRooms,
+		Recorder:          st,
+		BotsEnabled:       cfg.BotsEnabled,
+		MaxBots:           cfg.MaxBots,
+		BotFirstDelayMin:  cfg.BotFirstDelayMin,
+		BotFirstDelayMax:  cfg.BotFirstDelayMax,
+		BotSecondDelayMin: cfg.BotSecondDelayMin,
+		BotSecondDelayMax: cfg.BotSecondDelayMax,
 	}
 	if cfg.JudgeEnabled() {
 		j, err := judge.New(judge.Config{

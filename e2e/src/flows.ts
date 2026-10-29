@@ -28,10 +28,16 @@ export function answersLeaving(
 }
 
 /** The host opens Home, picks a nickname (and avatar) and creates a room. Returns its code. */
-export async function createRoom(app: App, host: Player, avatar?: AvatarChoice): Promise<string> {
+export async function createRoom(
+	app: App,
+	host: Player,
+	avatar?: AvatarChoice,
+	visibility?: 'private' | 'public'
+): Promise<string> {
 	await host.home.open();
 	await host.home.setNickname(host.name);
 	if (avatar) await host.home.pickAvatar(avatar);
+	if (visibility) await host.home.setVisibility(visibility);
 	await app.beforeRoomCreation();
 	const code = await host.home.create();
 	await host.lobby.expectVisible(code);

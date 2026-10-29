@@ -159,6 +159,7 @@ func TestMetricsAfterAGame(t *testing.T) {
 		s.do(http.MethodGet, fmt.Sprintf("/zzz-%d", i), nil)
 		s.do(http.MethodGet, fmt.Sprintf("/api/zzz-%d", i), nil)
 		s.do(http.MethodGet, fmt.Sprintf("/api/rooms/ZZ%02d", i), nil)
+		s.do(http.MethodGet, fmt.Sprintf("/api/rooms?lang=zzz-%d", i), nil)
 	}
 	s.do("BREW", "/healthz", nil)
 	routes := map[string]bool{}

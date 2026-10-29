@@ -42,6 +42,17 @@ server:
   publicUrl: ""
   # Upper bound of live game rooms held in memory (MAX_ROOMS).
   maxRooms: 1000
+  # Automatic bot fill for public rooms. Disable new additions for rollback;
+  # existing bots keep playing. max is 1..2 (use enabled=false to disable).
+  publicBots:
+    enabled: true
+    max: 2
+    # Seconds since waiting started: each 1..300, min <= max,
+    # and secondMinSeconds must exceed firstMaxSeconds.
+    firstMinSeconds: 20
+    firstMaxSeconds: 30
+    secondMinSeconds: 40
+    secondMaxSeconds: 55
   # Take the rate-limit client IP from the rightmost X-Forwarded-For entry
   # (TRUST_FORWARDED_FOR). Only enable when exactly one trusted proxy hop
   # appends the header. Behind a Traefik Service with

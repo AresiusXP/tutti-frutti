@@ -2436,14 +2436,335 @@
    "id": 28
   },
   {
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "description": "Actual connected human players in public rooms, active automated seats, and discoverable waiting lobbies. Bots never create sockets or inflate the human series. Use this to decide when automatic filling is no longer needed.",
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "axisBorderShow": false,
+      "axisCenteredZero": false,
+      "axisColorMode": "text",
+      "axisLabel": "",
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "drawStyle": "line",
+      "fillOpacity": 12,
+      "gradientMode": "none",
+      "hideFrom": {
+       "legend": false,
+       "tooltip": false,
+       "viz": false
+      },
+      "insertNulls": false,
+      "lineInterpolation": "linear",
+      "lineWidth": 1,
+      "pointSize": 4,
+      "scaleDistribution": {
+       "type": "linear"
+      },
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "group": "A",
+       "mode": "none"
+      },
+      "thresholdsStyle": {
+       "mode": "off"
+      }
+     },
+     "mappings": [],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "unit": "short",
+     "min": 0,
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "calcs": [],
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "sum(tuttifrutti_public_humans{namespace=\"$namespace\", job=\"$job\"})",
+     "instant": false,
+     "legendFormat": "humans",
+     "range": true,
+     "refId": "A"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "sum(tuttifrutti_automated_players{namespace=\"$namespace\", job=\"$job\"})",
+     "instant": false,
+     "legendFormat": "automated seats",
+     "range": true,
+     "refId": "B"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "sum(tuttifrutti_public_lobbies{namespace=\"$namespace\", job=\"$job\"})",
+     "instant": false,
+     "legendFormat": "discoverable lobbies",
+     "range": true,
+     "refId": "C"
+    }
+   ],
+   "title": "Public games: humans and automated seats",
+   "type": "timeseries",
+   "gridPos": {
+    "h": 7,
+    "w": 8,
+    "x": 0,
+    "y": 47
+   },
+   "id": 29
+  },
+  {
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "description": "Automated seats admitted after a human waited alone. The histogram count counts successful additions only; a room can receive at most two at a time. Disabling PUBLIC_BOTS_ENABLED stops new additions, not existing opponents.",
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "axisBorderShow": false,
+      "axisCenteredZero": false,
+      "axisColorMode": "text",
+      "axisLabel": "",
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "drawStyle": "line",
+      "fillOpacity": 12,
+      "gradientMode": "none",
+      "hideFrom": {
+       "legend": false,
+       "tooltip": false,
+       "viz": false
+      },
+      "insertNulls": false,
+      "lineInterpolation": "linear",
+      "lineWidth": 1,
+      "pointSize": 4,
+      "scaleDistribution": {
+       "type": "linear"
+      },
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "group": "A",
+       "mode": "none"
+      },
+      "thresholdsStyle": {
+       "mode": "off"
+      }
+     },
+     "mappings": [],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "unit": "short",
+     "min": 0,
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "calcs": [],
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "sum(rate(tuttifrutti_public_fill_wait_seconds_count{namespace=\"$namespace\", job=\"$job\"}[$__rate_interval])) * 3600",
+     "instant": false,
+     "legendFormat": "seats added",
+     "range": true,
+     "refId": "A"
+    }
+   ],
+   "title": "Public lobby fills (per h)",
+   "type": "timeseries",
+   "gridPos": {
+    "h": 7,
+    "w": 8,
+    "x": 8,
+    "y": 47
+   },
+   "id": 30
+  },
+  {
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "description": "Median and 95th percentile of the wait since a connected host became alone until each automated seat joined. The second seat is measured from the same start. Empty when nobody needed assistance in the selected window.",
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "axisBorderShow": false,
+      "axisCenteredZero": false,
+      "axisColorMode": "text",
+      "axisLabel": "",
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "drawStyle": "line",
+      "fillOpacity": 12,
+      "gradientMode": "none",
+      "hideFrom": {
+       "legend": false,
+       "tooltip": false,
+       "viz": false
+      },
+      "insertNulls": false,
+      "lineInterpolation": "linear",
+      "lineWidth": 1,
+      "pointSize": 4,
+      "scaleDistribution": {
+       "type": "linear"
+      },
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "group": "A",
+       "mode": "none"
+      },
+      "thresholdsStyle": {
+       "mode": "off"
+      }
+     },
+     "mappings": [],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "unit": "s",
+     "min": 0,
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "calcs": [],
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "histogram_quantile(0.5, sum by (le) (rate(tuttifrutti_public_fill_wait_seconds_bucket{namespace=\"$namespace\", job=\"$job\"}[$__rate_interval])))",
+     "instant": false,
+     "legendFormat": "p50",
+     "range": true,
+     "refId": "A"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(tuttifrutti_public_fill_wait_seconds_bucket{namespace=\"$namespace\", job=\"$job\"}[$__rate_interval])))",
+     "instant": false,
+     "legendFormat": "p95",
+     "range": true,
+     "refId": "B"
+    }
+   ],
+   "title": "Public lobby fill wait",
+   "type": "timeseries",
+   "gridPos": {
+    "h": 7,
+    "w": 8,
+    "x": 16,
+    "y": 47
+   },
+   "id": 31
+  },
+  {
    "collapsed": false,
    "gridPos": {
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 47
+    "y": 54
    },
-   "id": 29,
+   "id": 32,
    "panels": [],
    "title": "Connections",
    "type": "row"
@@ -2617,9 +2938,9 @@
     "h": 8,
     "w": 8,
     "x": 0,
-    "y": 48
+    "y": 55
    },
-   "id": 30
+   "id": 33
   },
   {
    "datasource": {
@@ -2871,9 +3192,9 @@
     "h": 8,
     "w": 8,
     "x": 8,
-    "y": 48
+    "y": 55
    },
-   "id": 31
+   "id": 34
   },
   {
    "datasource": {
@@ -2990,9 +3311,9 @@
     "h": 8,
     "w": 8,
     "x": 16,
-    "y": 48
+    "y": 55
    },
-   "id": 32
+   "id": 35
   },
   {
    "datasource": {
@@ -3088,9 +3409,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 56
+    "y": 63
    },
-   "id": 33
+   "id": 36
   },
   {
    "datasource": {
@@ -3214,9 +3535,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 56
+    "y": 63
    },
-   "id": 34
+   "id": 37
   },
   {
    "datasource": {
@@ -3352,9 +3673,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 56
+    "y": 63
    },
-   "id": 35
+   "id": 38
   },
   {
    "collapsed": false,
@@ -3362,9 +3683,9 @@
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 63
+    "y": 70
    },
-   "id": 36,
+   "id": 39,
    "panels": [],
    "title": "Persistence",
    "type": "row"
@@ -3436,9 +3757,9 @@
     "h": 6,
     "w": 4,
     "x": 0,
-    "y": 64
+    "y": 71
    },
-   "id": 37
+   "id": 40
   },
   {
    "datasource": {
@@ -3510,9 +3831,9 @@
     "h": 6,
     "w": 4,
     "x": 4,
-    "y": 64
+    "y": 71
    },
-   "id": 38
+   "id": 41
   },
   {
    "datasource": {
@@ -3577,9 +3898,9 @@
     "h": 6,
     "w": 4,
     "x": 8,
-    "y": 64
+    "y": 71
    },
-   "id": 39
+   "id": 42
   },
   {
    "datasource": {
@@ -3652,9 +3973,9 @@
     "h": 6,
     "w": 4,
     "x": 12,
-    "y": 64
+    "y": 71
    },
-   "id": 40
+   "id": 43
   },
   {
    "datasource": {
@@ -3723,9 +4044,9 @@
     "h": 6,
     "w": 4,
     "x": 16,
-    "y": 64
+    "y": 71
    },
-   "id": 41
+   "id": 44
   },
   {
    "datasource": {
@@ -3790,9 +4111,9 @@
     "h": 6,
     "w": 4,
     "x": 20,
-    "y": 64
+    "y": 71
    },
-   "id": 42
+   "id": 45
   },
   {
    "datasource": {
@@ -3918,9 +4239,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 70
+    "y": 77
    },
-   "id": 43
+   "id": 46
   },
   {
    "datasource": {
@@ -4023,9 +4344,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 70
+    "y": 77
    },
-   "id": 44
+   "id": 47
   },
   {
    "datasource": {
@@ -4142,9 +4463,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 70
+    "y": 77
    },
-   "id": 45
+   "id": 48
   },
   {
    "datasource": {
@@ -4244,9 +4565,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 77
+    "y": 84
    },
-   "id": 46
+   "id": 49
   },
   {
    "datasource": {
@@ -4340,9 +4661,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 77
+    "y": 84
    },
-   "id": 47
+   "id": 50
   },
   {
    "datasource": {
@@ -4436,9 +4757,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 77
+    "y": 84
    },
-   "id": 48
+   "id": 51
   },
   {
    "datasource": {
@@ -4564,9 +4885,9 @@
     "h": 6,
     "w": 12,
     "x": 0,
-    "y": 84
+    "y": 91
    },
-   "id": 49
+   "id": 52
   },
   {
    "datasource": {
@@ -4652,9 +4973,9 @@
     "h": 6,
     "w": 6,
     "x": 12,
-    "y": 84
+    "y": 91
    },
-   "id": 50
+   "id": 53
   },
   {
    "datasource": {
@@ -4823,9 +5144,9 @@
     "h": 6,
     "w": 6,
     "x": 18,
-    "y": 84
+    "y": 91
    },
-   "id": 51
+   "id": 54
   },
   {
    "datasource": {
@@ -4919,9 +5240,9 @@
     "h": 6,
     "w": 12,
     "x": 0,
-    "y": 90
+    "y": 97
    },
-   "id": 52
+   "id": 55
   },
   {
    "datasource": {
@@ -5013,9 +5334,9 @@
     "h": 6,
     "w": 12,
     "x": 12,
-    "y": 90
+    "y": 97
    },
-   "id": 53
+   "id": 56
   },
   {
    "collapsed": false,
@@ -5023,9 +5344,9 @@
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 96
+    "y": 103
    },
-   "id": 54,
+   "id": 57,
    "panels": [],
    "title": "Accounts",
    "type": "row"
@@ -5170,9 +5491,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 97
+    "y": 104
    },
-   "id": 55
+   "id": 58
   },
   {
    "datasource": {
@@ -5237,9 +5558,9 @@
     "h": 7,
     "w": 4,
     "x": 8,
-    "y": 97
+    "y": 104
    },
-   "id": 56
+   "id": 59
   },
   {
    "datasource": {
@@ -5381,9 +5702,9 @@
     "h": 7,
     "w": 8,
     "x": 12,
-    "y": 97
+    "y": 104
    },
-   "id": 57
+   "id": 60
   },
   {
    "datasource": {
@@ -5448,9 +5769,9 @@
     "h": 7,
     "w": 4,
     "x": 20,
-    "y": 97
+    "y": 104
    },
-   "id": 58
+   "id": 61
   },
   {
    "datasource": {
@@ -5556,9 +5877,9 @@
     "h": 6,
     "w": 12,
     "x": 0,
-    "y": 104
+    "y": 111
    },
-   "id": 59
+   "id": 62
   },
   {
    "collapsed": false,
@@ -5566,9 +5887,9 @@
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 110
+    "y": 117
    },
-   "id": 60,
+   "id": 63,
    "panels": [],
    "title": "HTTP API",
    "type": "row"
@@ -5667,9 +5988,9 @@
     "h": 8,
     "w": 8,
     "x": 0,
-    "y": 111
+    "y": 118
    },
-   "id": 61
+   "id": 64
   },
   {
    "datasource": {
@@ -5840,9 +6161,9 @@
     "h": 8,
     "w": 8,
     "x": 8,
-    "y": 111
+    "y": 118
    },
-   "id": 62
+   "id": 65
   },
   {
    "datasource": {
@@ -5941,9 +6262,9 @@
     "h": 8,
     "w": 8,
     "x": 16,
-    "y": 111
+    "y": 118
    },
-   "id": 63
+   "id": 66
   },
   {
    "datasource": {
@@ -6060,9 +6381,9 @@
     "h": 8,
     "w": 12,
     "x": 0,
-    "y": 119
+    "y": 126
    },
-   "id": 64
+   "id": 67
   },
   {
    "datasource": {
@@ -6157,9 +6478,9 @@
     "h": 8,
     "w": 12,
     "x": 12,
-    "y": 119
+    "y": 126
    },
-   "id": 65
+   "id": 68
   },
   {
    "collapsed": false,
@@ -6167,9 +6488,9 @@
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 127
+    "y": 134
    },
-   "id": 66,
+   "id": 69,
    "panels": [],
    "title": "Go runtime and container",
    "type": "row"
@@ -6307,9 +6628,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 128
+    "y": 135
    },
-   "id": 67
+   "id": 70
   },
   {
    "datasource": {
@@ -6468,9 +6789,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 128
+    "y": 135
    },
-   "id": 68
+   "id": 71
   },
   {
    "datasource": {
@@ -6605,9 +6926,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 128
+    "y": 135
    },
-   "id": 69
+   "id": 72
   },
   {
    "datasource": {
@@ -6729,9 +7050,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 135
+    "y": 142
    },
-   "id": 70
+   "id": 73
   },
   {
    "datasource": {
@@ -6824,9 +7145,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 135
+    "y": 142
    },
-   "id": 71
+   "id": 74
   },
   {
    "datasource": {
@@ -6928,9 +7249,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 135
+    "y": 142
    },
-   "id": 72
+   "id": 75
   }
  ],
  "refresh": "30s",

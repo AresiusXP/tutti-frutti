@@ -78,6 +78,9 @@
 			<RoomHeader code={session.code} onqr={() => (qrOpen = true)} />
 		{/snippet}
 
+		{#if session.visibility === 'public'}
+			<p class="text-center text-sm text-cream-muted">{m.rooms_casual()}</p>
+		{/if}
 		<PlayerList
 			players={session.players}
 			hostId={view.hostId}

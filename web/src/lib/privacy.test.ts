@@ -53,6 +53,32 @@ describe('static/privacy.html', () => {
 		}
 	});
 
+	it('explains public discovery and casual statistics in every language', () => {
+		for (const [locale, discovery, privateRooms, casual] of [
+			[
+				'en',
+				'Public room discovery',
+				'Private rooms are not listed',
+				'lifetime statistics are not recorded'
+			],
+			[
+				'es',
+				'buscador de salas públicas',
+				'Las salas privadas no aparecen',
+				'no se guardan estadísticas'
+			],
+			[
+				'nl',
+				'lijst met openbare kamers',
+				'Privékamers staan niet in deze lijst',
+				'levenslange statistieken worden niet bijgehouden'
+			]
+		]) {
+			const section = sections.find((s) => s.includes(`id="${locale}"`))!;
+			for (const fact of [discovery, privateRooms, casual]) expect(section).toContain(fact);
+		}
+	});
+
 	it('writes the brand exactly like the constant, and names the app in the title', () => {
 		for (const [found] of html.matchAll(/tutti\s+frutti/gi)) expect(found).toBe(BRAND);
 		expect(html).toMatch(new RegExp(`<title>[^<]*${BRAND}</title>`));

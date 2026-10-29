@@ -5,12 +5,12 @@ import (
 	"time"
 )
 
-// connectedParticipants returns the participants who are seated and
+// connectedParticipants returns the human participants who are seated and
 // connected: the electorate of the review votes.
 func (g *Game) connectedParticipants() map[string]bool {
 	out := map[string]bool{}
 	for _, id := range g.Round.Participants {
-		if p := g.seat(id); p != nil && p.Connected {
+		if p := g.seat(id); p != nil && p.Connected && !g.IsAutomated(id) {
 			out[id] = true
 		}
 	}
@@ -287,6 +287,7 @@ func (g *Game) rematch(host *Player) ([]Event, error) {
 		return nil, ErrWrongPhase
 	}
 	g.Players = slices.DeleteFunc(g.Players, func(p Player) bool { return p.Left })
+	g.Automated = slices.DeleteFunc(g.Automated, func(id string) bool { return g.seat(id) == nil })
 	for i := range g.Players {
 		g.Players[i].TotalScore = 0
 		g.Players[i].JoinedRound = 1

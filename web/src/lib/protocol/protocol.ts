@@ -35,8 +35,10 @@ Server -> client types: TypeState, TypeEvent, TypeError, TypePong.
  * lobby setting Settings.StopVote, RoundView.StopVote and the events stop_asked
  * and stop_rejected. A version 2 client would show a vote it cannot answer and
  * never offer the setting, so it must reload.
+ * Version 4 adds public casual rooms and authoritative review electorates.
+ * Older clients compute voting thresholds from all seats and must reload.
  */
-export const Version = 3;
+export const Version = 4;
 /**
  * TypePing is sent by clients every PingInterval (empty payload).
  */
@@ -125,6 +127,10 @@ export interface State {
    * shows the "ask the AI" button to the host only when it is set.
    */
   canJudge: boolean;
+  /**
+   * Visibility is private or public. Public games are casual (no lifetime stats).
+   */
+  visibility: string;
 }
 /**
  * Pong is the payload of TypePong.

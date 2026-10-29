@@ -64,6 +64,7 @@ const lobbyState = {
 	code: 'KT7P',
 	serverTime: 1_760_790_000_000,
 	canJudge: false,
+	visibility: 'private',
 	view: {
 		phase: 'lobby',
 		youId: 'guest-ana',
@@ -117,8 +118,8 @@ const lobbyState = {
 } satisfies State;
 
 describe('protocol constants', () => {
-	it('is protocol version 3 (vote to stop)', () => {
-		expect(proto.Version).toBe(3);
+	it('is protocol version 4 (public rooms and authoritative review electorate)', () => {
+		expect(proto.Version).toBe(4);
 	});
 
 	it('has the AI judge constants', () => {
@@ -326,6 +327,7 @@ describe('wire shapes', () => {
 			number: 1,
 			letter: 'M',
 			participants: ['guest-ana', 'guest-beto'],
+			reviewVoters: [],
 			answers: { 'guest-ana': ['Marta', '', '', '', '', ''] },
 			filled: { 'guest-ana': 1, 'guest-beto': 0 },
 			timeLimitEndsAt: '2026-10-18T12:03:00Z',
@@ -358,6 +360,7 @@ describe('wire shapes', () => {
 			number: 1,
 			letter: 'M',
 			participants: ['guest-ana', 'guest-beto'],
+			reviewVoters: [],
 			answers: {},
 			filled: {},
 			stopVote,

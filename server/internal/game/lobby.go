@@ -2,10 +2,38 @@ package game
 
 import (
 	"slices"
+	"strings"
 	"time"
+	"unicode"
 )
 
 const maxAvatarField = 32
+
+const automatedIDPrefix = "bot:"
+
+// AddAutomated adds a new server-controlled seat in the lobby. Only the trusted
+// room layer may call it. IDs must have the reserved bot: prefix, a non-empty
+// suffix and printable characters. Other Player fields follow normal join rules.
+// The seat is marked before joining so it cannot become host, even in an empty
+// lobby; a failed addition leaves neither a seat nor an automated marker behind.
+func (g *Game) AddAutomated(now time.Time, player Player) ([]Event, error) {
+	events := g.Tick(now)
+	if g.Phase != PhaseLobby {
+		return events, ErrWrongPhase
+	}
+	if !strings.HasPrefix(player.ID, automatedIDPrefix) || len(player.ID) == len(automatedIDPrefix) ||
+		strings.ContainsFunc(player.ID, func(r rune) bool { return !unicode.IsPrint(r) }) ||
+		g.IsAutomated(player.ID) || slices.ContainsFunc(g.Players, func(p Player) bool { return p.ID == player.ID }) {
+		return events, ErrUnknownPlayer
+	}
+	previous := g.Automated
+	g.Automated = append(g.Automated, player.ID)
+	if err := g.joinSeat(now, player.ID, Join{Name: player.Name, Avatar: player.Avatar}); err != nil {
+		g.Automated = previous
+		return events, err
+	}
+	return events, nil
+}
 
 // join seats a player. A brand-new player gets a new seat, created connected
 // at now (the room layer only calls Join for a live socket). A player who is
@@ -23,6 +51,13 @@ const maxAvatarField = 32
 // the final phase (ErrWrongPhase); they can once the host starts the rematch
 // lobby.
 func (g *Game) join(now time.Time, id string, c Join) error {
+	if strings.HasPrefix(id, automatedIDPrefix) || g.IsAutomated(id) {
+		return ErrNotParticipant
+	}
+	return g.joinSeat(now, id, c)
+}
+
+func (g *Game) joinSeat(now time.Time, id string, c Join) error {
 	if id == "" {
 		return ErrUnknownPlayer
 	}
@@ -74,7 +109,7 @@ func (g *Game) join(now time.Time, id string, c Join) error {
 
 // ensureHost makes id the host if the game has none (everybody had left).
 func (g *Game) ensureHost(id string) {
-	if g.HostID == "" {
+	if g.HostID == "" && !g.IsAutomated(id) {
 		g.HostID = id
 	}
 }
@@ -116,6 +151,7 @@ func (g *Game) dropPlayer(now time.Time, id string, kicked bool) []Event {
 	}
 	if g.Phase == PhaseLobby {
 		g.Players = slices.DeleteFunc(g.Players, func(p Player) bool { return p.ID == id })
+		g.Automated = slices.DeleteFunc(g.Automated, func(automated string) bool { return automated == id })
 	} else if p := g.seat(id); p != nil {
 		p.Left = true
 		p.Connected = false
@@ -127,14 +163,14 @@ func (g *Game) dropPlayer(now time.Time, id string, kicked bool) []Event {
 	return events
 }
 
-// electHost picks a new host among the seated players: the connected player
+// electHost picks a new host among the seated humans: the connected player
 // with the earliest ConnectedAt (ties by JoinedSeq). If nobody is connected
-// the earliest joiner is chosen. With no seated player the game has no host.
+// the earliest human joiner is chosen. With no seated human the game has no host.
 func (g *Game) electHost() []Event {
 	var best *Player
 	for i := range g.Players {
 		c := &g.Players[i]
-		if !c.Left && (best == nil || hostRank(c, best)) {
+		if !c.Left && !g.IsAutomated(c.ID) && (best == nil || hostRank(c, best)) {
 			best = c
 		}
 	}

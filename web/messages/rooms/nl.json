@@ -1,0 +1,20 @@
+{
+	"rooms_visibility": "Wie kan meedoen?",
+	"rooms_private": "Privé",
+	"rooms_public": "Openbaar",
+	"rooms_browse": "Spellen zoeken",
+	"rooms_title": "Openbare spellen",
+	"rooms_casual": "Vrijblijvend spel — levenslange statistieken worden niet bijgehouden",
+	"rooms_language": "Speltaal",
+	"rooms_all": "Alle",
+	"rooms_refresh": "Vernieuwen",
+	"rooms_loading": "Spellen zoeken…",
+	"rooms_empty": "Er wachten nu geen spellen",
+	"rooms_create": "Maak een openbaar spel",
+	"rooms_players": "{count}/{max} spelers",
+	"rooms_rounds": "{count} rondes",
+	"rooms_unlimited": "Onbeperkte rondes",
+	"rooms_time": "{seconds} s",
+	"rooms_no_timer": "Geen tijdslimiet",
+	"rooms_join": "Meedoen met {code}"
+}

@@ -26,6 +26,7 @@ const info = (over: Partial<RoomInfo> = {}): RoomInfo => ({
 	maxPlayers: 10,
 	lang: 'es',
 	joinable: true,
+	visibility: 'private',
 	...over
 });
 
@@ -35,6 +36,13 @@ function gate(load: (code: string) => Promise<RoomInfo>, onjoin = vi.fn()) {
 }
 
 describe('JoinGate', () => {
+	it('explains that public games are casual', async () => {
+		i18n.set('en');
+		gate(() => Promise.resolve(info({ visibility: 'public' })));
+		expect(
+			await screen.findByText('Casual game — lifetime statistics are not recorded')
+		).toBeTruthy();
+	});
 	beforeEach(() => {
 		i18n.set('es');
 		profile.setNickname('Ana');

@@ -13,14 +13,14 @@ func (g *Game) openStopVote() *StopVote {
 	return g.Round.StopVote
 }
 
-// stopElectorate returns the voters of v: the seated, connected participants
+// stopElectorate returns the voters of v: the seated, connected human participants
 // other than the asker, in join order (never nil). It is evaluated live, like
 // the review votes: someone who disconnects stops counting, someone who
 // reconnects counts again (their earlier "yes", if any, is still on record).
 func (g *Game) stopElectorate(v *StopVote) []string {
 	out := []string{}
 	for _, id := range g.Round.Participants {
-		if p := g.seat(id); id != v.CallerID && p != nil && p.Connected {
+		if p := g.seat(id); id != v.CallerID && p != nil && p.Connected && !g.IsAutomated(id) {
 			out = append(out, id)
 		}
 	}

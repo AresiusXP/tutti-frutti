@@ -26,6 +26,7 @@
 
 	let draft = $state(profile.nickname);
 	let code = $state('');
+	let visibility = $state<'private' | 'public'>('private');
 	/** The action in flight: its button shows progress and everything else is disabled meanwhile. */
 	let busy = $state<'create' | 'join' | null>(null);
 
@@ -50,6 +51,7 @@
 	// `/?login=failed|cancelled`: the OAuth callback could not sign the user in. Say so once, then
 	// clean the URL (the router is only ready after the first navigation).
 	afterNavigate(() => {
+		visibility = page.url.searchParams.get('visibility') === 'public' ? 'public' : 'private';
 		const reason = page.url.searchParams.get('login');
 		if (reason !== 'failed' && reason !== 'cancelled') return;
 		toasts.show(reason === 'failed' ? m.account_login_failed() : m.account_login_cancelled());
@@ -85,7 +87,8 @@
 			const created = await api.createRoom({
 				name: profile.nickname,
 				avatar: profile.avatar,
-				lang: i18n.locale
+				lang: i18n.locale,
+				visibility
 			});
 			await enter(created.code);
 		} catch (e) {
@@ -126,7 +129,7 @@
 	avatar) sits on top and the actions are anchored to the bottom.
 -->
 <main
-	class="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-3 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] tall:gap-4"
+	class="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-2 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] tall:gap-4"
 >
 	<header class="flex flex-col items-center gap-1 text-center">
 		<div class="flex w-full items-center justify-between gap-2">
@@ -173,24 +176,44 @@
 	</section>
 
 	<section class="mt-auto flex flex-col gap-2 tall:gap-3">
-		<Button
-			tone="banana"
-			disabled={!canCreate && busy !== 'create'}
-			aria-busy={busy === 'create'}
-			onclick={create}
-		>
-			{#if busy === 'create'}
-				{@render pending(m.home_create_pending())}
-			{:else}
-				{m.create_game()}
-			{/if}
-		</Button>
-
-		<div class="flex items-center gap-3 text-sm text-cream-muted" aria-hidden="true">
-			<span class="h-px flex-1 bg-night-3"></span>
-			<span class="font-bold uppercase">{m.join_divider()}</span>
-			<span class="h-px flex-1 bg-night-3"></span>
+		<div class="grid grid-cols-2 items-center gap-2">
+			<div
+				role="group"
+				aria-label={m.rooms_visibility()}
+				class="grid grid-cols-2 gap-1 rounded-2xl bg-night-2 p-1"
+			>
+				{#each ['private', 'public'] as option (option)}
+					<button
+						type="button"
+						disabled={busy !== null}
+						aria-pressed={visibility === option}
+						onclick={() => (visibility = option as 'private' | 'public')}
+						class="h-12 rounded-xl text-sm font-bold {visibility === option
+							? 'bg-night-3 text-banana'
+							: 'text-cream-muted'}"
+					>
+						{option === 'private' ? m.rooms_private() : m.rooms_public()}
+					</button>
+				{/each}
+			</div>
+			<Button
+				tone="banana"
+				size="md"
+				class="h-14! px-2! leading-tight"
+				disabled={!canCreate && busy !== 'create'}
+				aria-busy={busy === 'create'}
+				onclick={create}
+			>
+				{#if busy === 'create'}
+					{@render pending(m.home_create_pending())}
+				{:else}
+					{m.create_game()}
+				{/if}
+			</Button>
 		</div>
+		{#if visibility === 'public'}
+			<p class="text-center text-xs leading-tight text-cream-muted">{m.rooms_casual()}</p>
+		{/if}
 
 		<div class="flex flex-col gap-1">
 			<div class="flex flex-wrap items-baseline justify-between gap-x-2 px-1" aria-hidden="true">
@@ -200,18 +223,30 @@
 			<RoomCodeInput bind:value={code} describedby="code-hint" disabled={busy !== null} />
 		</div>
 
-		<Button
-			tone="strawberry"
-			disabled={!canJoin && busy !== 'join'}
-			aria-busy={busy === 'join'}
-			onclick={join}
-		>
-			{#if busy === 'join'}
-				{@render pending(m.home_join_pending())}
-			{:else}
-				{m.join_game()}
-			{/if}
-		</Button>
+		<div class="grid grid-cols-2 gap-2">
+			<Button
+				tone="strawberry"
+				size="md"
+				class="h-14! px-2! leading-tight"
+				disabled={!canJoin && busy !== 'join'}
+				aria-busy={busy === 'join'}
+				onclick={join}
+			>
+				{#if busy === 'join'}
+					{@render pending(m.home_join_pending())}
+				{:else}
+					{m.join_game()}
+				{/if}
+			</Button>
+			<button
+				type="button"
+				disabled={busy !== null}
+				onclick={() => goto(resolve('/rooms'))}
+				class="h-14 rounded-2xl bg-night-3 px-2 leading-tight font-bold text-cream disabled:opacity-50"
+			>
+				{m.rooms_browse()}
+			</button>
+		</div>
 
 		<!-- Account slot: reserved while the session loads so nothing jumps; empty when Google is off. -->
 		{#if account.status === 'loading'}

@@ -20,6 +20,14 @@ export class HomePage extends PageObject {
 		return this.button('create_game');
 	}
 
+	async setVisibility(visibility: 'private' | 'public'): Promise<void> {
+		const choice = this.page
+			.getByRole('group', { name: this.t('rooms_visibility'), exact: true })
+			.getByRole('button', { name: this.t(`rooms_${visibility}`), exact: true });
+		await choice.click();
+		await expect(choice).toHaveAttribute('aria-pressed', 'true');
+	}
+
 	get joinButton(): Locator {
 		return this.button('join_game');
 	}

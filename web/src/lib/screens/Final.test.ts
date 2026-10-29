@@ -22,6 +22,13 @@ const names = (el: HTMLElement | null) =>
 beforeEach(() => i18n.set('es'));
 
 describe('Final podium', () => {
+	it('shows the casual caption for public sessions', () => {
+		i18n.set('en');
+		const session = new FakeSession(reviewView({ phase: 'final' }));
+		session.visibility = 'public';
+		render(Final, { session });
+		expect(screen.getByText('Casual game — lifetime statistics are not recorded')).toBeTruthy();
+	});
 	it('crowns the winner and puts the top three on the podium', () => {
 		open();
 		expect(screen.getByText('¡Ganó Beto!')).toBeTruthy();

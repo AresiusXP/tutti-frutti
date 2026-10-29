@@ -3,7 +3,14 @@
  * `credentials: 'same-origin'` and the browser adds the `Origin` header the
  * server checks on unsafe methods. Failures are typed `ApiError`s.
  */
-import type { Avatar, Lang, Phase } from '$lib/protocol';
+import type {
+	CreateRoomRequest,
+	CreateRoomResponse,
+	Lang,
+	PublicRoomsResponse,
+	RoomInfo
+} from '$lib/protocol';
+export type { CreateRoomRequest, RoomInfo } from '$lib/protocol';
 
 /** Codes the UI knows how to explain (see `$lib/errors`); anything else is `unknown`. */
 export type ApiErrorCode =
@@ -39,23 +46,6 @@ export class ApiError extends Error {
 	}
 }
 
-/** `GET /api/rooms/{code}` (Go: `room.Info`). */
-export interface RoomInfo {
-	code: string;
-	phase: Phase;
-	players: number;
-	maxPlayers: number;
-	lang: Lang;
-	/** A new player could join right now (seat free, game not over, server not draining). */
-	joinable: boolean;
-}
-
-export interface CreateRoomRequest {
-	name: string;
-	avatar: Avatar;
-	lang: Lang;
-}
-
 export interface RequestOptions {
 	signal?: AbortSignal;
 }
@@ -64,7 +54,8 @@ export interface Api {
 	/** Makes sure the guest cookie exists (`GET /api/session`). */
 	ensureSession(opts?: RequestOptions): Promise<void>;
 	getRoom(code: string, opts?: RequestOptions): Promise<RoomInfo>;
-	createRoom(req: CreateRoomRequest, opts?: RequestOptions): Promise<{ code: string }>;
+	createRoom(req: CreateRoomRequest, opts?: RequestOptions): Promise<CreateRoomResponse>;
+	listRooms(lang?: Lang, opts?: RequestOptions): Promise<PublicRoomsResponse>;
 }
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -87,7 +78,10 @@ async function failure(res: Response): Promise<ApiError> {
 	}
 	// The status decides for rate limits and drain gaps, whatever a proxy put in the body.
 	code = STATUS_CODES[res.status] ?? (code || 'unknown');
-	const retryAfter = Number.parseInt(res.headers.get('Retry-After') ?? '', 10);
+	const retryHeader = res.headers.get('Retry-After') ?? '';
+	const retryAfter = /^\d+$/.test(retryHeader)
+		? Number(retryHeader)
+		: Math.max(0, Math.ceil((Date.parse(retryHeader) - Date.now()) / 1000));
 	return new ApiError(res.status, code, Number.isFinite(retryAfter) ? retryAfter : null);
 }
 
@@ -136,6 +130,12 @@ export function createApi(
 			}
 			return json<RoomInfo>(res);
 		},
+		async listRooms(lang, opts = {}) {
+			const res = await request(`/api/rooms${lang ? `?lang=${encodeURIComponent(lang)}` : ''}`, {
+				signal: opts.signal
+			});
+			return json<PublicRoomsResponse>(res);
+		},
 		async createRoom(req, opts = {}) {
 			const res = await request('/api/rooms', {
 				method: 'POST',
@@ -143,7 +143,7 @@ export function createApi(
 				body: JSON.stringify(req),
 				signal: opts.signal
 			});
-			return json<{ code: string }>(res);
+			return json<CreateRoomResponse>(res);
 		}
 	};
 }

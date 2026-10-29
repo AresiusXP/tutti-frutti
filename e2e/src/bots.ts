@@ -1,7 +1,6 @@
 import WebSocket from 'ws';
+import { Version as PROTOCOL_VERSION, type State } from '../../web/src/lib/protocol/protocol';
 import { BASE_URL, ORIGIN } from './env';
-
-const PROTOCOL_VERSION = 3;
 
 /**
  * A cheap player without a browser: its own guest cookie and one WebSocket that joins a room.
@@ -9,6 +8,10 @@ const PROTOCOL_VERSION = 3;
  */
 export class Bot {
 	#socket?: WebSocket;
+	#heartbeat?: ReturnType<typeof setInterval>;
+	state?: State;
+	readonly states: State[] = [];
+	serverTime = 0;
 	closeCode: number | undefined;
 	lastEvent: string | undefined;
 	/** The `code` of every `error` frame the server sent (e.g. `not_participant`). */
@@ -19,16 +22,24 @@ export class Bot {
 		private readonly cookie: string
 	) {}
 
-	static async join(code: string, name: string): Promise<Bot> {
-		const session = await fetch(`${BASE_URL}/api/session`);
-		const cookie = session.headers
-			.getSetCookie()
-			.map((c) => c.split(';')[0])
-			.find((c) => c?.startsWith('tf_guest='));
+	static async join(code: string, name: string, existingCookie?: string): Promise<Bot> {
+		let cookie = existingCookie;
+		if (!cookie) {
+			const session = await fetch(`${BASE_URL}/api/session`);
+			cookie = session.headers
+				.getSetCookie()
+				.map((c) => c.split(';')[0])
+				.find((c) => c?.startsWith('tf_guest='));
+		}
 		if (!cookie) throw new Error('the server did not hand out a guest cookie');
 		const bot = new Bot(name, cookie);
-		await bot.#connect(code);
-		return bot;
+		try {
+			await bot.#connect(code);
+			return bot;
+		} catch (error) {
+			bot.close();
+			throw error;
+		}
 	}
 
 	#connect(code: string): Promise<void> {
@@ -36,10 +47,10 @@ export class Bot {
 		const socket = new WebSocket(url, { headers: { Origin: ORIGIN, Cookie: this.cookie } });
 		this.#socket = socket;
 		return new Promise((resolve, reject) => {
-			const timer = setTimeout(
-				() => reject(new Error(`${this.name}: no state within 10 s`)),
-				10_000
-			);
+			const timer = setTimeout(() => {
+				this.close();
+				reject(new Error(`${this.name}: no state within 10 s`));
+			}, 10_000);
 			socket.on('open', () => {
 				socket.send(
 					JSON.stringify({
@@ -48,6 +59,7 @@ export class Bot {
 						d: { code, name: this.name, avatar: { emoji: '🍌', color: 'banana' } }
 					})
 				);
+				this.#heartbeat = setInterval(() => this.send('ping'), 20_000);
 			});
 			socket.on('message', (data) => {
 				const frame = JSON.parse(data.toString()) as {
@@ -55,8 +67,13 @@ export class Bot {
 					d?: { type?: string; code?: string };
 				};
 				if (frame.t === 'state') {
+					this.state = frame.d as unknown as State;
+					this.states.push(this.state);
+					this.serverTime = this.state.serverTime;
 					clearTimeout(timer);
 					resolve();
+				} else if (frame.t === 'pong') {
+					this.serverTime = (frame.d as unknown as { serverTime: number }).serverTime;
 				} else if (frame.t === 'event') {
 					this.lastEvent = frame.d?.type;
 				} else if (frame.t === 'error') {
@@ -67,6 +84,7 @@ export class Bot {
 			});
 			socket.on('close', (closeCode) => {
 				this.closeCode = closeCode;
+				clearInterval(this.#heartbeat);
 			});
 			socket.on('error', (error) => {
 				clearTimeout(timer);
@@ -81,6 +99,7 @@ export class Bot {
 	}
 
 	close(): void {
+		clearInterval(this.#heartbeat);
 		this.#socket?.close();
 	}
 }

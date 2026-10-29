@@ -2,20 +2,13 @@
  * Vote thresholds of the review. They mirror `server/internal/game/review.go`
  * exactly (the server is the authority; this is only for showing "1/2"):
  *
- *   - the electorate is every participant of the round that is seated (not
- *     `left`) and currently connected;
+ *   - the electorate comes directly from RoundView.reviewVoters;
  *   - a reject vote needs `yes * 2 > eligible`, where `eligible` is the
  *     electorate without the author; only votes of electors count, and an
  *     author's vote on their own answer never does;
  *   - a merge proposal needs `yes * 2 > electorate`; the proposer is a yes.
  */
-import type { Player, ProposalView, RejectVote } from '$lib/protocol';
-
-/** Participants that are seated and connected, in participant order. */
-export function electorate(participants: readonly string[], players: readonly Player[]): string[] {
-	const online = new Set(players.filter((p) => !p.left && p.connected).map((p) => p.id));
-	return participants.filter((id) => online.has(id));
-}
+import type { ProposalView, RejectVote } from '$lib/protocol';
 
 /** Smallest number of yes votes that is a strict majority of `voters`. */
 export function majority(voters: number): number {
@@ -38,14 +31,12 @@ export interface RejectTally {
 }
 
 export function rejectTally(
-	participants: readonly string[],
-	players: readonly Player[],
+	electors: readonly string[],
 	rejectVotes: readonly RejectVote[],
 	category: number,
 	target: string,
 	viewer?: string
 ): RejectTally {
-	const electors = electorate(participants, players);
 	const eligible = electors.length - (electors.includes(target) ? 1 : 0);
 	const forTarget = rejectVotes.filter((v) => v.category === category && v.target === target);
 	const counting = new Set(
@@ -77,11 +68,10 @@ export interface MergeTally {
 
 export function mergeTally(
 	proposal: ProposalView,
-	participants: readonly string[],
-	players: readonly Player[],
+	reviewVoters: readonly string[],
 	viewer?: string
 ): MergeTally {
-	const total = electorate(participants, players).length;
+	const total = reviewVoters.length;
 	const mine = proposal.votes.find((v) => v.voter === viewer);
 	return {
 		yes: proposal.yes,

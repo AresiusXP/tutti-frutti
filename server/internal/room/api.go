@@ -17,6 +17,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/AresiusXP/tutti-frutti/server/internal/api"
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
 	"github.com/AresiusXP/tutti-frutti/server/internal/judge"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
@@ -90,6 +91,20 @@ type Config struct {
 	// Judge is the AI judge of the review; nil turns the feature off (the
 	// host is not offered the button and ask_judge is refused).
 	Judge Judge
+	// BotsEnabled permits new automated seats in eligible public lobbies.
+	// Existing seats keep playing when disabled. Default false.
+	BotsEnabled bool
+	// Filling delays are measured from uninterrupted loneliness (20–30s and
+	// 40–55s by default), rather than from the preceding addition.
+	BotFirstDelayMin  time.Duration
+	BotFirstDelayMax  time.Duration
+	BotSecondDelayMin time.Duration
+	BotSecondDelayMax time.Duration
+	// MaxBots defaults to 2 and is capped at 2.
+	MaxBots int
+	// BotRand returns a value in [0,n). Calls are serialized by the hub, so an
+	// injected deterministic source need not be safe for concurrent use.
+	BotRand func(n int) int
 }
 
 // Judge answers whether the answers of a category are valid examples of it.
@@ -110,18 +125,16 @@ type CreateRequest struct {
 	Avatar game.Avatar
 	// Lang is the lobby language; empty means game.DefaultSettings().Lang.
 	Lang game.Lang
+	// Visibility is immutable: empty means private; private/public are valid.
+	Visibility string
 }
 
 // Info is the public summary of a room (GET /api/rooms/{code}).
-type Info struct {
-	Code       string     `json:"code"`
-	Phase      game.Phase `json:"phase"`
-	Players    int        `json:"players"`
-	MaxPlayers int        `json:"maxPlayers"`
-	Lang       game.Lang  `json:"lang"`
-	// Joinable is true when a new player could join right now (a seat is free,
-	// the game is not over, the hub is not shutting down).
-	Joinable bool `json:"joinable"`
+type Info = api.RoomInfo
+
+// PublicRoomLister is optional so transports can keep using Rooms test doubles.
+type PublicRoomLister interface {
+	PublicRooms(lang game.Lang) []api.PublicRoom
 }
 
 // Client is one live WebSocket connection, implemented by the transport. The
