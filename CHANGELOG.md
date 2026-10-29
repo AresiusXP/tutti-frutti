@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.3.1...v1.4.0) (2026-10-29)
+
+
+### Features
+
+* add public games and automated opponents ([00a8e4c](https://github.com/AresiusXP/tutti-frutti/commit/00a8e4cf0308c215c265037d9dab27dec4b5f021))
+
 ## [1.3.1](https://github.com/AresiusXP/tutti-frutti/compare/v1.3.0...v1.3.1) (2026-10-27)
 
 
