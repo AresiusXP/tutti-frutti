@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.4.0...v1.5.0) (2026-10-30)
+
+
+### Features
+
+* **helm:** autoscale the web deployment with an HPA ([a195f6e](https://github.com/AresiusXP/tutti-frutti/commit/a195f6e929cd17f6157987541a954846fd3cdb56))
+
 ## [1.4.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.3.1...v1.4.0) (2026-10-29)
 
 
