@@ -12,12 +12,13 @@ import {
 	EXPECTED_PACKAGE,
 	findMergedManifest,
 	parseArgs,
-	parseXml
+	parseXml,
+	REQUIRED_COMPONENTS
 } from './audit-manifest.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const script = path.join(here, 'audit-manifest.mjs');
-// The merged RELEASE manifest of a real `./gradlew bundleRelease` (versionName 1.4.0, code 1).
+// The merged RELEASE manifest of a real `./gradlew bundleRelease` (versionName 1.6.0, code 1).
 const GOOD = readFileSync(path.join(here, 'fixtures', 'merged-release.xml'), 'utf8');
 
 function mutate(search, replacement) {
@@ -34,6 +35,22 @@ test('the real merged manifest passes', () => {
 	assert.deepEqual(summary.permissions, ALLOWED_PERMISSIONS);
 	assert.deepEqual([...summary.exported].sort(), [...ALLOWED_EXPORTED].sort());
 	assert.equal(summary.webFilters.length, 1);
+});
+
+test('a missing ManageDataLauncherActivity fails: the app would crash on launch', () => {
+	const name = 'com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity';
+	assert.ok(REQUIRED_COMPONENTS.includes(name));
+	const without = mutate(`android:name="${name}"`, 'android:name="com.example.Other"');
+	assert.ok(errorsOf(without).some((e) => e.includes(name) && e.includes('crash')));
+});
+
+test('ManageDataLauncherActivity declared as something other than an <activity> fails too', () => {
+	const name = 'com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity';
+	const start = GOOD.indexOf(`<activity\n            android:name="${name}"`);
+	assert.ok(start >= 0, 'fixture declares the activity on its own line');
+	const end = GOOD.indexOf('</activity>', start) + '</activity>'.length;
+	const asService = GOOD.slice(0, start) + `<service android:name="${name}" android:exported="false" />` + GOOD.slice(end);
+	assert.ok(errorsOf(asService).some((e) => e.includes(name)));
 });
 
 test('parseXml reads attributes, comments and self-closing elements', () => {
@@ -162,8 +179,8 @@ test('the shortcut trampoline of androidbrowserhelper must stay removed', () => 
 });
 
 test('version expectations', () => {
-	assert.deepEqual(errorsOf(GOOD, { expectVersionName: '1.4.0', expectVersionCode: 1 }), []);
-	assert.match(errorsOf(GOOD, { expectVersionName: '1.5.0' }).join('\n'), /versionName is "1.4.0", expected "1.5.0"/);
+	assert.deepEqual(errorsOf(GOOD, { expectVersionName: '1.6.0', expectVersionCode: 1 }), []);
+	assert.match(errorsOf(GOOD, { expectVersionName: '1.5.0' }).join('\n'), /versionName is "1.6.0", expected "1.5.0"/);
 	assert.match(errorsOf(GOOD, { expectVersionCode: 2 }).join('\n'), /versionCode is "1", expected "2"/);
 });
 
@@ -212,7 +229,7 @@ function cli(args, manifestText) {
 }
 
 test('CLI: exit 0 with a summary on a good manifest', () => {
-	const result = cli(['--expect-version-name', '1.4.0', '--expect-version-code', '1'], GOOD);
+	const result = cli(['--expect-version-name', '1.6.0', '--expect-version-code', '1'], GOOD);
 	assert.equal(result.status, 0, result.stderr);
 	assert.match(result.stdout, /permissions: xyz\.aresius\.tuttifrutti\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION/);
 	assert.match(result.stdout, /audit-manifest: OK/);

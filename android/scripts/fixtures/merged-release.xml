@@ -23,7 +23,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="xyz.aresius.tuttifrutti"
     android:versionCode="1"
-    android:versionName="1.4.0" >
+    android:versionName="1.6.0" >
 
     <uses-sdk
         android:minSdkVersion="29"
@@ -53,6 +53,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/appName"
+        android:manageSpaceActivity="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Translucent.NoTitleBar" >
         <meta-data
@@ -139,6 +140,22 @@
             </intent-filter>
         </activity>
         <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
+
+        <!--
+             REQUIRED, do not remove: androidbrowserhelper's LauncherActivity.onCreate always adds a
+             "Site settings" launcher shortcut pointing at this activity, and Android throws
+             (IllegalArgumentException: component does not exist) if it is not declared, so the app
+             closes before anything shows. It also backs "Manage space" in the Android app settings
+             (android:manageSpaceActivity): it opens the browser's settings for the site's own data.
+             Not exported; scripts/audit-manifest.mjs fails the build if it is missing.
+        -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
+            android:exported="false" >
+            <meta-data
+                android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
+                android:value="@string/launchUrl" />
+        </activity>
 
         <provider
             android:name="androidx.core.content.FileProvider"

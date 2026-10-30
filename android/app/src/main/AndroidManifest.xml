@@ -27,6 +27,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/appName"
+        android:manageSpaceActivity="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Translucent.NoTitleBar">
 
@@ -122,6 +123,20 @@
         </activity>
 
         <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
+
+        <!-- REQUIRED, do not remove: androidbrowserhelper's LauncherActivity.onCreate always adds a
+             "Site settings" launcher shortcut pointing at this activity, and Android throws
+             (IllegalArgumentException: component does not exist) if it is not declared, so the app
+             closes before anything shows. It also backs "Manage space" in the Android app settings
+             (android:manageSpaceActivity): it opens the browser's settings for the site's own data.
+             Not exported; scripts/audit-manifest.mjs fails the build if it is missing. -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
+            android:exported="false">
+            <meta-data
+                android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
+                android:value="@string/launchUrl" />
+        </activity>
 
         <!-- androidbrowserhelper adds these two for static shortcuts, which the app does not have.
              The trampoline is exported and would open any same-origin URL, bypassing

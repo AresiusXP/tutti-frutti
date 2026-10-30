@@ -10,7 +10,9 @@
 //      restrictions (path, pathPattern) and none of them is a catch-all (pathPrefix, ".*", ...)
 //   5. only the allow-listed components are exported (a library upgrade must not silently add
 //      an exported component that can open URLs)
-//   6. optionally the versionName/versionCode match the expected ones
+//   6. the components androidbrowserhelper needs at runtime are declared (REQUIRED_COMPONENTS):
+//      a missing one crashes the app on launch, which no unit test sees
+//   7. optionally the versionName/versionCode match the expected ones
 //
 // Usage:
 //   node scripts/audit-manifest.mjs [MANIFEST] [--variant release]
@@ -49,6 +51,15 @@ export const ALLOWED_EXPORTED = [
 	'androidx.profileinstaller.ProfileInstallReceiver',
 	`${EXPECTED_PACKAGE}.DelegationService`
 ];
+
+/**
+ * Components the app cannot start without.
+ *  - ManageDataLauncherActivity: androidbrowserhelper's LauncherActivity.onCreate always calls
+ *    ManageDataLauncherActivity.addSiteSettingsShortcut(), which registers a launcher shortcut for
+ *    this component. Android throws "Component class ... does not exist" when it is not declared and
+ *    the app closes before anything shows (seen on Android 15). Not exported.
+ */
+export const REQUIRED_COMPONENTS = ['com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity'];
 
 const COMPONENT_TAGS = new Set(['activity', 'activity-alias', 'service', 'receiver', 'provider']);
 const PATH_ATTRIBUTES = ['android:path', 'android:pathPattern', 'android:pathPrefix', 'android:pathAdvancedPattern', 'android:pathSuffix'];
@@ -152,6 +163,14 @@ export function auditManifest(text, options = {}) {
 			if (!ALLOWED_EXPORTED.includes(name)) {
 				errors.push(`<${component.name} ${name}> is exported but not in the allow-list (${ALLOWED_EXPORTED.join(', ')})`);
 			}
+		}
+	}
+
+	// Activities only: the library looks the component up as an activity, a <service> of that name would not do.
+	const declared = childrenNamed(application, 'activity').map((component) => component.attrs['android:name']);
+	for (const name of REQUIRED_COMPONENTS) {
+		if (!declared.includes(name)) {
+			errors.push(`<activity ${name}> is missing: androidbrowserhelper needs it at launch (the app would crash on start)`);
 		}
 	}
 

@@ -225,6 +225,21 @@ without a device:
 must list `xyz.aresius.tuttifrutti` with the app-signing SHA-256. Also open
 `https://tuttifrutti.aresius.xyz/.well-known/assetlinks.json` in a browser (HTTP 200, JSON, no redirect).
 
+### Smoke test on an emulator (no phone needed)
+
+Run this after every change to the manifest or to `androidbrowserhelper`: a missing component crashes the app
+before anything shows, which unit tests and lint do not catch (it happened once: `ManageDataLauncherActivity`).
+
+```bash
+sdkmanager "emulator" "system-images;android-35;google_apis_playstore;arm64-v8a"   # x86_64 on Intel
+avdmanager create avd -n tf35 -k "system-images;android-35;google_apis_playstore;arm64-v8a"
+emulator -avd tf35 -no-window -no-audio -no-snapshot &
+adb wait-for-device && adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb logcat -c && adb shell am start -W -n xyz.aresius.tuttifrutti/.LauncherActivity
+adb logcat -d | grep -E "FATAL|TWAProviderPicker"   # expect no FATAL and "Found TWA provider"
+adb shell dumpsys activity activities | grep topResumedActivity   # Chrome (first run, then the custom tab)
+```
+
 ## 9. Debug builds and the fallback
 
 A debug APK is signed with the debug keystore, whose fingerprint is not in `assetlinks.json`, so Chrome cannot
