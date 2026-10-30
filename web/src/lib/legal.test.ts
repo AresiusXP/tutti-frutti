@@ -53,29 +53,49 @@ const QUOTED_LABELS: Record<(typeof PAGES)[number]['name'], string[]> = {
 };
 
 /**
- * Argentina's Ley 25.326 is stricter than the GDPR's one month: access within 10 days (art. 14),
- * correction or deletion within 5 business days (art. 16), and no two-month extension. Every page
- * that names a deadline for data requests says so, and the extension always excludes Argentina.
+ * Deadlines for data requests and for deleting an account by email, the same on all three pages:
+ * without undue delay, at the latest one month; two more months for a complex request only where
+ * the law allows it, never in Argentina, whose Ley 25.326 is stricter: access within 10 days
+ * (art. 14), correction or deletion within 5 business days (art. 16).
  */
-const ARGENTINA: Record<
+const DEADLINES: Record<
 	string,
-	{ access: string; fix: string; extension: string; notInArgentina: string }
+	{ agreed: string[]; access: string; extension: string; notInArgentina: string }
 > = {
 	en: {
+		// lower case: some pages start a sentence with them
+		agreed: [
+			'without undue delay',
+			'at the latest within one month',
+			'where the law allows it (not in argentina), a complex request can take two more months',
+			'we tell you within the first month',
+			'within 5 business days'
+		],
 		access: 'within 10 days for access to your data',
-		fix: 'within 5 business days',
 		extension: 'two more months',
 		notInArgentina: '(not in Argentina)'
 	},
 	es: {
+		agreed: [
+			'sin demoras indebidas',
+			'como máximo dentro de un mes',
+			'donde la ley lo permite (no en argentina), un pedido complejo puede llevar dos meses más',
+			'en ese caso te avisamos dentro del primer mes',
+			'dentro de los 5 días hábiles'
+		],
 		access: 'dentro de los 10 días para acceder a tus datos',
-		fix: 'dentro de los 5 días hábiles',
 		extension: 'dos meses más',
 		notInArgentina: '(no en Argentina)'
 	},
 	nl: {
+		agreed: [
+			'zonder onnodige vertraging',
+			'uiterlijk binnen een maand',
+			'waar de wet het toelaat (niet in argentinië), kan een ingewikkeld verzoek twee maanden langer duren',
+			'dan laten we je dat binnen de eerste maand weten',
+			'binnen 5 werkdagen'
+		],
 		access: 'binnen 10 dagen voor inzage in je gegevens',
-		fix: 'binnen 5 werkdagen',
 		extension: 'twee maanden langer',
 		notInArgentina: '(niet in Argentinië)'
 	}
@@ -311,17 +331,20 @@ describe.each(PAGES)('$file (a legal page)', ({ name, file, path }) => {
 			expect(textOf(sections[locale]), locale).not.toMatch(STALE[locale]);
 	});
 
-	it('never promises Argentine residents a longer deadline than Ley 25.326 allows', () => {
+	it('states the same deadlines for data requests as the other legal pages, the stricter ones of Ley 25.326 for Argentina', () => {
 		for (const locale of locales) {
 			const text = textOf(sections[locale]);
-			const { access, fix, extension, notInArgentina } = ARGENTINA[locale];
+			const { agreed, access, extension, notInArgentina } = DEADLINES[locale];
 			expect(text, locale).toContain('Ley 25.326');
-			expect(text, `${locale}: ${fix}`).toContain(fix);
+			for (const phrase of agreed)
+				expect(text.toLowerCase(), `${locale}: ${phrase}`).toContain(phrase);
 			// the deletion page only handles deletion; the other two also cover access requests
 			if (name !== 'delete-account') expect(text, `${locale}: ${access}`).toContain(access);
-			// the two-month extension, wherever it is offered, leaves Argentina out in the same sentence
-			for (const sentence of text.split(/(?<=[.;])\s/).filter((s) => s.includes(extension)))
-				expect(sentence, locale).toContain(notInArgentina);
+			// every page offers the two-month extension (the terms for data requests and for deletion by
+			// email), and always leaves Argentina out in the same sentence: no absolute promise elsewhere
+			const offered = text.split(/(?<=[.;])\s/).filter((s) => s.includes(extension));
+			expect(offered.length, locale).toBeGreaterThanOrEqual(name === 'terms' ? 2 : 1);
+			for (const sentence of offered) expect(sentence, locale).toContain(notInArgentina);
 		}
 	});
 
@@ -490,8 +513,8 @@ describe('static/terms.html', () => {
 				'we act within 24 hours of seeing them',
 				'we confirm we received them within 3 days and decide within 7 days',
 				'Appeals: we answer within 14 days',
-				'Requests about your data: without undue delay, at the latest within one month; if you live in Argentina, within 10 days for access to your data and within 5 business days for correction or deletion (Ley 25.326, arts. 14 and 16',
-				'Deleting an account by email: within one month at the latest after you have shown that it is yours; if you live in Argentina, within 5 business days',
+				'Requests about your data: without undue delay, at the latest within one month; where the law allows it (not in Argentina), a complex request can take two more months, and if so we tell you within the first month; if you live in Argentina, within 10 days for access to your data and within 5 business days for correction or deletion (Ley 25.326, arts. 14 and 16',
+				'Deleting an account by email: we answer without undue delay, at the latest within one month; where the law allows it (not in Argentina), a complex request can take two more months, and if so we tell you within the first month. Once you have shown that the account is yours, we delete it within one month at the latest. If you live in Argentina, we answer within 5 business days and delete it within 5 business days after you have shown that it is yours (Ley 25.326, art. 16)',
 				'Any other message: we confirm we received it within 7 days',
 				'call 112 (EU and the Netherlands) or 911 (Argentina)',
 				"When we learn of a threat to someone's life or safety, we report it to the police"
@@ -503,8 +526,8 @@ describe('static/terms.html', () => {
 				'actuamos dentro de las 24 horas desde que los vemos',
 				'confirmamos que los recibimos dentro de los 3 días y decidimos dentro de los 7 días',
 				'Apelaciones: respondemos dentro de los 14 días',
-				'Pedidos sobre tus datos: sin demoras indebidas y como máximo dentro de un mes; si vivís en Argentina, dentro de los 10 días para acceder a tus datos y dentro de los 5 días hábiles para corregirlos o eliminarlos (Ley 25.326, arts. 14 y 16',
-				'Eliminar una cuenta por correo: como máximo dentro de un mes desde que demostrás que es tuya; si vivís en Argentina, dentro de los 5 días hábiles',
+				'Pedidos sobre tus datos: sin demoras indebidas y como máximo dentro de un mes; donde la ley lo permite (no en Argentina), un pedido complejo puede llevar dos meses más, y en ese caso te avisamos dentro del primer mes; si vivís en Argentina, dentro de los 10 días para acceder a tus datos y dentro de los 5 días hábiles para corregirlos o eliminarlos (Ley 25.326, arts. 14 y 16',
+				'Eliminar una cuenta por correo: te respondemos sin demoras indebidas y como máximo dentro de un mes; donde la ley lo permite (no en Argentina), un pedido complejo puede llevar dos meses más, y en ese caso te avisamos dentro del primer mes. Una vez que demostraste que la cuenta es tuya, la eliminamos como máximo dentro de un mes. Si vivís en Argentina, te respondemos dentro de los 5 días hábiles y eliminamos la cuenta dentro de los 5 días hábiles desde que demostrás que es tuya (Ley 25.326, art. 16)',
 				'Cualquier otro mensaje: te confirmamos que lo recibimos dentro de los 7 días',
 				'llamá al 112 (UE y Países Bajos) o al 911 (Argentina)',
 				'Cuando nos enteramos de una amenaza contra la vida o la seguridad de alguien, la denunciamos a la policía'
@@ -516,8 +539,8 @@ describe('static/terms.html', () => {
 				'we handelen binnen 24 uur nadat we ze hebben gezien',
 				'we bevestigen de ontvangst binnen 3 dagen en beslissen binnen 7 dagen',
 				'Bezwaren: we antwoorden binnen 14 dagen',
-				'Verzoeken over je gegevens: zonder onnodige vertraging en uiterlijk binnen een maand; woon je in Argentinië, dan binnen 10 dagen voor inzage in je gegevens en binnen 5 werkdagen voor correctie of verwijdering (Ley 25.326, art. 14 en 16',
-				'Een account per e-mail verwijderen: uiterlijk binnen een maand nadat je hebt aangetoond dat het van jou is; woon je in Argentinië, dan binnen 5 werkdagen',
+				'Verzoeken over je gegevens: zonder onnodige vertraging en uiterlijk binnen een maand; waar de wet het toelaat (niet in Argentinië), kan een ingewikkeld verzoek twee maanden langer duren, en dan laten we je dat binnen de eerste maand weten; woon je in Argentinië, dan binnen 10 dagen voor inzage in je gegevens en binnen 5 werkdagen voor correctie of verwijdering (Ley 25.326, art. 14 en 16',
+				'Een account per e-mail verwijderen: we antwoorden zonder onnodige vertraging en uiterlijk binnen een maand; waar de wet het toelaat (niet in Argentinië), kan een ingewikkeld verzoek twee maanden langer duren, en dan laten we je dat binnen de eerste maand weten. Zodra je hebt aangetoond dat het account van jou is, verwijderen we het uiterlijk binnen een maand. Woon je in Argentinië, dan antwoorden we binnen 5 werkdagen en verwijderen we het account binnen 5 werkdagen nadat je hebt aangetoond dat het van jou is (Ley 25.326, art. 16)',
 				'Elk ander bericht: we bevestigen binnen 7 dagen dat we het hebben ontvangen',
 				'bel dan 112 (EU en Nederland) of 911 (Argentinië)',
 				'Horen we van een bedreiging van iemands leven of veiligheid, dan melden we dat bij de politie'
