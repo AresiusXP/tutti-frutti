@@ -1,4 +1,9 @@
-import { expect, type BrowserContext, type Page } from '@playwright/test';
+import {
+	expect,
+	type BrowserContext,
+	type BrowserContextOptions,
+	type Page
+} from '@playwright/test';
 import { msg, msgPattern, type Locale, type Params } from './messages';
 import type { Network } from './network';
 import { ClosedPage } from './pages/closed';
@@ -42,6 +47,11 @@ export interface PlayerOptions {
 	 * before the first create / join (`19-terms-gate.spec.ts`).
 	 */
 	acceptTerms?: boolean;
+	/**
+	 * Cookies and localStorage of an earlier context (`context.storageState()`): the same browser profile
+	 * after its process was killed. sessionStorage is never part of it, so the tab starts fresh.
+	 */
+	storageState?: BrowserContextOptions['storageState'];
 }
 
 /** One player = one browser context (own cookies/storage, so own guest id) with one tab. */

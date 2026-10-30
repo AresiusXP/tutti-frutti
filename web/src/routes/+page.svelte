@@ -21,6 +21,7 @@
 	import { capNickname, NICKNAME_MAX, normalizeNickname } from '$lib/nickname';
 	import { m } from '$lib/paraglide/messages';
 	import { profile } from '$lib/profile.svelte';
+	import ResumeCard from '$lib/resume/ResumeCard.svelte';
 	import { isCompleteRoomCode } from '$lib/roomCode';
 	import LegalButton from '$lib/safety/LegalButton.svelte';
 	import { DECLINED, terms } from '$lib/safety/terms.svelte';
@@ -33,6 +34,8 @@
 	let busy = $state<'create' | 'join' | null>(null);
 
 	let signingOut = $state(false);
+	/** "Resume recent game" is on screen: a short phone drops the tagline to keep Home on one screen. */
+	let resumeShown = $state(false);
 
 	const canCreate = $derived(profile.nickname.length > 0 && busy === null);
 	const canJoin = $derived(canCreate && isCompleteRoomCode(code));
@@ -80,6 +83,11 @@
 	async function enter(target: string) {
 		markRoom(target);
 		await goto(resolve('/[code=roomcode]', { code: target }));
+	}
+
+	/** "Resume recent game": the same intent as Join, minus the lookup (the room route and the server decide). */
+	function resume(target: string) {
+		if (busy === null) void enter(target);
 	}
 
 	async function create() {
@@ -145,7 +153,13 @@
 			</div>
 		</div>
 		<Wordmark />
-		<p class="max-w-xs text-base leading-snug text-cream-muted tall:text-lg">{m.tagline()}</p>
+		<p
+			class="max-w-xs text-base leading-snug text-cream-muted tall:text-lg {resumeShown
+				? 'hidden tall:block'
+				: ''}"
+		>
+			{m.tagline()}
+		</p>
 	</header>
 
 	<section class="flex flex-col gap-2 rounded-3xl bg-night-2/80 p-2 ring-1 ring-night-3">
@@ -182,6 +196,7 @@
 	</section>
 
 	<section class="mt-auto flex flex-col gap-2 tall:gap-3">
+		<ResumeCard onresume={resume} onshown={() => (resumeShown = true)} />
 		<div class="grid grid-cols-2 items-center gap-2">
 			<div
 				role="group"

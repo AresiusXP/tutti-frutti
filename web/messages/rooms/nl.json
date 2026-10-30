@@ -16,5 +16,6 @@
 	"rooms_unlimited": "Onbeperkte rondes",
 	"rooms_time": "{seconds} s",
 	"rooms_no_timer": "Geen tijdslimiet",
-	"rooms_join": "Meedoen met {code}"
+	"rooms_join": "Meedoen met {code}",
+	"rooms_resume": "Recent spel hervatten"
 }

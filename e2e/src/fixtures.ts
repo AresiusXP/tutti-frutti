@@ -72,7 +72,8 @@ export class App {
 			permissions: [],
 			...(options.viewport ? { viewport: options.viewport } : {}),
 			...(options.reducedMotion ? { reducedMotion: 'reduce' as const } : {}),
-			...(options.serviceWorkers ? { serviceWorkers: options.serviceWorkers } : {})
+			...(options.serviceWorkers ? { serviceWorkers: options.serviceWorkers } : {}),
+			...(options.storageState ? { storageState: options.storageState } : {})
 		});
 		this.#contexts.push(context);
 		this.guard.attach(context, name);

@@ -224,3 +224,20 @@ export async function quickRound(opts: {
 	const chooser = await chooserStops(opts.everyone, { delayMs: opts.delayMs });
 	return { ...(await playOutRound(opts)), chooser };
 }
+
+/**
+ * "The browser process was killed" (Android does that to a backgrounded browser): the same browser profile
+ * comes back with its cookies (the guest id) and localStorage, but every tab's sessionStorage is gone. The old
+ * context is closed first, so nothing is left to hold or replace the seat. Returns the player of the new context
+ * (same name and language, nothing visited yet).
+ */
+export async function relaunchBrowser(app: App, player: Player): Promise<Player> {
+	const storageState = await player.context.storageState();
+	await player.context.close();
+	return app.player(player.name, {
+		locale: player.locale,
+		storageState,
+		// the guest already accepted the terms with the cookie that comes back
+		acceptTerms: false
+	});
+}

@@ -16,5 +16,6 @@
 	"rooms_unlimited": "Unlimited rounds",
 	"rooms_time": "{seconds} s",
 	"rooms_no_timer": "No timer",
-	"rooms_join": "Join {code}"
+	"rooms_join": "Join {code}",
+	"rooms_resume": "Resume recent game"
 }

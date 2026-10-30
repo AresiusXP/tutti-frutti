@@ -13,6 +13,7 @@
 	import type { RoomSession } from '$lib/game/session';
 	import { profile } from '$lib/profile.svelte';
 	import { holdReload } from '$lib/pwa/update.svelte';
+	import { clearRecentRoom, loadRecentRoom, rememberRecentRoom } from '$lib/resume/recent';
 	import { blocks } from '$lib/safety/blocks.svelte';
 	import { terms } from '$lib/safety/terms.svelte';
 	import RoomScreen from '$lib/screens/RoomScreen.svelte';
@@ -96,11 +97,33 @@
 	/** "Block and leave" is in flight or done: however the socket closed, the player simply goes Home. */
 	const blockedAway = $derived(session?.status === 'closed' && blocks.expecting === code);
 
-	// Leaving, being kicked, a vanished room or a refused join: this tab no longer "is in" the room.
+	// A seat the server just confirmed (the first state of a connection): the game "Resume recent game" on Home
+	// offers when this browser's process dies and the per-tab marker is lost. Only the code and the instance id.
+	$effect(() => {
+		if (session?.status !== 'connected') return;
+		const instance = session.roomInstanceId;
+		if (instance) rememberRecentRoom(code, instance);
+	});
+
+	// The instance the slot held for this code when the route opened (the room "Resume recent game" brought us
+	// to). A session that closes before its first state (a refused join, a vanished room) has no instance id of
+	// its own; this one stands in for it, so the ending of this attempt never erases the entry another tab wrote
+	// for a newer room that reuses the code. With neither, this tab has no claim on the slot and leaves it alone.
+	const instanceAtOpen = ((): string | null => {
+		const held = loadRecentRoom();
+		return held && held.code === code ? held.roomInstanceId : null;
+	})();
+
+	// Leaving, being kicked, a vanished room or a refused join: this tab no longer "is in" the room, and there is
+	// nothing to resume. (`replaced` and a new version keep both: the seat is still ours, a reload comes back.)
 	$effect(() => {
 		if (session?.status !== 'closed') return;
 		const reason = session.closedReason;
-		if (reason !== 'replaced' && reason !== 'unsupported_version') clearRoomMark(code);
+		if (reason !== 'replaced' && reason !== 'unsupported_version') {
+			clearRoomMark(code);
+			const instance = session.roomInstanceId ?? instanceAtOpen;
+			if (instance) clearRecentRoom({ code, roomInstanceId: instance });
+		}
 		// A sheet that was open (the leave confirmation) pops its history entry as it goes away; a goto() that
 		// started before that pop arrived would be cancelled by it, so Home waits for it.
 		if (reason === 'left' || blockedAway) void historySettled().then(() => goto(resolve('/')));

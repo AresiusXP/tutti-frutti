@@ -62,6 +62,13 @@ Key files: `android/app/build.gradle` (configuration), `android/app/src/main/And
   `false`, on a web intent-filter without exact path restrictions or with a catch-all, and on any
   exported component outside its allow-list.
 
+### Resume after the browser process dies
+
+Android may kill the browser that hosts the TWA while it is in the background; the per-tab room marker is lost with it.
+The web app keeps one recent room in `localStorage['tf.recentRoom']` (`{code, roomInstanceId, lastJoinedAt}`, 24 h) and Home
+offers **Resume recent game** (DESIGN.md, 9a). It never takes a seat on its own and never stores answer drafts: what the
+server already received survives, **text typed but not sent can be lost** when the process dies.
+
 ## 4. Local setup
 
 Requirements: JDK 17 (Temurin), the Android SDK, Node 24 (scripts only).

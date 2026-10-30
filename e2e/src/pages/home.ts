@@ -42,6 +42,15 @@ export class HomePage extends PageObject {
 		return this.page.getByRole('link', { name: this.t('support_link') });
 	}
 
+	/** "Resume recent game" with the room code: only offered when this browser remembers a game that still exists. */
+	resumeButton(code?: string): Locator {
+		const label = this.t('rooms_resume');
+		return this.page.getByRole('button', {
+			name: code ? `${label} ${code}` : new RegExp(`^${label}`),
+			exact: code ? true : undefined
+		});
+	}
+
 	codeBox(index: number): Locator {
 		return this.page.getByRole('textbox', {
 			name: this.t('code_char_label', { n: index + 1, total: 4 }),

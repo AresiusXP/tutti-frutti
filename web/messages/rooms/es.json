@@ -16,5 +16,6 @@
 	"rooms_unlimited": "Rondas ilimitadas",
 	"rooms_time": "{seconds} s",
 	"rooms_no_timer": "Sin tiempo límite",
-	"rooms_join": "Entrar a {code}"
+	"rooms_join": "Entrar a {code}",
+	"rooms_resume": "Retomar la partida reciente"
 }

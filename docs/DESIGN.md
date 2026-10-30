@@ -523,7 +523,8 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
    next to ES/EN/NL, a round shield button ("Terms, safety and legal": the terms, the privacy
    policy, the account-deletion page and *Blocked players*; see "Safety UI" in 9c). The first
    create / join of a guest that has not accepted the terms opens the terms gate first.
-   Creation has a Private/Public choice
+   When this browser remembers a game that still exists, a **Resume recent game** button (the code only)
+   comes first in the actions (see "Resume recent game" in 9a). Creation has a Private/Public choice
    (private by default) and a **Browse public games** link. The `/rooms` browser filters by lobby language, shows settings
    and occupied seats, and refreshes about every 15 s only while visible, with
    cancellation, no overlapping fetches and rate-limit backoff. Empty state
@@ -1007,6 +1008,37 @@ last `view` kept) → `connected` …, or `closed` with a reason: `room_gone`, `
 connects at once; any other visit (invite link in a fresh tab) sees the gate (room preflight, nickname,
 avatar, Join). Errors become toasts (`err_<code>` messages for every engine/protocol code); closed
 sessions get a screen per reason, always with a Home button.
+
+**Resume recent game** (`web/src/lib/resume/`; docs/ANDROID-PLAN.md batch 5). Android may kill the browser process, and
+the per-tab `tf.room.<CODE>` marker dies with it, so a player who is still seated would only have the invite gate left
+(and nothing at all without the link). The browser therefore keeps ONE recent room in `localStorage['tf.recentRoom']`:
+exactly `{code, roomInstanceId, lastJoinedAt}` (ms), never a nickname, an avatar or an answer. Answers the server already
+has survive a reconnection by themselves; **unsent text typed in a field can be lost** when the process dies, and drafts
+are deliberately not persisted.
+
+* *Write.* `RoomRoute` writes it when the server confirms the seat (a connected session that knows its `roomInstanceId`,
+  i.e. the first `state` of every connection, a reconnect refreshing the time). One slot: the next join replaces it.
+  It is forgotten after **24 hours**, checked on every read (an expired, corrupt, malformed or future-dated slot is
+  removed); storage that is unavailable or full is tolerated and nothing throws.
+* *Clear.* `RoomRoute` clears the slot when its own session ends for good: an explicit leave, "Block and leave" (it closes
+  the session locally), being kicked, a closed room, a join the server refused (full, in progress, `join_unavailable`) and a
+  declined terms gate; **not** for `replaced` (the seat is still ours) or the "new version" screen. It only clears when the
+  slot holds THAT room (code, and the instance id when the session knew it), so another tab's newer game is never erased.
+  Home clears it when the room is gone (404 `room_not_found`), the code now answers with another `roomInstanceId`, or the
+  preflight says `join_unavailable`.
+* *Offer.* Home shows a **Resume recent game** button (`ResumeCard`, `rooms_resume`, at least 48 px, the code and nothing
+  else, e.g. "Resume recent game KT7P") only for a valid slot, and only after the preflight `GET /api/rooms/{code}`
+  (nothing is shown while it runs, so a stale entry never flashes; a check that takes over 5 s counts as failed). 404 or a
+  different instance id: forgotten, nothing shown. Any other outcome offers it, including **offline, 5xx and 429** (the
+  simplest honest behaviour: the room route never gives up and shows its own reconnecting state) and a room that is
+  **full, finished or in progress** (`joinable: false` is about NEW seats). On a phone shorter than 800 px Home hides its
+  tagline while the card is offered, to keep fitting 360×740.
+* *Act.* Only the tap does anything (nothing navigates by itself, so no tab ever takes a seat on its own). It does what Join
+  does on Home minus the lookup: marks the tab and opens `/CODE`; the room route joins and the **server decides**
+  (a reconnecting guest keeps the seat by the guest cookie, even in a full or running room; a stranger is refused gracefully,
+  which clears the slot). If another tab holds the seat, that tab gets the usual "replaced by another tab" screen and can take
+  it back. Fresh invite links still go through the gate, unchanged. The privacy policy lists `tf.recentRoom` (three
+  languages, `privacy.test.ts`).
 
 ### Accounts UI (Phase 4)
 
