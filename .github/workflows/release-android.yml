@@ -1,0 +1,244 @@
+# Builds the SIGNED Android App Bundle (.aab) of an existing release tag. It NEVER publishes to
+# Google Play: the owner downloads the artifact and uploads it to Play Console by hand (internal
+# testing first, see docs/PLAY-RELEASE.md). It is independent of release.yml / docker-build.yml: a
+# failure here cannot affect the website, and the website never waits for it.
+#
+#   workflow_dispatch(tag = vX.Y.Z)
+#     -> refuses anything but ^v[0-9]+\.[0-9]+\.[0-9]+$ and tags that are not on main
+#     -> versionName comes from Chart.yaml at that tag (must equal the tag), versionCode from
+#        android/version-code.txt (must be greater than `previous_version_code`)
+#     -> tests + lint + manifest audit WITHOUT any secret, then the keystore is materialised
+#        into $RUNNER_TEMP, bundleRelease signs with it, jarsigner verifies, the keystore is
+#        deleted in an `if: always()` step
+#     -> artifact: .aab + .sha256 + build-metadata.json
+#
+# Setup (once, GitHub > Settings > Environments > android-release): required reviewers = the
+# owner, deployment branches = main, and the secrets
+#   ANDROID_UPLOAD_KEYSTORE_B64       base64 of the upload keystore (never the app-signing key)
+#   ANDROID_UPLOAD_KEYSTORE_PASSWORD, ANDROID_UPLOAD_KEY_ALIAS, ANDROID_UPLOAD_KEY_PASSWORD
+# and, optionally, the variable ANDROID_UPLOAD_CERT_SHA256 (the upload certificate fingerprint
+# shown in Play Console) that the signed bundle must match. See docs/ANDROID.md.
+
+name: Release — Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to build, e.g. v1.4.0 (vX.Y.Z only)"
+        required: true
+        type: string
+      previous_version_code:
+        description: "versionCode of the previous Play release; android/version-code.txt must be greater. Leave empty only for the very first release"
+        required: false
+        default: ""
+        type: string
+
+# Releases are serialized; a run in progress is never cancelled halfway.
+concurrency:
+  group: release-android
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: android-release
+    env:
+      TAG: ${{ inputs.tag }}
+      PREVIOUS_VERSION_CODE: ${{ inputs.previous_version_code }}
+
+    steps:
+      - name: Validate the inputs and the branch
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Run this workflow from main (got ${GITHUB_REF}); the tag is what gets built, the workflow itself must come from main"
+            exit 1
+          fi
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid tag '$TAG' (expected vX.Y.Z, no pre-release suffix)"
+            exit 1
+          fi
+          if [[ -n "$PREVIOUS_VERSION_CODE" && ! "$PREVIOUS_VERSION_CODE" =~ ^[0-9]+$ ]]; then
+            echo "::error::previous_version_code must be a non-negative integer, got '$PREVIOUS_VERSION_CODE'"
+            exit 1
+          fi
+          if [[ -z "$PREVIOUS_VERSION_CODE" ]]; then
+            echo "::notice::previous_version_code not given: only valid for the very first Play release"
+          fi
+
+      - name: Checkout release tag
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: The tag must be on main
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::${TAG} (commit $(git rev-parse --short HEAD)) is not on main"
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Validate the Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      # No caches: a signed release is built from a clean Gradle home.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-disabled: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Check versionName and versionCode
+        id: version
+        working-directory: android
+        run: |
+          node --test scripts/*.test.mjs
+          node scripts/check-version.mjs \
+            --expect-version "$TAG" \
+            --min-exclusive "${PREVIOUS_VERSION_CODE:-0}" | tee -a "$GITHUB_OUTPUT"
+
+      # Still no secret in the environment: tests, lint and the unsigned manifest audit.
+      - name: Unit tests, release lint and manifest audit (no secrets)
+        working-directory: android
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.versionName }}
+          VERSION_CODE: ${{ steps.version.outputs.versionCode }}
+        run: |
+          ./gradlew testDebugUnitTest lintRelease bundleRelease --stacktrace
+          node scripts/audit-manifest.mjs \
+            --expect-version-name "$VERSION_NAME" \
+            --expect-version-code "$VERSION_CODE"
+
+      - name: Materialise the upload keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set +x
+          for name in KEYSTORE_B64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::The android-release environment secret for ${name} is missing or empty"
+              exit 1
+            fi
+          done
+          umask 077
+          keystore="$RUNNER_TEMP/upload-keystore.jks"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$keystore"
+          if [[ ! -s "$keystore" ]]; then
+            echo "::error::ANDROID_UPLOAD_KEYSTORE_B64 did not decode to a keystore"
+            exit 1
+          fi
+
+      - name: Build the signed release bundle
+        working-directory: android
+        env:
+          ANDROID_UPLOAD_KEYSTORE_PATH: ${{ runner.temp }}/upload-keystore.jks
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease --stacktrace
+
+      # jarsigner exits 0 for an UNSIGNED file, so the output is what is checked.
+      - name: Verify the signature and collect the artifact
+        id: collect
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.versionName }}
+          VERSION_CODE: ${{ steps.version.outputs.versionCode }}
+          EXPECTED_CERT_SHA256: ${{ vars.ANDROID_UPLOAD_CERT_SHA256 }}
+        run: |
+          set +x
+          aab="android/app/build/outputs/bundle/release/app-release.aab"
+          if [[ ! -f "$aab" ]]; then
+            echo "::error::$aab was not produced"
+            exit 1
+          fi
+
+          jarsigner -verify "$aab" > "$RUNNER_TEMP/jarsigner.txt" 2>&1 || true
+          if grep -q 'jar is unsigned' "$RUNNER_TEMP/jarsigner.txt" || ! grep -q 'jar verified' "$RUNNER_TEMP/jarsigner.txt"; then
+            echo "::error::jarsigner did not verify the bundle:"
+            cat "$RUNNER_TEMP/jarsigner.txt"
+            exit 1
+          fi
+
+          cert_sha256="$(keytool -printcert -jarfile "$aab" | sed -n 's/^[[:space:]]*SHA256: //p' | head -n1)"
+          if [[ -z "$cert_sha256" ]]; then
+            echo "::error::Could not read the signer certificate of the bundle"
+            exit 1
+          fi
+          if [[ -n "$EXPECTED_CERT_SHA256" ]]; then
+            normalise() { printf '%s' "$1" | tr -d ': ' | tr 'a-f' 'A-F'; }
+            if [[ "$(normalise "$cert_sha256")" != "$(normalise "$EXPECTED_CERT_SHA256")" ]]; then
+              echo "::error::The bundle is signed with ${cert_sha256}, not the registered upload certificate (ANDROID_UPLOAD_CERT_SHA256)"
+              exit 1
+            fi
+          else
+            echo "::notice::ANDROID_UPLOAD_CERT_SHA256 is not set: the upload certificate was not compared with Play Console"
+          fi
+
+          name="tutti-frutti-${TAG}-code${VERSION_CODE}"
+          out="$RUNNER_TEMP/android-release"
+          mkdir -p "$out"
+          cp "$aab" "$out/${name}.aab"
+          (cd "$out" && sha256sum "${name}.aab" > "${name}.aab.sha256")
+          aab_sha256="$(cut -d' ' -f1 "$out/${name}.aab.sha256")"
+
+          jq -n \
+            --arg tag "$TAG" \
+            --arg commit "$(git rev-parse HEAD)" \
+            --arg versionName "$VERSION_NAME" \
+            --argjson versionCode "$VERSION_CODE" \
+            --arg file "${name}.aab" \
+            --arg sha256 "$aab_sha256" \
+            --arg uploadCertSha256 "$cert_sha256" \
+            --arg run "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{tag: $tag, commit: $commit, versionName: $versionName, versionCode: $versionCode, file: $file, sha256: $sha256, uploadCertSha256: $uploadCertSha256, run: $run, builtAt: $builtAt}' \
+            > "$out/build-metadata.json"
+
+          echo "dir=$out" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Android bundle ${TAG}"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| versionName / versionCode | ${VERSION_NAME} / ${VERSION_CODE} |"
+            echo "| SHA-256 of the .aab | \`${aab_sha256}\` |"
+            echo "| upload certificate SHA-256 | \`${cert_sha256}\` |"
+            echo ""
+            echo "Not published: upload the artifact to Play Console by hand (docs/PLAY-RELEASE.md)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: tutti-frutti-android-${{ env.TAG }}
+          path: ${{ steps.collect.outputs.dir }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Remove the signing material
+        if: always()
+        run: |
+          rm -f -- "$RUNNER_TEMP/upload-keystore.jks" "$RUNNER_TEMP/jarsigner.txt"

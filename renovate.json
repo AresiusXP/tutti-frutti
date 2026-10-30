@@ -8,7 +8,9 @@
     "dockerfile",
     "docker-compose",
     "github-actions",
-    "helm-values"
+    "helm-values",
+    "gradle",
+    "gradle-wrapper"
   ],
   "constraints": {
     "npm": "<12"
@@ -47,6 +49,12 @@
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "github actions"
+    },
+    {
+      "description": "Android shell (android/): Gradle plugins and libraries, grouped. The Android Gradle Plugin, the compile/target SDK (Play raises the minimum target API every year, see docs/ANDROID.md) and androidbrowserhelper change the shipped shell: build with ci-android.yml and test on a device before merging.",
+      "matchManagers": ["gradle", "gradle-wrapper"],
+      "matchFileNames": ["android/**"],
+      "groupName": "android dependencies"
     },
     {
       "matchManagers": ["helm-values"],

@@ -1,0 +1,193 @@
+/*
+ * Copyright 2019 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// Scaffolded from Bubblewrap 1.27.0 (packages/core/template_project) and maintained by hand.
+// See android/README.md for the list of intentional deviations. Do NOT regenerate this project.
+
+plugins {
+    id 'com.android.application'
+}
+
+def twaManifest = [
+    applicationId: 'xyz.aresius.tuttifrutti',
+    // The only origin the app opens. It feeds the manifest intent-filter (placeholder), the
+    // Digital Asset Links statement, the launch URL and BuildConfig.HOST_NAME (the link validator).
+    hostName: 'tuttifrutti.aresius.xyz',
+    launchUrl: '/',
+    // The name is a constant in every language: never move it into a localised strings file.
+    name: 'Tutti Frutti',
+    launcherName: 'Tutti Frutti',
+    // The web theme colour (--color-night in web/src/app.css, scripts/pwa-manifest.ts).
+    themeColor: '#1a1033',
+    themeColorDark: '#1a1033',
+    navigationColor: '#1a1033',
+    navigationColorDark: '#1a1033',
+    navigationDividerColor: '#1a1033',
+    navigationDividerColorDark: '#1a1033',
+    backgroundColor: '#1a1033',
+    // Notification delegation is off: the web app sends no notifications and the shell has no
+    // POST_NOTIFICATIONS permission. DelegationService stays declared but disabled/not exported.
+    enableNotifications: false,
+    splashScreenFadeOutDuration: 300,
+    // 'customtabs' (never 'webview'): without a Trusted Web Activity provider the site opens in
+    // a browser tab and the shell needs no INTERNET permission.
+    fallbackType: 'customtabs',
+    orientation: 'portrait',
+]
+
+// versionName: the website's release version, from helm/tutti-frutti/Chart.yaml (appVersion).
+def readVersionName = {
+    def chart = rootProject.file('../helm/tutti-frutti/Chart.yaml')
+    if (!chart.isFile()) {
+        throw new GradleException("Cannot derive versionName: ${chart} does not exist")
+    }
+    def pattern = ~/^appVersion:\s*"?([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)"?\s*(?:#.*)?$/
+    for (String line : chart.readLines('UTF-8')) {
+        def matcher = pattern.matcher(line)
+        if (matcher.matches()) {
+            return matcher.group(1)
+        }
+    }
+    throw new GradleException(
+        "Cannot derive versionName: no 'appVersion: \"X.Y.Z\"' line found in ${chart}")
+}
+
+// versionCode: ONE file, android/version-code.txt (a single positive integer, bumped by hand in
+// every PR that ships a new Play release; never derived from the date or the build number).
+def readVersionCode = {
+    def file = rootProject.file('version-code.txt')
+    if (!file.isFile()) {
+        throw new GradleException("Cannot derive versionCode: ${file} does not exist")
+    }
+    def text = file.getText('UTF-8').trim()
+    if (!(text ==~ /[1-9][0-9]{0,9}/) || (text as Long) > 2100000000L) {
+        throw new GradleException(
+            "Cannot derive versionCode: ${file} must hold one positive integer <= 2100000000, got '${text}'")
+    }
+    return text as Integer
+}
+
+// Upload-key signing, from environment variables ONLY. All four absent -> the release bundle is
+// built unsigned (CI, local). Some but not all -> fail loudly instead of shipping unsigned by accident.
+def signingVariables = [
+    'ANDROID_UPLOAD_KEYSTORE_PATH',
+    'ANDROID_UPLOAD_KEYSTORE_PASSWORD',
+    'ANDROID_UPLOAD_KEY_ALIAS',
+    'ANDROID_UPLOAD_KEY_PASSWORD',
+]
+def signingValues = signingVariables.collectEntries { [(it): (System.getenv(it) ?: '').trim()] }
+def signingPresent = signingValues.findAll { it.value }.keySet()
+if (signingPresent && signingPresent.size() != signingVariables.size()) {
+    def missing = signingVariables.findAll { !signingPresent.contains(it) }
+    throw new GradleException(
+        "Incomplete upload-key signing configuration; also set: ${missing.join(', ')} (or unset all four)")
+}
+def signAsUploadKey = signingPresent.size() == signingVariables.size()
+
+android {
+    compileSdk 36
+    namespace twaManifest.applicationId
+
+    defaultConfig {
+        applicationId twaManifest.applicationId
+        minSdk 29
+        targetSdk 36
+        versionCode readVersionCode()
+        versionName readVersionName()
+
+        // The hostname feeds the intent-filter (merged into the manifest as a literal).
+        manifestPlaceholders = [hostName: twaManifest.hostName]
+
+        // Single source of truth for the link validator (LaunchUrlValidator).
+        buildConfigField 'String', 'HOST_NAME', "\"${twaManifest.hostName}\""
+
+        // The name for the application and for the Android launcher
+        resValue 'string', 'appName', twaManifest.name
+        resValue 'string', 'launcherName', twaManifest.launcherName
+
+        // The URL used when launching the TWA from the Android launcher
+        resValue 'string', 'launchUrl', "https://${twaManifest.hostName}${twaManifest.launchUrl}"
+
+        // Status bar, navigation bar and splash colours. They are set here and not in
+        // res/values/colors.xml: setting both places is a build error.
+        resValue 'color', 'colorPrimary', twaManifest.themeColor
+        resValue 'color', 'colorPrimaryDark', twaManifest.themeColorDark
+        resValue 'color', 'navigationColor', twaManifest.navigationColor
+        resValue 'color', 'navigationColorDark', twaManifest.navigationColorDark
+        resValue 'color', 'navigationDividerColor', twaManifest.navigationDividerColor
+        resValue 'color', 'navigationDividerColorDark', twaManifest.navigationDividerColorDark
+        resValue 'color', 'backgroundColor', twaManifest.backgroundColor
+
+        // Authority of the FileProvider that hands the splash image to the browser.
+        resValue 'string', 'providerAuthority', twaManifest.applicationId + '.fileprovider'
+
+        // Enables/disables DelegationService (android:enabled and android:exported).
+        resValue 'bool', 'enableNotification', twaManifest.enableNotifications.toString()
+
+        resValue 'integer', 'splashScreenFadeOutDuration', twaManifest.splashScreenFadeOutDuration.toString()
+        resValue 'string', 'fallbackType', twaManifest.fallbackType
+        resValue 'string', 'orientation', twaManifest.orientation
+
+        // Digital Asset Links statement the manifest points at (asset_statements meta-data).
+        resValue 'string', 'assetStatements',
+            '[{\\"relation\\": [\\"delegate_permission/common.handle_all_urls\\"], ' +
+            '\\"target\\": {\\"namespace\\": \\"web\\", \\"site\\": \\"https://' +
+            twaManifest.hostName + '\\"}}]'
+    }
+
+    buildFeatures {
+        buildConfig true
+        resValues true
+    }
+
+    signingConfigs {
+        if (signAsUploadKey) {
+            upload {
+                storeFile file(signingValues['ANDROID_UPLOAD_KEYSTORE_PATH'])
+                storePassword signingValues['ANDROID_UPLOAD_KEYSTORE_PASSWORD']
+                keyAlias signingValues['ANDROID_UPLOAD_KEY_ALIAS']
+                keyPassword signingValues['ANDROID_UPLOAD_KEY_PASSWORD']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            if (signAsUploadKey) {
+                signingConfig signingConfigs.upload
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        // Lint also runs on release builds (do not set checkReleaseBuilds false).
+        checkReleaseBuilds true
+        abortOnError true
+    }
+}
+
+dependencies {
+    // Trusted Web Activity launcher (LauncherActivity, splash, Custom Tabs fallback).
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
+
+    testImplementation 'junit:junit:4.13.2'
+}

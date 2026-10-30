@@ -1,0 +1,27 @@
+# Build output and caches
+build/
+.gradle/
+.kotlin/
+.cxx/
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Local machine configuration
+local.properties
+.idea/
+*.iml
+
+# Signing material: NEVER commit. The upload key only ever lives in the release
+# environment (see docs/ANDROID.md); the build reads it from environment variables.
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+keystore.properties
+*.keystore.properties
+signing.properties
+*.signing.properties

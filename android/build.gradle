@@ -1,0 +1,5 @@
+// Top-level build file. Toolchain pins (see README.md and docs/ANDROID.md):
+//   Android Gradle Plugin 8.9.1, Gradle 8.11.1 (gradle/wrapper), JDK 17.
+plugins {
+    id 'com.android.application' version '8.9.1' apply false
+}

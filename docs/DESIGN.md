@@ -1600,3 +1600,42 @@ of clearing it.
 Cluster is amd64. Tunables: English hard-letter list, 120 ms letter speed,
 10 s chooser auto-stop, 3–10 category range, 3 s grace, 500 ms late-update
 allowance.
+
+## 11. Android app (TWA)
+
+The game is published on Google Play as a **Trusted Web Activity**: a thin Android shell
+(`android/`, package `xyz.aresius.tuttifrutti`) that opens the live website in the user's browser,
+full screen once Digital Asset Links verify the origin. It is the same SvelteKit build and the same Go
+server as the browser and the PWA; the web app stays installable and reachable everywhere. Audience 13+,
+first Play countries Argentina and the Netherlands. Why a TWA and not a WebView, Capacitor or a native
+rewrite: one codebase and one backend, web releases reach Android users without a Play review, and the
+Google sign-in flow (which refuses embedded WebViews) keeps running in the real browser.
+
+Invariants:
+
+* **Same origin, one backend.** The app only ever opens `https://tuttifrutti.aresius.xyz`. No CORS
+  relaxation, no second frontend, no native game code, no JS ↔ native bridge, no WebView (fallback is a
+  Custom Tab).
+* **No native auth, no cookie bridge.** Google sign-in, the `tf_*` cookies and the session stay in the
+  browser exactly as in section 9b. The shell stores nothing (`allowBackup="false"`), has no permissions
+  and no analytics, ads, Firebase, push or billing.
+* **Link validation.** The exported `LauncherActivity` treats every incoming URL as untrusted:
+  `LaunchUrlValidator` accepts only `https`, the exact host, and `/`, `/rooms`, `/stats`, `/privacy`,
+  `/terms`, `/delete-account` or a room invite (`/` + 4 characters of the room-code alphabet, any case),
+  rebuilds the URL from constants (query and fragment dropped) and otherwise opens the home page. The
+  manifest's verified App Links list the same paths explicitly: never `/api/*`, `/ws`, the OAuth callback or
+  the whole domain. `scripts/audit-manifest.mjs` fails CI on any permission, an enabled backup, a web
+  intent-filter without exact paths or an unexpected exported component.
+* **Versioning.** `versionName` is `appVersion` in `helm/tutti-frutti/Chart.yaml` (one version for the
+  repo); `versionCode` is the integer in `android/version-code.txt`, bumped by hand per Play release and
+  strictly increasing.
+* **Web updates ship via the website.** Only shell changes (permissions, SDK targets, icons, name, link
+  filters, host) need a Play release; the Android workflows (`ci-android.yml`, `release-android.yml`, manual,
+  signed with an upload key from a protected environment, never publishing to Play) are independent of
+  the website release pipeline.
+* **`assetlinks.json`** (`/.well-known/assetlinks.json`, served by the website) must list the Play
+  app-signing certificate; it has to stay valid through every rollback.
+
+Build, signing, verification and the release runbook: [`ANDROID.md`](ANDROID.md); the Play Console checklist
+and the open owner decisions (minors/consent, direct-tip links, terms, moderation commitments):
+[`PLAY-RELEASE.md`](PLAY-RELEASE.md); the module: [`../android/README.md`](../android/README.md).

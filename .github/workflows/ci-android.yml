@@ -1,0 +1,94 @@
+# CI for the Android app (Trusted Web Activity shell in android/).
+# Triggered only when files under android/, the chart version (Chart.yaml appVersion is the
+# versionName) or this workflow change. No secrets: the release bundle is built UNSIGNED here;
+# signing only happens in release-android.yml. A failure here never blocks the website pipelines.
+
+name: CI — Android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "helm/tutti-frutti/Chart.yaml"
+      - ".github/workflows/ci-android.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "helm/tutti-frutti/Chart.yaml"
+      - ".github/workflows/ci-android.yml"
+
+concurrency:
+  group: ci-android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Validate the Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Script tests (version check, manifest audit)
+        run: node --test scripts/*.test.mjs
+
+      - name: Check versionName and versionCode
+        id: version
+        run: node scripts/check-version.mjs | tee -a "$GITHUB_OUTPUT"
+
+      - name: Unit tests, release lint, debug APK, release bundle (unsigned)
+        run: ./gradlew testDebugUnitTest lintRelease assembleDebug bundleRelease --stacktrace
+
+      - name: Audit the merged manifest
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.versionName }}
+          VERSION_CODE: ${{ steps.version.outputs.versionCode }}
+        run: |
+          node scripts/audit-manifest.mjs \
+            --expect-version-name "$VERSION_NAME" \
+            --expect-version-code "$VERSION_CODE"
+
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-reports
+          path: |
+            android/app/build/reports/
+            android/app/build/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

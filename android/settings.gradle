@@ -1,0 +1,21 @@
+// Repositories are declared here and nowhere else (FAIL_ON_PROJECT_REPOS): Google Maven for
+// Android Gradle Plugin + AndroidX, Maven Central for the rest. Never jcenter() (it is read-only
+// and shut down).
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'tutti-frutti-android'
+
+include ':app'

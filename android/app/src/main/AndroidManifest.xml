@@ -1,0 +1,158 @@
+<!--
+    Copyright 2019 Google Inc. All Rights Reserved.
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+
+<!-- Scaffolded from Bubblewrap 1.27.0 and maintained by hand (see android/README.md).
+     The package is the Gradle `namespace` (xyz.aresius.tuttifrutti). No <uses-permission>: the
+     shell never touches the network itself, the browser does (scripts/audit-manifest.mjs fails
+     the build on any permission outside its allow-list). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/appName"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Translucent.NoTitleBar">
+
+        <meta-data
+            android:name="asset_statements"
+            android:resource="@string/assetStatements" />
+
+        <activity
+            android:name=".LauncherActivity"
+            android:alwaysRetainTaskState="true"
+            android:exported="true"
+            android:label="@string/launcherName">
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.DEFAULT_URL"
+                android:value="@string/launchUrl" />
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
+                android:resource="@color/colorPrimary" />
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR_DARK"
+                android:resource="@color/colorPrimaryDark" />
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
+                android:resource="@color/navigationColor" />
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR_DARK"
+                android:resource="@color/navigationColorDark" />
+
+            <!-- "androix" is spelled like this in androidbrowserhelper, do not "fix" it. -->
+            <meta-data
+                android:name="androix.browser.trusted.NAVIGATION_BAR_DIVIDER_COLOR"
+                android:resource="@color/navigationDividerColor" />
+
+            <meta-data
+                android:name="androix.browser.trusted.NAVIGATION_BAR_DIVIDER_COLOR_DARK"
+                android:resource="@color/navigationDividerColorDark" />
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.SPLASH_IMAGE_DRAWABLE"
+                android:resource="@drawable/splash" />
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
+                android:resource="@color/backgroundColor" />
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.SPLASH_SCREEN_FADE_OUT_DURATION"
+                android:value="@integer/splashScreenFadeOutDuration" />
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.FILE_PROVIDER_AUTHORITY"
+                android:value="@string/providerAuthority" />
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.FALLBACK_STRATEGY"
+                android:value="@string/fallbackType" />
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.SCREEN_ORIENTATION"
+                android:value="@string/orientation" />
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Verified App Links, restricted to the website's own pages. NOT /api/*, NOT the
+                 OAuth callback (/api/auth/google/callback), NOT the whole domain.
+                 LaunchUrlValidator (and LaunchUrlValidatorTest.manifestMatchesValidator)
+                 keep this list and the code in sync.
+                 The last entry is a room invite: "/" plus exactly 4 characters. A glob cannot
+                 express the room-code alphabet, so the validator enforces it; /api and /ws are
+                 shorter than 4 characters and never match. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="${hostName}" />
+                <data android:path="/" />
+                <data android:path="/rooms" />
+                <data android:path="/stats" />
+                <data android:path="/privacy" />
+                <data android:path="/terms" />
+                <data android:path="/delete-account" />
+                <data android:pathPattern="/...." />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
+
+        <!-- androidbrowserhelper adds these two for static shortcuts, which the app does not have.
+             The trampoline is exported and would open any same-origin URL, bypassing
+             LaunchUrlValidator, so it is removed from the merged manifest. -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.ShortcutTrampolineActivity"
+            tools:node="remove" />
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.ColdShortcutActivity"
+            tools:node="remove" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="@string/providerAuthority"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/filepaths" />
+        </provider>
+
+        <!-- Notification delegation is disabled (enableNotification=false): neither enabled nor
+             exported. -->
+        <service
+            android:name=".DelegationService"
+            android:enabled="@bool/enableNotification"
+            android:exported="@bool/enableNotification">
+            <intent-filter>
+                <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>
