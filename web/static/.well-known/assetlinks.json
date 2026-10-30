@@ -1,1 +1,12 @@
-[]
+[
+	{
+		"relation": ["delegate_permission/common.handle_all_urls"],
+		"target": {
+			"namespace": "android_app",
+			"package_name": "xyz.aresius.tuttifrutti",
+			"sha256_cert_fingerprints": [
+				"31:D2:04:E7:7D:40:EE:C7:0C:25:F3:2E:3F:1E:E5:87:A6:10:D1:2E:9F:5E:19:EF:CF:B7:EA:08:AA:2E:35:C0"
+			]
+		}
+	}
+]

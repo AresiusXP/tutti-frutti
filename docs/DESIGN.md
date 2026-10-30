@@ -1501,17 +1501,16 @@ Three things make that dependable:
   open leaves one inert entry (one extra Back does nothing visible); closing a sheet and opening another in the same
   tick could pop the wrong entry (no screen does this).
 
-*Digital Asset Links* (`web/static/.well-known/assetlinks.json`). The file is `[]` for now, on purpose: the real statement needs
-the SHA-256 of the Play **app-signing** key, which exists only after the app is created in the Play Console, and the owner is the
-only one who can read it there. The final shape is
-`[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"xyz.aresius.tuttifrutti","sha256_cert_fingerprints":["AA:BB:…"]}}]`
-(32 uppercase hex pairs; add the upload-key fingerprint only if a build signed with it must verify too). Until it is filled in the app runs
-in a Custom Tab with the browser bar. nginx serves it with `location = /.well-known/assetlinks.json`: `application/json`, `Cache-Control:
+*Digital Asset Links* (`web/static/.well-known/assetlinks.json`). One statement for `xyz.aresius.tuttifrutti` with the SHA-256 of
+the Play **app-signing** key (`31:D2:04:E7:…:35:C0`, read by the owner in Play Console › Test and release › App integrity › App
+signing): every copy installed from Google Play is signed with that key, so those installs open full screen once the file is live.
+Add the upload-key fingerprint to the same list only if a build signed locally with the upload key must verify too; never remove the
+app-signing one (a debug build is never listed and keeps the browser bar). nginx serves it with `location = /.well-known/assetlinks.json`: `application/json`, `Cache-Control:
 no-cache`, the security headers, `try_files $uri =404` (a missing file is a real 404, never `index.html`) and no redirect; any other path
 under `/.well-known/` is a plain 404. The worker never answers it: `/.well-known/` is in `navigateFallbackDenylist` and in
 `globIgnores`. `SvelteKit`'s static adapter and the Docker `COPY` keep the dot-directory (checked in `build/` and in the image).
 `src/lib/pwa.test.ts` validates the JSON (each statement: `handle_all_urls`, `android_app`, the package, well-formed fingerprints;
-the empty array is an explicit PENDING state) and `security.test.ts` the nginx locations.
+an empty array would be the explicit PENDING state) and `security.test.ts` the nginx locations.
 
 *Rolling web deploys.* `helm/tutti-frutti/templates/web-deployment.yaml` is `RollingUpdate` (`maxSurge: 1`, `maxUnavailable: 0`; the HPA allows
 1 to 6 replicas): for a short while old and new replicas answer the same Service. What can fail in the overlap: (a) a client that got

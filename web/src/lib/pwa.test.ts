@@ -201,6 +201,14 @@ describe('Digital Asset Links (Android Trusted Web Activity)', () => {
 		expect(statements).toHaveLength(1);
 	});
 
+	// Every copy installed from Google Play is signed with Google's app-signing key (Play Console ›
+	// App integrity › App signing). Removing it puts every installed app back behind a browser bar.
+	it('keeps the Play app-signing key fingerprint', () => {
+		expect(statements[0]?.target.sha256_cert_fingerprints).toContain(
+			'31:D2:04:E7:7D:40:EE:C7:0C:25:F3:2E:3F:1E:E5:87:A6:10:D1:2E:9F:5E:19:EF:CF:B7:EA:08:AA:2E:35:C0'
+		);
+	});
+
 	it.runIf(existsSync(join(root, 'build', 'index.html')))('is copied into build/ as it is', () => {
 		expect(read('build/.well-known/assetlinks.json')).toBe(read(file));
 	});
