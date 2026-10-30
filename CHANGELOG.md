@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.6.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.5.0...v1.6.0) (2026-10-30)
+
+
+### Features
+
+* add content-safety layer for public play on web and Google Play ([2fcc9e1](https://github.com/AresiusXP/tutti-frutti/commit/2fcc9e1949057b7151872993c8434cf8d2911668))
+* add operator switch to pause public games and safety alerts ([1171e22](https://github.com/AresiusXP/tutti-frutti/commit/1171e220ab4aedf1e2060631683c15a6c2e396ea))
+* **android:** add Android Trusted Web Activity shell ([ddfe015](https://github.com/AresiusXP/tutti-frutti/commit/ddfe0153df212f376a1db29233a8879925cc4ede))
+* **android:** add Google Play store listings and feature graphic ([0317f55](https://github.com/AresiusXP/tutti-frutti/commit/0317f557b19699200fec6b1e90bb377de76a2b62))
+* **web:** coordinate service worker updates and handle Android Back ([36b0229](https://github.com/AresiusXP/tutti-frutti/commit/36b02297e88c830f6828f889882d2e67c15e0bee))
+* **web:** hide support links inside Android app for Google Play ([cfb20ae](https://github.com/AresiusXP/tutti-frutti/commit/cfb20ae58f161f45647441b9ba6cd39ff84e5645))
+* **web:** offer resume recent game on Home ([4109ef9](https://github.com/AresiusXP/tutti-frutti/commit/4109ef9bb423f1070b3756299a2373885b1b75a5))
+* **web:** update privacy, terms, and deletion pages for Google Play ([e21c01d](https://github.com/AresiusXP/tutti-frutti/commit/e21c01da352bc34a7c05e1d9b10ad0a657e56dce))
+
+
+### Bug Fixes
+
+* **server:** remove unused moderation test helper and handler field ([3006933](https://github.com/AresiusXP/tutti-frutti/commit/3006933ed97d311a9d267a9e7cc5300a756056f4))
+* **server:** revoke copied sessions and room capabilities on account deletion ([2fcc9e1](https://github.com/AresiusXP/tutti-frutti/commit/2fcc9e1949057b7151872993c8434cf8d2911668))
+* **web:** align terms response deadlines with privacy and deletion pages ([21de361](https://github.com/AresiusXP/tutti-frutti/commit/21de3619d59921e8afa75a419d1480c5e2c3e577))
+
+
+### Documentation
+
+* record Google Play release decisions and closed-testing plan ([f284e51](https://github.com/AresiusXP/tutti-frutti/commit/f284e5131f0822808af1c95657707885cebdecfa))
+
 ## [1.5.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.4.0...v1.5.0) (2026-10-30)
 
 
