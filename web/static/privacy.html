@@ -56,7 +56,7 @@
 							</li>
 							<li>
 								No advertising, no analytics, no tracking, no third-party scripts or fonts, and we never
-								sell your data. It is shared only with the optional services described in section 5 and,
+								sell your data. It is shared only with the service providers described in section 5 and,
 								if the law requires it, with authorities.
 							</li>
 							<li>
@@ -208,15 +208,20 @@
 
 					<h3>Technical data</h3>
 					<p>
-						Like any web server, ours handles your IP address and browser details to answer your requests, and
-						keeps your IP address in its memory for roughly 10 to 15 minutes to limit abuse. The application logs the
-						method, path (which can contain a room code), status code and duration of each request; it does not
-						log nicknames or answers. Errors on the live connection of a game are logged with the IP address of
-						the connection and its random guest ID, and so are connection and disconnection events if the
-						server's debug log level is switched on (it is not by default). The web entry point of the server may
-						also keep standard access logs (address, requested URL, browser, time) to keep the service secure and
-						working. The server also publishes anonymous counters (number of rooms, connections, …) that
-						contain no personal data.
+						The site is reached through a Cloudflare Tunnel: Cloudflare, our network provider, receives every
+						connection and passes it on, so connections reach our servers only from internal network addresses. The
+						game does not read, log or store your IP address. Cloudflare itself does process connection data,
+						including your IP address, to deliver the site to you (section 5).
+					</p>
+					<p>
+						Our servers log the method, path (which can contain a room code), status code and duration of each
+						request; they do not log nicknames or answers. Errors on the live connection of a game are logged with
+						its random guest ID, and so are connection and disconnection events when the server's detailed (debug)
+						logging is switched on (it is off by default). The game server does not log request headers; the web
+						server that sends the pages and files of the site also notes, for each one, how the browser describes
+						itself (user agent) and which page asked for it (referrer). How long logs are kept is in section 4. The
+						server also publishes anonymous counters (number of rooms, connections, …) that contain no personal
+						data.
 					</p>
 
 					<h2>3. Cookies and browser storage</h2>
@@ -293,26 +298,49 @@
 							long as it lasts plus 90 days, the records of what we did for one year.
 						</li>
 						<li>
-							<strong>Server logs</strong>: we aim to keep them for about 7 days. They are kept by the hosting
-							infrastructure, not by the game itself.
+							<strong>Server logs</strong> are kept for 7 days in our log system and then deleted automatically.
+							The server also keeps short-lived rotating copies, which are overwritten after a few tens of
+							megabytes.
+						</li>
+						<li>
+							<strong>Backups</strong>: we do not keep backups of the database at the moment, so deleted data cannot
+							be restored from a copy. Deleted rows can survive for a short time inside the database's own files,
+							until the database reuses that space. If we ever introduce backups, this policy will first say how long
+							they are kept.
 						</li>
 					</ul>
 
 					<h2>5. Who we share it with</h2>
 					<p>
-						We do not sell, rent or share personal data, and we use no advertising or analytics
-						services. Three third parties can be involved, each only when you use the matching feature.
-						<strong>Google</strong>, only if you choose to sign in: your browser is sent to Google to sign in, and Google
-						tells us your account ID and display name. Google's own
-						<a href="https://policies.google.com/privacy" rel="noopener noreferrer">privacy policy</a>
-						applies to that step. <strong>Cloudflare</strong>, only when a signed-in host taps <em>Ask the AI</em>: it receives
-						the text described in section 2 and acts on our behalf as a service provider (data processor);
-						<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer">Cloudflare's privacy policy</a>
-						applies. <strong>Google Play</strong>, if you installed the Android app (section 9). The game may also show
-						a voluntary support link that opens an external page only if you tap it; the game sends that page none
-						of your game data and its own policy applies. Everything else is served from our own server, without
-						external fonts, scripts or images. If a competent authority legally requires it, we may have to hand
-						over data, for example the records of a report.
+						We do not sell or rent personal data, and we use no advertising or analytics services. These outside
+						services are involved:
+					</p>
+					<ul>
+						<li>
+							<strong>Cloudflare</strong>, on every visit: it is the network provider in front of the site and
+							processes connection data, including your IP address, to deliver the site to you. It also runs the AI
+							judge: when a signed-in host taps <em>Ask the AI</em>, it receives the text described in section 2 and
+							acts on our behalf as a service provider (data processor).
+							<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer">Cloudflare's privacy policy</a>
+							applies.
+						</li>
+						<li>
+							<strong>Google</strong>, only if you choose to sign in: your browser is sent to Google to sign in, and
+							Google tells us your account ID and display name. Google's own
+							<a href="https://policies.google.com/privacy" rel="noopener noreferrer">privacy policy</a>
+							applies to that step.
+						</li>
+						<li><strong>Google Play</strong>, if you installed the Android app (section 9).</li>
+						<li>
+							<strong>Support link</strong>: on the website only (not in the Android app), the game may show a
+							voluntary support link. It opens an external page only if you tap it, and the game sends that page none
+							of your game data. Supporting the game is voluntary and gives nothing in return. The payment platforms
+							(Cafecito, Ko-fi) have their own terms and privacy policies and only accept supporters aged 18 or older.
+						</li>
+					</ul>
+					<p>
+						Everything else is served from our own server, without external fonts, scripts or images. If a competent
+						authority legally requires it, we may have to hand over data, for example the records of a report.
 					</p>
 
 					<h2>6. Your choices and rights</h2>
@@ -342,15 +370,31 @@
 							browser.
 						</li>
 						<li>
-							Depending on where you live (for example in the EU/EEA under the GDPR) you have the right to
-							access, correct, delete and receive a copy of your data, to object to its use, and to complain
-							to your data protection authority. Write to
-							<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a> and we will answer within 30 days.
+							Depending on where you live (for example in the EU/EEA under the GDPR, or in Argentina under Ley
+							25.326) you have the right to access, correct and delete your data, to receive a copy of it and to
+							object to its use. Write to <a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>. We answer
+							without undue delay, at the latest within one month, or sooner where the law where you live requires
+							it: if you live in Argentina, within 10 days for access to your data and within 5 business days for
+							correction or deletion (Ley 25.326, arts. 14 and 16). Where the law allows it (not in Argentina), a
+							complex request can take two more months; if so, we tell you within the first month.
+						</li>
+						<li>
+							You can also complain to a data protection authority: in the Netherlands the
+							<a href="https://www.autoriteitpersoonsgegevens.nl" rel="noopener noreferrer"
+								>Autoriteit Persoonsgegevens</a
+							>, in Argentina the
+							<a href="https://www.argentina.gob.ar/aaip" rel="noopener noreferrer"
+								>Agencia de Acceso a la Información Pública (AAIP)</a
+							>, or the authority where you live.
 						</li>
 					</ul>
 					<p>
-						We use your data because it is needed to provide the game you asked to play, to keep it safe for the
-						other players, and, for Google sign-in, because you chose to use it.
+						<strong>Legal bases.</strong> We use your data to run the game you asked to play and, if you sign in,
+						your optional account and statistics, because this is needed to provide the service you asked for
+						(contract: Art. 6(1)(b) GDPR; in Argentina, art. 5.2(d) of Ley 25.326). We keep the safety records (terms
+						acceptance, reports, blocks, restrictions and the record of what we did) and the server logs, and offer
+						the optional AI judge, because of our legitimate interest in a safe and fair game (Art. 6(1)(f) GDPR);
+						when we weigh that interest we take particular care of players under 18. We do not rely on your consent.
 					</p>
 
 					<h2>7. Security</h2>
@@ -366,6 +410,12 @@
 						That confirmation is your own statement: we do not check ages, and it does not replace any rule about age or
 						permission that the law where you live may set. We do not knowingly collect the personal data of children
 						under 13. If you think a child has signed in or is playing, write to us and we will delete the account.
+					</p>
+					<p>
+						Signing in is optional. Google only lets people manage their own Google Account from a minimum age,
+						which depends on the country (16 in the Netherlands). Younger players can play as guests, or sign in
+						with a supervised Google Account if a parent allows it. A parent or guardian can ask us by email to
+						delete their child's data; we verify the request first.
 					</p>
 
 					<h2>9. The Android app</h2>
@@ -418,8 +468,8 @@
 							</li>
 							<li>
 								Sin publicidad, sin analítica, sin rastreo, sin scripts ni fuentes de terceros, y nunca
-								vendemos tus datos. Solo se comparten con los servicios opcionales de la sección 5 y, si la ley
-								lo exige, con las autoridades.
+								vendemos tus datos. Solo se comparten con los proveedores de servicios de la sección 5 y, si la
+								ley lo exige, con las autoridades.
 							</li>
 							<li>
 								Si quien organiza la partida inició sesión y toca el botón opcional de la IA, las respuestas de esa categoría de todos los jugadores (nunca los apodos) se envían a Cloudflare para obtener una sugerencia. Según Cloudflare, no las usa para entrenar modelos de IA.
@@ -581,14 +631,19 @@
 
 					<h3>Datos técnicos</h3>
 					<p>
-						Como cualquier servidor web, el nuestro procesa tu dirección IP y datos de tu navegador para
-						responder tus pedidos, y guarda tu dirección IP en su memoria durante unos 10 a 15 minutos para limitar abusos.
-						La aplicación registra el método, la ruta (que puede incluir el código de una sala), el código de estado
-						y la duración de cada pedido; no registra apodos ni respuestas. Los errores de la conexión en vivo de una
-						partida se registran con la dirección IP de la conexión y su ID de invitado aleatorio, y lo mismo pasa con
-						los eventos de conexión y desconexión si se activa el nivel de registro de depuración del servidor (no
-						está activo por defecto). La puerta de entrada web del servidor también puede guardar registros de acceso
-						estándar (dirección, URL pedida, navegador, hora) para mantener el servicio seguro y funcionando. Además,
+						Al sitio se llega a través de un túnel de Cloudflare (Cloudflare Tunnel): Cloudflare, nuestro proveedor
+						de red, recibe cada conexión y la pasa, así que las conexiones llegan a nuestros servidores solo desde
+						direcciones internas de la red. El juego no lee, no registra ni guarda tu dirección IP. Cloudflare sí
+						procesa datos de conexión, incluida tu dirección IP, para hacerte llegar el sitio (sección 5).
+					</p>
+					<p>
+						Nuestros servidores registran el método, la ruta (que puede incluir el código de una sala), el código de
+						estado y la duración de cada pedido; no registran apodos ni respuestas. Los errores de la conexión en vivo
+						de una partida se registran con su ID de invitado aleatorio, y lo mismo pasa con los eventos de conexión
+						y desconexión cuando se activa el registro detallado (de depuración) del servidor (no está activo por
+						defecto). El servidor del juego no registra los encabezados de los pedidos; el servidor web que envía las
+						páginas y los archivos del sitio además anota, para cada uno, cómo se identifica el navegador (user agent)
+						y qué página lo pidió (referrer). Cuánto tiempo se guardan los registros está en la sección 4. Además,
 						el servidor publica contadores anónimos (cantidad de salas, conexiones, …) que no contienen datos
 						personales.
 					</p>
@@ -668,29 +723,55 @@
 							mientras dure y 90 días más; los registros de lo que hicimos, un año.
 						</li>
 						<li>
-							<strong>Los registros del servidor</strong>: buscamos conservarlos unos 7 días. Los guarda la
-							infraestructura de alojamiento, no el juego en sí.
+							<strong>Los registros del servidor</strong> se conservan 7 días en nuestro sistema de registros y
+							después se borran solos. El servidor además guarda copias rotativas de corta duración, que se
+							sobrescriben después de unas decenas de megabytes.
+						</li>
+						<li>
+							<strong>Las copias de seguridad</strong>: por ahora no guardamos copias de seguridad de la base de
+							datos, así que lo que se borra no se puede recuperar desde una copia. Las filas borradas pueden quedar
+							por poco tiempo dentro de los propios archivos de la base de datos, hasta que la base de datos reutiliza
+							ese espacio. Si alguna vez agregamos copias de seguridad, esta política va a decir antes cuánto tiempo
+							se guardan.
 						</li>
 					</ul>
 
 					<h2>5. Con quién los compartimos</h2>
 					<p>
-						No vendemos, alquilamos ni compartimos datos personales, y no usamos servicios de publicidad ni de
-						analítica. Pueden intervenir tres terceros, cada uno solo cuando usás la función correspondiente.
-						<strong>Google</strong>, solo si elegís iniciar sesión: tu navegador va a Google para iniciar
-						sesión y Google nos informa tu ID de cuenta y tu nombre visible. En ese paso rige la
-						<a href="https://policies.google.com/privacy" rel="noopener noreferrer"
-							>política de privacidad de Google</a
-						>. <strong>Cloudflare</strong>, solo cuando quien organiza la partida e inició sesión toca
-						<em>Preguntar a la IA</em>: recibe el texto descrito en la sección 2 y actúa en nuestro nombre como proveedor de
-						servicios (encargado del tratamiento); rige la
-						<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer"
-							>política de privacidad de Cloudflare</a
-						>. <strong>Google Play</strong>, si instalaste la app de Android (sección 9). El juego también puede
-						mostrar un enlace voluntario para apoyarlo, que abre una página externa solo si lo tocás; el juego no le
-						envía a esa página ningún dato de tu partida y rige su propia política. Todo lo demás se sirve desde
-						nuestro propio servidor, sin fuentes, scripts ni imágenes externas. Si una autoridad competente lo exige
-						legalmente, podríamos tener que entregar datos, por ejemplo los de un reporte.
+						No vendemos ni alquilamos datos personales, y no usamos servicios de publicidad ni de analítica.
+						Intervienen estos servicios externos:
+					</p>
+					<ul>
+						<li>
+							<strong>Cloudflare</strong>, en cada visita: es el proveedor de red que está delante del sitio y procesa
+							datos de conexión, incluida tu dirección IP, para hacerte llegar el sitio. También hace funcionar el
+							juez de IA: cuando quien organiza la partida e inició sesión toca <em>Preguntar a la IA</em>, recibe el
+							texto descrito en la sección 2 y actúa en nuestro nombre como proveedor de servicios (encargado del
+							tratamiento). Rige la
+							<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer"
+								>política de privacidad de Cloudflare</a
+							>.
+						</li>
+						<li>
+							<strong>Google</strong>, solo si elegís iniciar sesión: tu navegador va a Google para iniciar sesión y
+							Google nos informa tu ID de cuenta y tu nombre visible. En ese paso rige la
+							<a href="https://policies.google.com/privacy" rel="noopener noreferrer"
+								>política de privacidad de Google</a
+							>.
+						</li>
+						<li><strong>Google Play</strong>, si instalaste la app de Android (sección 9).</li>
+						<li>
+							<strong>Enlace de apoyo</strong>: solo en el sitio web (no en la app de Android), el juego puede mostrar
+							un enlace voluntario para apoyarlo. Abre una página externa solo si lo tocás, y el juego no le envía a
+							esa página ningún dato de tu partida. Apoyar el juego es voluntario y no da nada a cambio. Las
+							plataformas de pago (Cafecito, Ko-fi) tienen sus propios términos y políticas de privacidad y solo
+							aceptan a personas de 18 años o más.
+						</li>
+					</ul>
+					<p>
+						Todo lo demás se sirve desde nuestro propio servidor, sin fuentes, scripts ni imágenes externas. Si una
+						autoridad competente lo exige legalmente, podríamos tener que entregar datos, por ejemplo los de un
+						reporte.
 					</p>
 
 					<h2>6. Tus opciones y derechos</h2>
@@ -721,15 +802,32 @@
 							almacenamiento de este sitio en tu navegador.
 						</li>
 						<li>
-							Según dónde vivas (por ejemplo, en la UE/EEE por el RGPD) tenés derecho a acceder a tus datos,
-							corregirlos, eliminarlos y recibir una copia, a oponerte a su uso y a reclamar ante tu autoridad
-							de protección de datos. Escribí a
-							<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a> y te respondemos dentro de los 30 días.
+							Según dónde vivas (por ejemplo, en la UE/EEE por el RGPD, o en Argentina por la Ley 25.326) tenés
+							derecho a acceder a tus datos, corregirlos, eliminarlos y recibir una copia, y a oponerte a su uso.
+							Escribí a <a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>. Respondemos sin demoras
+							indebidas, como máximo dentro de un mes, o antes si la ley del lugar donde vivís lo exige: si vivís en
+							Argentina, dentro de los 10 días para acceder a tus datos y dentro de los 5 días hábiles para
+							corregirlos o eliminarlos (Ley 25.326, arts. 14 y 16). Donde la ley lo permite (no en Argentina), un
+							pedido complejo puede llevar dos meses más; en ese caso te avisamos dentro del primer mes.
+						</li>
+						<li>
+							También podés presentar un reclamo ante una autoridad de protección de datos: en los Países Bajos, la
+							<a href="https://www.autoriteitpersoonsgegevens.nl" rel="noopener noreferrer"
+								>Autoriteit Persoonsgegevens</a
+							>; en Argentina, la
+							<a href="https://www.argentina.gob.ar/aaip" rel="noopener noreferrer"
+								>Agencia de Acceso a la Información Pública (AAIP)</a
+							>; o la autoridad del lugar donde vivís.
 						</li>
 					</ul>
 					<p>
-						Usamos tus datos porque hacen falta para darte el juego que querés jugar, para mantenerlo seguro para
-						los demás jugadores y, en el caso del inicio de sesión con Google, porque elegiste usarlo.
+						<strong>Bases legales.</strong> Usamos tus datos para hacer funcionar el juego que querés jugar y, si
+						iniciás sesión, tu cuenta opcional y tus estadísticas, porque hace falta para darte el servicio que
+						pediste (contrato: art. 6(1)(b) del RGPD; en Argentina, art. 5.2(d) de la Ley 25.326). Guardamos los
+						registros de seguridad (aceptación de los términos, reportes, bloqueos, restricciones y el registro de lo
+						que hicimos) y los registros del servidor, y ofrecemos el juez de IA opcional, por nuestro interés
+						legítimo en un juego seguro y justo (art. 6(1)(f) del RGPD); al sopesar ese interés cuidamos
+						especialmente a los jugadores menores de 18 años. No nos basamos en tu consentimiento.
 					</p>
 
 					<h2>7. Seguridad</h2>
@@ -745,6 +843,13 @@
 						Esa confirmación es una declaración tuya: no verificamos edades, y no reemplaza ninguna regla sobre edad o
 						permisos que fije la ley del lugar donde vivís. No recolectamos a sabiendas datos personales de menores de
 						13 años. Si creés que un menor inició sesión o está jugando, escribinos y eliminamos la cuenta.
+					</p>
+					<p>
+						Iniciar sesión es opcional. Google solo deja que alguien administre su propia cuenta de Google a partir
+						de una edad mínima, que depende del país (16 años en los Países Bajos). Los jugadores más chicos pueden
+						jugar como invitados, o iniciar sesión con una cuenta de Google supervisada si su madre, padre o tutor lo
+						permite. Una madre, un padre o un tutor puede pedirnos por correo que eliminemos los datos de su hijo o
+						hija; primero verificamos el pedido.
 					</p>
 
 					<h2>9. La app de Android</h2>
@@ -796,7 +901,7 @@
 							</li>
 							<li>
 								Geen advertenties, geen analyse, geen tracking, geen scripts of lettertypen van derden, en we
-								verkopen je gegevens nooit. Ze worden alleen gedeeld met de optionele diensten uit sectie 5 en,
+								verkopen je gegevens nooit. Ze worden alleen gedeeld met de dienstverleners uit sectie 5 en,
 								als de wet dat eist, met autoriteiten.
 							</li>
 							<li>
@@ -939,7 +1044,7 @@
 
 					<h3>Als een ingelogde host de AI-scheidsrechter gebruikt (optioneel)</h3>
 					<p>
-						Alleen een host die met Google is ingelogd ziet de knop <em>Vraag het de AI</em> in de beoordeling. Als die wordt
+						Alleen een host die met Google is ingelogd ziet de knop <em>Vraag het aan de AI</em> in de beoordeling. Als die wordt
 						ingedrukt, stuurt onze server de naam van de categorie (dat kan een eigen naam zijn die een speler heeft getypt),
 						de letter van de ronde, de taal van het spel en de antwoorden die alle spelers in die categorie hebben getypt,
 						als ze niet leeg zijn en met de letter van de ronde beginnen (nooit bijnamen, account-ID's of iets anders dat een
@@ -961,15 +1066,20 @@
 
 					<h3>Technische gegevens</h3>
 					<p>
-						Zoals elke webserver verwerkt de onze je IP-adres en browsergegevens om je verzoeken te
-						beantwoorden, en houdt hij je IP-adres ongeveer 10 tot 15 minuten in zijn geheugen om misbruik te beperken. De
-						applicatie logt de methode, het pad (dat een kamercode kan bevatten), de statuscode en de duur van elk
-						verzoek; ze logt geen bijnamen of antwoorden. Fouten op de live verbinding van een spel worden gelogd met
-						het IP-adres van de verbinding en het willekeurige gast-ID, en hetzelfde geldt voor verbindings- en
-						verbrekingsgebeurtenissen als het debug-logniveau van de server is ingeschakeld (standaard niet). De
-						webingang van de server kan daarnaast standaard toegangslogs bewaren (adres, opgevraagde URL, browser,
-						tijd) om de dienst veilig en werkend te houden. De server publiceert ook anonieme tellers (aantal
-						kamers, verbindingen, …) zonder persoonsgegevens.
+						De site is bereikbaar via een Cloudflare Tunnel: Cloudflare, onze netwerkprovider, ontvangt elke
+						verbinding en geeft die door, dus verbindingen bereiken onze servers alleen vanaf interne netwerkadressen.
+						Het spel leest, logt en bewaart je IP-adres niet. Cloudflare verwerkt zelf wel verbindingsgegevens,
+						waaronder je IP-adres, om de site bij je te bezorgen (paragraaf 5).
+					</p>
+					<p>
+						Onze servers loggen van elk verzoek de methode, het pad (dat een kamercode kan bevatten), de statuscode
+						en de duur; ze loggen geen bijnamen of antwoorden. Fouten op de live verbinding van een spel worden
+						gelogd met het willekeurige gast-ID ervan, en hetzelfde geldt voor verbindings- en
+						verbrekingsgebeurtenissen als de uitgebreide (debug-)logging van de server aanstaat (standaard niet). De
+						spelserver logt geen headers van verzoeken; de webserver die de pagina's en bestanden van de site
+						verstuurt, noteert daarnaast per bestand hoe de browser zichzelf omschrijft (user agent) en welke pagina
+						erom vroeg (referrer). Hoe lang logs worden bewaard, staat in paragraaf 4. De server publiceert ook
+						anonieme tellers (aantal kamers, verbindingen, …) zonder persoonsgegevens.
 					</p>
 
 					<h2>3. Cookies en opslag in je browser</h2>
@@ -1047,30 +1157,54 @@
 							zolang die duurt plus 90 dagen, de gegevens over wat we hebben gedaan een jaar.
 						</li>
 						<li>
-							<strong>Serverlogs</strong>: we streven ernaar ze ongeveer 7 dagen te bewaren. Ze worden bewaard
-							door de hostinginfrastructuur, niet door het spel zelf.
+							<strong>Serverlogs</strong> worden 7 dagen bewaard in ons logsysteem en daarna automatisch verwijderd.
+							De server bewaart daarnaast kortlevende, roterende kopieën, die worden overschreven na enkele tientallen
+							megabytes.
+						</li>
+						<li>
+							<strong>Back-ups</strong>: we maken op dit moment geen back-ups van de database, dus verwijderde
+							gegevens kunnen niet uit een kopie worden teruggezet. Verwijderde rijen kunnen nog korte tijd in de eigen
+							bestanden van de database staan, tot de database die ruimte opnieuw gebruikt. Als we ooit back-ups gaan
+							maken, zegt dit beleid eerst hoe lang die worden bewaard.
 						</li>
 					</ul>
 
 					<h2>5. Met wie we het delen</h2>
 					<p>
-						We verkopen, verhuren of delen geen persoonsgegevens en gebruiken geen advertentie- of
-						analysediensten. Er kunnen drie derde partijen bij betrokken zijn, elk alleen als je de bijbehorende
-						functie gebruikt.
-						<strong>Google</strong>, alleen als je kiest om in te loggen: je browser gaat naar Google om in te loggen en Google
-						geeft ons je account-ID en weergavenaam. Voor die stap geldt de
-						<a href="https://policies.google.com/privacy" rel="noopener noreferrer"
-							>privacyverklaring van Google</a
-						>. <strong>Cloudflare</strong>, alleen als een ingelogde host op <em>Vraag het de AI</em> tikt: het ontvangt de
-						tekst uit sectie 2 en handelt namens ons als dienstverlener (verwerker); de
-						<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer"
-							>privacyverklaring van Cloudflare</a
-						>
-						geldt. <strong>Google Play</strong>, als je de Android-app hebt geïnstalleerd (paragraaf 9). Het spel kan
-						ook een vrijwillige steunlink tonen die alleen een externe pagina opent als je erop tikt; het spel stuurt
-						die pagina geen spelgegevens en haar eigen beleid geldt. Al het andere komt van onze eigen server, zonder
-						externe lettertypen, scripts of afbeeldingen. Als een bevoegde autoriteit dat wettelijk eist, moeten we
-						mogelijk gegevens overdragen, bijvoorbeeld die van een melding.
+						We verkopen of verhuren geen persoonsgegevens en gebruiken geen advertentie- of analysediensten. Deze
+						externe diensten zijn erbij betrokken:
+					</p>
+					<ul>
+						<li>
+							<strong>Cloudflare</strong>, bij elk bezoek: het is de netwerkprovider vóór de site en verwerkt
+							verbindingsgegevens, waaronder je IP-adres, om de site bij je te bezorgen. Het laat ook de
+							AI-scheidsrechter werken: als een ingelogde host op <em>Vraag het aan de AI</em> tikt, ontvangt het de
+							tekst uit paragraaf 2 en handelt het namens ons als dienstverlener (verwerker). De
+							<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer"
+								>privacyverklaring van Cloudflare</a
+							>
+							geldt.
+						</li>
+						<li>
+							<strong>Google</strong>, alleen als je kiest om in te loggen: je browser gaat naar Google om in te
+							loggen en Google geeft ons je account-ID en weergavenaam. Voor die stap geldt de
+							<a href="https://policies.google.com/privacy" rel="noopener noreferrer"
+								>privacyverklaring van Google</a
+							>.
+						</li>
+						<li><strong>Google Play</strong>, als je de Android-app hebt geïnstalleerd (paragraaf 9).</li>
+						<li>
+							<strong>Steunlink</strong>: alleen op de website (niet in de Android-app) kan het spel een vrijwillige
+							steunlink tonen. Die opent alleen een externe pagina als je erop tikt, en het spel stuurt die pagina
+							geen spelgegevens. Het spel steunen is vrijwillig en je krijgt er niets voor terug. De betaalplatforms
+							(Cafecito, Ko-fi) hebben hun eigen voorwaarden en privacyverklaringen en accepteren alleen mensen van
+							18 jaar of ouder.
+						</li>
+					</ul>
+					<p>
+						Al het andere komt van onze eigen server, zonder externe lettertypen, scripts of afbeeldingen. Als een
+						bevoegde autoriteit dat wettelijk eist, moeten we mogelijk gegevens overdragen, bijvoorbeeld die van een
+						melding.
 					</p>
 
 					<h2>6. Jouw keuzes en rechten</h2>
@@ -1100,15 +1234,33 @@
 							site in je browser wissen.
 						</li>
 						<li>
-							Afhankelijk van waar je woont (bijvoorbeeld in de EU/EER onder de AVG) heb je recht op inzage,
-							correctie, verwijdering en een kopie van je gegevens, het recht om bezwaar te maken en het recht
-							om een klacht in te dienen bij je toezichthouder. Schrijf naar
-							<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>; we antwoorden binnen 30 dagen.
+							Afhankelijk van waar je woont (bijvoorbeeld in de EU/EER onder de AVG, of in Argentinië onder Ley
+							25.326) heb je recht op inzage, correctie, verwijdering en een kopie van je gegevens, en het recht om
+							bezwaar te maken tegen het gebruik ervan. Schrijf naar
+							<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>. We antwoorden zonder onnodige vertraging,
+							uiterlijk binnen een maand, of eerder als de wet van de plaats waar je woont dat eist: woon je in
+							Argentinië, dan binnen 10 dagen voor inzage in je gegevens en binnen 5 werkdagen voor correctie of
+							verwijdering (Ley 25.326, art. 14 en 16). Waar de wet het toelaat (niet in Argentinië), kan een
+							ingewikkeld verzoek twee maanden langer duren; dan laten we je dat binnen de eerste maand weten.
+						</li>
+						<li>
+							Je kunt ook een klacht indienen bij een toezichthouder voor gegevensbescherming: in Nederland de
+							<a href="https://www.autoriteitpersoonsgegevens.nl" rel="noopener noreferrer"
+								>Autoriteit Persoonsgegevens</a
+							>, in Argentinië de
+							<a href="https://www.argentina.gob.ar/aaip" rel="noopener noreferrer"
+								>Agencia de Acceso a la Información Pública (AAIP)</a
+							>, of de toezichthouder van de plaats waar je woont.
 						</li>
 					</ul>
 					<p>
-						We gebruiken je gegevens omdat ze nodig zijn om het spel te bieden dat je wilt spelen, om het veilig te
-						houden voor de andere spelers en, bij inloggen met Google, omdat je ervoor hebt gekozen.
+						<strong>Grondslagen.</strong> We gebruiken je gegevens om het spel te laten werken dat je wilt spelen en,
+						als je inlogt, je optionele account en statistieken, omdat dat nodig is om de dienst te leveren waar je om
+						vroeg (overeenkomst: art. 6(1)(b) AVG; in Argentinië art. 5.2(d) van Ley 25.326). We bewaren de
+						veiligheidsgegevens (acceptatie van de voorwaarden, meldingen, blokkades, beperkingen en de gegevens over
+						wat we hebben gedaan) en de serverlogs, en bieden de optionele AI-scheidsrechter aan, vanwege ons
+						gerechtvaardigd belang bij een veilig en eerlijk spel (art. 6(1)(f) AVG); bij die afweging letten we extra
+						goed op spelers onder de 18. We baseren ons niet op je toestemming.
 					</p>
 
 					<h2>7. Beveiliging</h2>
@@ -1125,6 +1277,12 @@
 						geen regel over leeftijd of toestemming die de wet van de plaats waar je woont kan stellen. We verzamelen
 						niet bewust persoonsgegevens van kinderen onder 13 jaar. Denk je dat een kind is ingelogd of speelt,
 						schrijf ons dan en we verwijderen het account.
+					</p>
+					<p>
+						Inloggen is optioneel. Google laat mensen pas vanaf een minimumleeftijd hun eigen Google-account beheren;
+						die verschilt per land (16 jaar in Nederland). Jongere spelers kunnen als gast spelen, of inloggen met een
+						Google-account onder toezicht als een ouder dat toestaat. Een ouder of voogd kan ons per e-mail vragen de
+						gegevens van zijn of haar kind te verwijderen; we controleren het verzoek eerst.
 					</p>
 
 					<h2>9. De Android-app</h2>

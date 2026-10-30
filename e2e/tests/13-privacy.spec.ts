@@ -74,13 +74,16 @@ for (const locale of ['es', 'en', 'nl'] as Locale[]) {
 			for (const link of await visibleDoc(ana).locator('a[href^="https://"]').all()) {
 				hosts.add(new URL((await link.getAttribute('href')) ?? '').host);
 			}
-			// Google (sign-in, its policy, permissions), Cloudflare (AI judge, its policy), the project's GitHub and the site itself: nothing else
+			// Google (sign-in, its policy, permissions), Cloudflare (network and AI judge, its policy), the two data
+			// protection authorities, the project's GitHub and the site itself: nothing else
 			expect([...hosts].sort()).toEqual([
 				'developers.google.com',
 				'github.com',
 				'myaccount.google.com',
 				'policies.google.com',
 				'tuttifrutti.aresius.xyz',
+				'www.argentina.gob.ar',
+				'www.autoriteitpersoonsgegevens.nl',
 				'www.cloudflare.com'
 			]);
 		});

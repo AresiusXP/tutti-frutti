@@ -47,7 +47,7 @@ describe('static/privacy.html', () => {
 			expect(section).toContain('Cloudflare');
 			expect(section).toContain('24');
 			expect(section).toContain('https://myaccount.google.com/permissions');
-			// 30 days (session cookie and the answer time), 10 minutes (OAuth), 6 hours (cleanup), 7 days (logs)
+			// 30 days (session cookie), 10 minutes (OAuth), 6 hours (cleanup), 7 days (logs)
 			for (const figure of ['30', '10', '6', '7'])
 				expect(section).toMatch(new RegExp(`\\b${figure}\\b`));
 		}
@@ -135,8 +135,7 @@ describe('static/privacy.html', () => {
 				'when nobody has been connected for 30 minutes, when nobody joined it within 2 minutes',
 				'can exist for longer than 6 hours',
 				'may stay in memory until it is evicted or the server restarts',
-				'uses your Google display name as your nickname',
-				'we aim to keep them for about 7 days'
+				'uses your Google display name as your nickname'
 			],
 			es: [
 				'tu ID de invitado aleatorio, la versión de los términos, la hora, el idioma de la pantalla',
@@ -155,8 +154,7 @@ describe('static/privacy.html', () => {
 				'cuando nadie estuvo conectado durante 30 minutos, cuando nadie entró en los 2 minutos',
 				'pueden existir más de 6 horas',
 				'puede quedar en memoria hasta que se la desaloje o se reinicie el servidor',
-				'usa tu nombre visible en Google como apodo',
-				'buscamos conservarlos unos 7 días'
+				'usa tu nombre visible en Google como apodo'
 			],
 			nl: [
 				'je willekeurige gast-ID, de versie van de voorwaarden, het tijdstip, de taal van het scherm',
@@ -175,8 +173,7 @@ describe('static/privacy.html', () => {
 				'als er 30 minuten niemand verbonden is geweest, als niemand binnen 2 minuten',
 				'langer dan 6 uur bestaan',
 				'kan anders in het geheugen blijven staan tot het wordt verdrongen of de server herstart',
-				'gebruikt het spel je Google-weergavenaam als bijnaam',
-				'streven ernaar ze ongeveer 7 dagen te bewaren'
+				'gebruikt het spel je Google-weergavenaam als bijnaam'
 			]
 		};
 		for (const section of sections) {
@@ -188,12 +185,112 @@ describe('static/privacy.html', () => {
 		}
 	});
 
+	it('states logs, backups, legal bases, deadlines, authorities and minors in every language', () => {
+		const facts: Record<string, string[]> = {
+			en: [
+				// logs: no player IP address reaches the game, Cloudflare (the network in front) handles it
+				'connections reach our servers only from internal network addresses',
+				'The game does not read, log or store your IP address',
+				'Cloudflare itself does process connection data, including your IP address, to deliver the site to you',
+				'The game server does not log request headers',
+				'Server logs are kept for 7 days in our log system',
+				'short-lived rotating copies, which are overwritten after a few tens of megabytes',
+				'Cloudflare, on every visit',
+				// no backups
+				'we do not keep backups of the database at the moment, so deleted data cannot be restored from a copy',
+				'until the database reuses that space',
+				'If we ever introduce backups, this policy will first say how long they are kept',
+				// legal bases, never consent
+				'Art. 6(1)(b) GDPR; in Argentina, art. 5.2(d) of Ley 25.326',
+				'legitimate interest in a safe and fair game (Art. 6(1)(f) GDPR)',
+				'particular care of players under 18',
+				'We do not rely on your consent.',
+				// deadlines and complaints
+				'We answer without undue delay, at the latest within one month, or sooner where the law where you live requires it',
+				'if you live in Argentina, within 10 days for access to your data and within 5 business days for correction or deletion (Ley 25.326, arts. 14 and 16)',
+				'Where the law allows it (not in Argentina), a complex request can take two more months; if so, we tell you within the first month',
+				'complain to a data protection authority',
+				// minors
+				'16 in the Netherlands',
+				'Younger players can play as guests, or sign in with a supervised Google Account if a parent allows it',
+				"A parent or guardian can ask us by email to delete their child's data; we verify the request first",
+				// the support link
+				'on the website only (not in the Android app)',
+				'Supporting the game is voluntary and gives nothing in return',
+				'(Cafecito, Ko-fi) have their own terms and privacy policies and only accept supporters aged 18 or older'
+			],
+			es: [
+				'las conexiones llegan a nuestros servidores solo desde direcciones internas de la red',
+				'El juego no lee, no registra ni guarda tu dirección IP',
+				'Cloudflare sí procesa datos de conexión, incluida tu dirección IP, para hacerte llegar el sitio',
+				'El servidor del juego no registra los encabezados de los pedidos',
+				'Los registros del servidor se conservan 7 días en nuestro sistema de registros',
+				'copias rotativas de corta duración, que se sobrescriben después de unas decenas de megabytes',
+				'Cloudflare, en cada visita',
+				'por ahora no guardamos copias de seguridad de la base de datos, así que lo que se borra no se puede recuperar desde una copia',
+				'hasta que la base de datos reutiliza ese espacio',
+				'Si alguna vez agregamos copias de seguridad, esta política va a decir antes cuánto tiempo se guardan',
+				'art. 6(1)(b) del RGPD; en Argentina, art. 5.2(d) de la Ley 25.326',
+				'interés legítimo en un juego seguro y justo (art. 6(1)(f) del RGPD)',
+				'cuidamos especialmente a los jugadores menores de 18 años',
+				'No nos basamos en tu consentimiento.',
+				'Respondemos sin demoras indebidas, como máximo dentro de un mes, o antes si la ley del lugar donde vivís lo exige',
+				'si vivís en Argentina, dentro de los 10 días para acceder a tus datos y dentro de los 5 días hábiles para corregirlos o eliminarlos (Ley 25.326, arts. 14 y 16)',
+				'Donde la ley lo permite (no en Argentina), un pedido complejo puede llevar dos meses más; en ese caso te avisamos dentro del primer mes',
+				'presentar un reclamo ante una autoridad de protección de datos',
+				'16 años en los Países Bajos',
+				'Los jugadores más chicos pueden jugar como invitados, o iniciar sesión con una cuenta de Google supervisada',
+				'puede pedirnos por correo que eliminemos los datos de su hijo o hija; primero verificamos el pedido',
+				'solo en el sitio web (no en la app de Android)',
+				'Apoyar el juego es voluntario y no da nada a cambio',
+				'(Cafecito, Ko-fi) tienen sus propios términos y políticas de privacidad y solo aceptan a personas de 18 años o más'
+			],
+			nl: [
+				'verbindingen bereiken onze servers alleen vanaf interne netwerkadressen',
+				'Het spel leest, logt en bewaart je IP-adres niet',
+				'Cloudflare verwerkt zelf wel verbindingsgegevens, waaronder je IP-adres, om de site bij je te bezorgen',
+				'De spelserver logt geen headers van verzoeken',
+				'Serverlogs worden 7 dagen bewaard in ons logsysteem',
+				'kortlevende, roterende kopieën, die worden overschreven na enkele tientallen megabytes',
+				'Cloudflare, bij elk bezoek',
+				'we maken op dit moment geen back-ups van de database, dus verwijderde gegevens kunnen niet uit een kopie worden teruggezet',
+				'tot de database die ruimte opnieuw gebruikt',
+				'Als we ooit back-ups gaan maken, zegt dit beleid eerst hoe lang die worden bewaard',
+				'art. 6(1)(b) AVG; in Argentinië art. 5.2(d) van Ley 25.326',
+				'gerechtvaardigd belang bij een veilig en eerlijk spel (art. 6(1)(f) AVG)',
+				'letten we extra goed op spelers onder de 18',
+				'We baseren ons niet op je toestemming.',
+				'We antwoorden zonder onnodige vertraging, uiterlijk binnen een maand, of eerder als de wet van de plaats waar je woont dat eist',
+				'woon je in Argentinië, dan binnen 10 dagen voor inzage in je gegevens en binnen 5 werkdagen voor correctie of verwijdering (Ley 25.326, art. 14 en 16)',
+				'Waar de wet het toelaat (niet in Argentinië), kan een ingewikkeld verzoek twee maanden langer duren; dan laten we je dat binnen de eerste maand weten',
+				'een klacht indienen bij een toezichthouder voor gegevensbescherming',
+				'16 jaar in Nederland',
+				'Jongere spelers kunnen als gast spelen, of inloggen met een Google-account onder toezicht als een ouder dat toestaat',
+				'Een ouder of voogd kan ons per e-mail vragen de gegevens van zijn of haar kind te verwijderen; we controleren het verzoek eerst',
+				'alleen op de website (niet in de Android-app)',
+				'Het spel steunen is vrijwillig en je krijgt er niets voor terug',
+				'(Cafecito, Ko-fi) hebben hun eigen voorwaarden en privacyverklaringen en accepteren alleen mensen van 18 jaar of ouder'
+			]
+		};
+		for (const section of sections) {
+			const locale = /id="(\w+)"/.exec(section)![1];
+			const text = section.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ');
+			for (const fact of facts[locale]) expect(text, `${locale}: ${fact}`).toContain(fact);
+			// the two supervisory authorities, linked in every language
+			expect(section).toContain('href="https://www.autoriteitpersoonsgegevens.nl"');
+			expect(section).toContain('href="https://www.argentina.gob.ar/aaip"');
+			expect(text).toContain('Autoriteit Persoonsgegevens');
+			expect(text).toContain('Agencia de Acceso a la Información Pública (AAIP)');
+		}
+	});
+
 	it('no longer claims what the code does not do', () => {
 		const never: Record<string, RegExp> = {
-			// the Google name becomes the first nickname, so other players can see it
-			en: /never to other players|never sent to us|anything older than 6 hours|and after 24 hours at most/i,
-			es: /nunca a otros jugadores|nunca se nos envía|todo lo que tenga más de\s+6 horas|a las 24 horas/i,
-			nl: /nooit aan andere spelers|nooit naar ons gestuurd|alles wat ouder is\s+dan 6 uur|na hooguit 24 uur/i
+			// the Google name becomes the first nickname, so other players can see it; the IP address never
+			// reaches the game (Cloudflare Tunnel), and no lawful basis rests on consent
+			en: /never to other players|never sent to us|anything older than 6 hours|and after 24 hours at most|keeps your IP address|because you chose to use it|within 30 days/i,
+			es: /nunca a otros jugadores|nunca se nos envía|todo lo que tenga más de\s+6 horas|a las 24 horas|guarda tu dirección IP en su memoria|porque elegiste usarlo|dentro de los 30 días/i,
+			nl: /nooit aan andere spelers|nooit naar ons gestuurd|alles wat ouder is\s+dan 6 uur|na hooguit 24 uur|houdt hij je IP-adres|omdat je ervoor hebt gekozen|binnen 30 dagen/i
 		};
 		for (const section of sections) {
 			const locale = /id="(\w+)"/.exec(section)![1];

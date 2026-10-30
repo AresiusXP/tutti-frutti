@@ -29,8 +29,79 @@ const EXTERNAL_HOSTS = new Set([
 	'developers.google.com',
 	'policies.google.com',
 	'myaccount.google.com',
-	'www.cloudflare.com'
+	'www.cloudflare.com',
+	// the data protection authorities a player can complain to (privacy policy)
+	'www.autoriteitpersoonsgegevens.nl',
+	'www.argentina.gob.ar'
 ]);
+
+/**
+ * The app's buttons and screens each page quotes (in <em>, and <em> is used for nothing else),
+ * as message keys: the pages must name them exactly like the app does in every language.
+ */
+const QUOTED_LABELS: Record<(typeof PAGES)[number]['name'], string[]> = {
+	privacy: ['review_judge_ask', 'account_stats_link', 'stats_delete'],
+	terms: [
+		'report_players_aria',
+		'report_send',
+		'report_menu_block',
+		'legal_sheet_aria',
+		'blocked_link',
+		'blocked_unblock'
+	],
+	'delete-account': ['account_stats_link', 'stats_delete', 'stats_delete_confirm']
+};
+
+/**
+ * Argentina's Ley 25.326 is stricter than the GDPR's one month: access within 10 days (art. 14),
+ * correction or deletion within 5 business days (art. 16), and no two-month extension. Every page
+ * that names a deadline for data requests says so, and the extension always excludes Argentina.
+ */
+const ARGENTINA: Record<
+	string,
+	{ access: string; fix: string; extension: string; notInArgentina: string }
+> = {
+	en: {
+		access: 'within 10 days for access to your data',
+		fix: 'within 5 business days',
+		extension: 'two more months',
+		notInArgentina: '(not in Argentina)'
+	},
+	es: {
+		access: 'dentro de los 10 días para acceder a tus datos',
+		fix: 'dentro de los 5 días hábiles',
+		extension: 'dos meses más',
+		notInArgentina: '(no en Argentina)'
+	},
+	nl: {
+		access: 'binnen 10 dagen voor inzage in je gegevens',
+		fix: 'binnen 5 werkdagen',
+		extension: 'twee maanden langer',
+		notInArgentina: '(niet in Argentinië)'
+	}
+};
+
+/** Wording these pages used before and that is no longer true (or never was a promise we keep). */
+const STALE: Record<string, RegExp> = {
+	en: /we aim to keep|about 7 days|within 30 days|because you chose to use it|keeps your IP address/i,
+	es: /buscamos conservarlos|unos 7 días|dentro de los 30 días|porque elegiste usarlo|guarda tu dirección IP en su memoria/i,
+	nl: /streven ernaar|ongeveer 7 dagen|binnen 30 dagen|omdat je ervoor hebt gekozen|houdt hij je IP-adres/i
+};
+
+/** Every message of the app in one language (messages/<locale>.json and every area folder), by key. */
+function appMessages(locale: string): Record<string, string> {
+	const files = [
+		`messages/${locale}.json`,
+		...readdirSync(join(root, 'messages'), { withFileTypes: true })
+			.filter((entry) => entry.isDirectory())
+			.map((entry) => `messages/${entry.name}/${locale}.json`)
+			.filter((file) => existsSync(join(root, file)))
+	];
+	return Object.assign(
+		{},
+		...files.map((file) => JSON.parse(read(file)) as Record<string, string>)
+	);
+}
 
 const MONTHS: Record<string, string[]> = {
 	en: [
@@ -116,7 +187,7 @@ function serverTermsVersion(): string | null {
 	return null;
 }
 
-describe.each(PAGES)('$file (a legal page)', ({ file, path }) => {
+describe.each(PAGES)('$file (a legal page)', ({ name, file, path }) => {
 	const html = read(file);
 	const sections = Object.fromEntries(locales.map((l) => [l, sectionOf(html, l)]));
 	const counts = (re: RegExp) => locales.map((l) => [...sections[l].matchAll(re)].length);
@@ -221,6 +292,39 @@ describe.each(PAGES)('$file (a legal page)', ({ file, path }) => {
 		expect(PAGE_PATHS.has(path)).toBe(true);
 	});
 
+	it('quotes the labels of the app exactly as the app shows them, in every language', () => {
+		for (const locale of locales) {
+			const strings = appMessages(locale);
+			const expected = QUOTED_LABELS[name].map((key) => {
+				expect(strings[key], `${locale}: ${key}`).toBeTypeOf('string');
+				return strings[key];
+			});
+			const quoted = [...sections[locale].matchAll(/<em>([^<]*)<\/em>/g)].map((m) =>
+				m[1].replace(/\s+/g, ' ').trim()
+			);
+			expect([...new Set(quoted)].sort(), locale).toEqual([...new Set(expected)].sort());
+		}
+	});
+
+	it('no longer uses wording that is not true any more', () => {
+		for (const locale of locales)
+			expect(textOf(sections[locale]), locale).not.toMatch(STALE[locale]);
+	});
+
+	it('never promises Argentine residents a longer deadline than Ley 25.326 allows', () => {
+		for (const locale of locales) {
+			const text = textOf(sections[locale]);
+			const { access, fix, extension, notInArgentina } = ARGENTINA[locale];
+			expect(text, locale).toContain('Ley 25.326');
+			expect(text, `${locale}: ${fix}`).toContain(fix);
+			// the deletion page only handles deletion; the other two also cover access requests
+			if (name !== 'delete-account') expect(text, `${locale}: ${access}`).toContain(access);
+			// the two-month extension, wherever it is offered, leaves Argentina out in the same sentence
+			for (const sentence of text.split(/(?<=[.;])\s/).filter((s) => s.includes(extension)))
+				expect(sentence, locale).toContain(notInArgentina);
+		}
+	});
+
 	it.skipIf(path === '/privacy')('claims no legal compliance or certification', () => {
 		// the privacy policy quotes Google's own "Limited Use" wording, so it is left out
 		expect(textOf(html)).not.toMatch(
@@ -264,17 +368,30 @@ describe('static/terms.html', () => {
 				'illegal content',
 				'can be wrong or unfair',
 				'comment of up to 280 characters',
-				'regularly and prioritise serious safety concerns',
-				'do not promise to review every report in real time',
-				'never causes an automatic penalty',
+				'The other person is not told',
+				'we cannot tell you the outcome',
+				'why you think the content is illegal',
+				'the room code, the approximate time, the nickname and the text',
+				'your name and email address (not needed if your notice is about sexual abuse of children)',
+				'you make the notice in good faith',
 				'removes you from the current game and prevents future games with that player',
 				'clears their cookies, or uses another browser or device',
-				'remove content',
-				'close a game',
-				'restrict a browser identity or an account',
+				'A person, the one who runs the game, reads every report and decides',
+				'No decision about content or about a player is made automatically',
+				'the number of reports never causes a penalty by itself',
+				'The AI judge only gives scoring advice during the review, and the players decide',
+				'dismiss it',
+				'close a game room',
 				'remove a saved profile',
+				'restrict a browser identity or an account, for a limited time or permanently',
+				'we undo the decision at once',
+				"a threat to someone's life, self-harm, grooming, or sexual content involving minors",
+				'Our single point of contact, for players and for authorities',
+				'You can write to us in Dutch, English or Spanish',
 				'provided as it is',
-				'gives no benefit in the game',
+				'On the website only (not in the Android app)',
+				'gives no benefit in the game, gets you nothing in return',
+				'(Cafecito, Ko-fi) have their own terms and only accept supporters aged 18 or older',
 				'asks you to accept the new version again'
 			],
 			es: [
@@ -291,17 +408,30 @@ describe('static/terms.html', () => {
 				'contenido ilegal',
 				'puede equivocarse o ser injusto',
 				'comentario de hasta 280 caracteres',
-				'con regularidad y damos prioridad a los problemas graves de seguridad',
-				'No prometemos revisar cada reporte en tiempo real',
-				'nunca provoca una sanción automática',
+				'La otra persona no recibe ningún aviso',
+				'no podemos contarte el resultado',
+				'por qué creés que el contenido es ilegal',
+				'el código de la sala, la hora aproximada, el apodo y el texto',
+				'tu nombre y tu correo electrónico (no hacen falta si el aviso trata sobre abuso sexual de menores)',
+				'hacés el aviso de buena fe',
 				'te saca a vos de la partida actual y evita futuras partidas con la identidad de navegador reconocida',
 				'borra sus cookies, o usa otro navegador u otro dispositivo',
-				'quitar contenido',
-				'cerrar una partida',
-				'restringir a una identidad de navegador o a una cuenta',
+				'Una persona, quien está a cargo del juego, lee cada reporte y decide',
+				'Ninguna decisión sobre un contenido o sobre un jugador se toma de forma automática',
+				'la cantidad de reportes nunca provoca una sanción por sí sola',
+				'El juez de IA solo da una sugerencia sobre los puntos durante la revisión, y deciden los jugadores',
+				'descartarlo',
+				'cerrar una sala',
 				'borrar un perfil guardado',
+				'restringir a una identidad de navegador o a una cuenta, por un tiempo o para siempre',
+				'deshacemos la decisión de inmediato',
+				'una amenaza contra la vida de alguien, autolesiones, grooming o contenido sexual con menores',
+				'Nuestro único punto de contacto, para jugadores y para autoridades',
+				'Podés escribirnos en neerlandés, inglés o español',
 				'Se ofrece tal cual',
-				'no da ningún beneficio en el juego',
+				'Solo en el sitio web (no en la app de Android)',
+				'no da ningún beneficio en el juego, no te da nada a cambio',
+				'(Cafecito, Ko-fi) tienen sus propios términos y solo aceptan a personas de 18 años o más',
 				'el juego te pide aceptar de nuevo la nueva versión'
 			],
 			nl: [
@@ -318,17 +448,30 @@ describe('static/terms.html', () => {
 				'illegale inhoud',
 				'fout of onrechtvaardig zijn',
 				'opmerking van maximaal 280 tekens',
-				'meldingen regelmatig en geven voorrang aan ernstige veiligheidsproblemen',
-				'beloven niet elke melding in realtime te bekijken',
-				'leidt nooit tot een automatische straf',
+				'De ander krijgt hier niets van te horen',
+				'we kunnen je de uitkomst niet laten weten',
+				'waarom je denkt dat de inhoud illegaal is',
+				'de kamercode, het tijdstip ongeveer, de bijnaam en de tekst',
+				'je naam en e-mailadres (niet nodig als je melding over seksueel misbruik van kinderen gaat)',
+				'je de melding te goeder trouw doet',
 				'haalt jou uit het huidige spel en voorkomt toekomstige spellen met de herkende browseridentiteit',
 				'wist iemand zijn cookies of gebruikt die een andere browser of een ander apparaat',
-				'inhoud verwijderen',
-				'een spel sluiten',
-				'een browseridentiteit of een account beperken',
+				'Een mens, degene die het spel beheert, leest elke melding en beslist',
+				'Geen enkele beslissing over inhoud of over een speler wordt automatisch genomen',
+				'het aantal meldingen leidt nooit vanzelf tot een straf',
+				'De AI-scheidsrechter geeft alleen advies over de punten tijdens de beoordeling, en de spelers beslissen',
+				'de melding afwijzen',
+				'een kamer sluiten',
 				'een opgeslagen profiel verwijderen',
+				'een browseridentiteit of een account beperken, tijdelijk of voorgoed',
+				'draaien we de beslissing meteen terug',
+				'een bedreiging van iemands leven, zelfbeschadiging, grooming of seksuele inhoud met minderjarigen',
+				'Ons centrale contactpunt, voor spelers en voor autoriteiten',
+				'Je kunt ons schrijven in het Nederlands, Engels of Spaans',
 				'aangeboden zoals het is',
-				'geeft geen voordeel in het spel',
+				'Alleen op de website (niet in de Android-app)',
+				'geeft geen voordeel in het spel, je krijgt er niets voor terug',
+				'(Cafecito, Ko-fi) hebben hun eigen voorwaarden en accepteren alleen mensen van 18 jaar of ouder',
 				'vraagt het spel je de nieuwe versie opnieuw te accepteren'
 			]
 		};
@@ -338,20 +481,82 @@ describe('static/terms.html', () => {
 		}
 	});
 
-	it('names the block action like the app does and the way to report', () => {
-		expect(raw.en).toContain('<em>Block and leave</em>');
-		expect(raw.en).toContain('<em>Report</em>');
+	it('states the response times the owner commits to, and no other deadline', () => {
+		const facts: Record<string, string[]> = {
+			en: [
+				'We confirm that we received an emailed notice within 3 days, decide on it within 7 days, and tell you what we decided and how you can appeal',
+				'We look at the case again and answer within 14 days',
+				'we aim to check them every day, and we decide on each one within 7 days at the latest',
+				'we act within 24 hours of seeing them',
+				'we confirm we received them within 3 days and decide within 7 days',
+				'Appeals: we answer within 14 days',
+				'Requests about your data: without undue delay, at the latest within one month; if you live in Argentina, within 10 days for access to your data and within 5 business days for correction or deletion (Ley 25.326, arts. 14 and 16',
+				'Deleting an account by email: within one month at the latest after you have shown that it is yours; if you live in Argentina, within 5 business days',
+				'Any other message: we confirm we received it within 7 days',
+				'call 112 (EU and the Netherlands) or 911 (Argentina)',
+				"When we learn of a threat to someone's life or safety, we report it to the police"
+			],
+			es: [
+				'Te confirmamos que recibimos un aviso por correo dentro de los 3 días, decidimos dentro de los 7 días y te contamos qué decidimos y cómo podés apelar',
+				'Volvemos a mirar el caso y te respondemos dentro de los 14 días',
+				'nuestro objetivo es revisarlos todos los días, y decidimos cada uno dentro de los 7 días como máximo',
+				'actuamos dentro de las 24 horas desde que los vemos',
+				'confirmamos que los recibimos dentro de los 3 días y decidimos dentro de los 7 días',
+				'Apelaciones: respondemos dentro de los 14 días',
+				'Pedidos sobre tus datos: sin demoras indebidas y como máximo dentro de un mes; si vivís en Argentina, dentro de los 10 días para acceder a tus datos y dentro de los 5 días hábiles para corregirlos o eliminarlos (Ley 25.326, arts. 14 y 16',
+				'Eliminar una cuenta por correo: como máximo dentro de un mes desde que demostrás que es tuya; si vivís en Argentina, dentro de los 5 días hábiles',
+				'Cualquier otro mensaje: te confirmamos que lo recibimos dentro de los 7 días',
+				'llamá al 112 (UE y Países Bajos) o al 911 (Argentina)',
+				'Cuando nos enteramos de una amenaza contra la vida o la seguridad de alguien, la denunciamos a la policía'
+			],
+			nl: [
+				'We bevestigen binnen 3 dagen dat we een melding per e-mail hebben ontvangen, beslissen binnen 7 dagen en laten je weten wat we hebben besloten en hoe je bezwaar kunt maken',
+				'We bekijken de zaak opnieuw en antwoorden binnen 14 dagen',
+				'we proberen ze elke dag te bekijken en beslissen over elke melding uiterlijk binnen 7 dagen',
+				'we handelen binnen 24 uur nadat we ze hebben gezien',
+				'we bevestigen de ontvangst binnen 3 dagen en beslissen binnen 7 dagen',
+				'Bezwaren: we antwoorden binnen 14 dagen',
+				'Verzoeken over je gegevens: zonder onnodige vertraging en uiterlijk binnen een maand; woon je in Argentinië, dan binnen 10 dagen voor inzage in je gegevens en binnen 5 werkdagen voor correctie of verwijdering (Ley 25.326, art. 14 en 16',
+				'Een account per e-mail verwijderen: uiterlijk binnen een maand nadat je hebt aangetoond dat het van jou is; woon je in Argentinië, dan binnen 5 werkdagen',
+				'Elk ander bericht: we bevestigen binnen 7 dagen dat we het hebben ontvangen',
+				'bel dan 112 (EU en Nederland) of 911 (Argentinië)',
+				'Horen we van een bedreiging van iemands leven of veiligheid, dan melden we dat bij de politie'
+			]
+		};
+		for (const locale of locales) {
+			for (const fact of facts[locale])
+				expect(sections[locale], `${locale}: ${fact}`).toContain(fact);
+			// the only deadlines are the committed ones: 3, 7 and 14 days, 24 hours (and one month), plus
+			// Argentina's 10 days and 5 business days (Ley 25.326)
+			const deadlines = [
+				...sections[locale].matchAll(
+					/\b(\d+)\s*(business days?|días hábiles|werkdagen|hours?|horas?|uur|uren|days?|días?|dagen)\b/gi
+				)
+			].map(
+				(m) =>
+					`${m[1]} ${/business|hábiles|werk/i.test(m[2]) ? 'business days' : /^(?:hours?|horas?|uur|uren)$/i.test(m[2]) ? 'hours' : 'days'}`
+			);
+			expect([...new Set(deadlines)].sort(), locale).toEqual(
+				['3 days', '7 days', '10 days', '14 days', '24 hours', '5 business days'].sort()
+			);
+		}
 	});
 
-	it('points to the privacy policy and to the account deletion page, and never promises a response time', () => {
+	it('states the governing law word for word, keeping the consumer protection of the country of residence', () => {
+		const law: Record<string, string> = {
+			en: "These terms are governed by Dutch law. If you use Tutti Frutti as a consumer, this choice does not take away the protection of the mandatory rules of the country where you habitually live, which still apply to you. You may bring a dispute before the competent court in the Netherlands or the courts of the place where you live, as far as that place's law allows; we would bring any claim against you only before the courts of the country where you live. Nothing here limits a right the law gives you that cannot be waived.",
+			es: 'Estos términos se rigen por la ley de los Países Bajos. Si usás Tutti Frutti como consumidor, esta elección no te quita la protección de las normas imperativas del país donde vivís habitualmente, que se siguen aplicando. Podés presentar un reclamo ante el tribunal competente de los Países Bajos o ante los jueces del lugar donde vivís, en la medida en que la ley de ese lugar lo permita; cualquier reclamo nuestro contra vos lo haríamos solo ante los jueces del país donde vivís. Nada de esto limita un derecho que la ley te reconoce y al que no se puede renunciar.',
+			nl: 'Op deze voorwaarden is Nederlands recht van toepassing. Gebruik je Tutti Frutti als consument, dan verlies je hierdoor niet de bescherming van de dwingende regels van het land waar je gewoonlijk woont; die blijven gelden. Je kunt een geschil voorleggen aan de bevoegde rechter in Nederland of aan de rechter van je woonplaats, voor zover het recht daar dat toestaat; een vordering tegen jou stellen we alleen in bij de rechter van het land waar je woont. Niets hierin beperkt een recht dat de wet je geeft en waarvan niet kan worden afgeweken.'
+		};
+		for (const locale of locales) expect(sections[locale], locale).toContain(law[locale]);
+	});
+
+	it('points to the privacy policy, to the account deletion page and to the contact for notices', () => {
 		for (const locale of locales) {
 			expect(raw[locale], locale).toContain(`href="/privacy#${locale}"`);
 			expect(raw[locale], locale).toContain(`href="/delete-account#${locale}"`);
-			expect(raw[locale], locale).toContain(`mailto:${CONTACT}`);
-			// the owner decides response times: the page names none (the only figure with a unit is the 280 limit)
-			expect(sections[locale], locale).not.toMatch(
-				/\b\d+\s*(?:hours?|horas?|uur|uren|days?|días?|dagen)\b/i
-			);
+			// reports by email, appeals and the single point of contact all name the address
+			expect(raw[locale].split(`mailto:${CONTACT}`).length - 1, locale).toBeGreaterThanOrEqual(3);
 		}
 	});
 });
@@ -392,7 +597,11 @@ describe('static/delete-account.html', () => {
 				'stores no email address from Google',
 				'proves they control',
 				'We will reply with instructions to verify it',
-				'We answer within 30 days'
+				'We answer without undue delay and at the latest within one month',
+				'where the law allows it (not in Argentina), a complex request can take two more months, and if so we tell you within the first month',
+				'If you live in Argentina, we answer within 5 business days and delete the account within 5 business days after you have shown that it is yours (Ley 25.326, art. 16)',
+				'Once you have shown that the account is yours, we delete it within one month at the latest',
+				"A parent or guardian can ask the same for their child's account"
 			],
 			es: [
 				'no hace falta instalar la app de Android',
@@ -400,7 +609,11 @@ describe('static/delete-account.html', () => {
 				'no guarda ningún correo de Google',
 				'demuestre que controla',
 				'Te vamos a responder con instrucciones para verificarlo',
-				'Respondemos dentro de los 30 días'
+				'Respondemos sin demoras indebidas y como máximo dentro de un mes',
+				'donde la ley lo permite (no en Argentina), un pedido complejo puede llevar dos meses más, y en ese caso te avisamos dentro del primer mes',
+				'Si vivís en Argentina, te respondemos dentro de los 5 días hábiles y eliminamos la cuenta dentro de los 5 días hábiles desde que demostrás que es tuya (Ley 25.326, art. 16)',
+				'Una vez que demostraste que la cuenta es tuya, la eliminamos como máximo dentro de un mes',
+				'Una madre, un padre o un tutor puede pedir lo mismo para la cuenta de su hijo o hija'
 			],
 			nl: [
 				'hoeft de Android-app niet te installeren',
@@ -408,7 +621,11 @@ describe('static/delete-account.html', () => {
 				'geen e-mailadres van Google bewaart',
 				'aantoont dat hij of zij het beheert',
 				'We antwoorden met instructies om dat te controleren',
-				'We antwoorden binnen 30 dagen'
+				'We antwoorden zonder onnodige vertraging en uiterlijk binnen een maand',
+				'waar de wet het toelaat (niet in Argentinië), kan een ingewikkeld verzoek twee maanden langer duren, en dan laten we je dat binnen de eerste maand weten',
+				'Woon je in Argentinië, dan antwoorden we binnen 5 werkdagen en verwijderen we het account binnen 5 werkdagen nadat je hebt aangetoond dat het van jou is (Ley 25.326, art. 16)',
+				'Zodra je hebt aangetoond dat het account van jou is, verwijderen we het uiterlijk binnen een maand',
+				'Een ouder of voogd kan hetzelfde vragen voor het account van zijn of haar kind'
 			]
 		};
 		for (const locale of locales) {
@@ -431,7 +648,11 @@ describe('static/delete-account.html', () => {
 				'a new, empty account is created',
 				'cannot be undone',
 				'does not clear them, and neither does uninstalling the Android app',
-				'Your Google account</strong> is not touched'
+				'Your Google account</strong> is not touched',
+				'Server logs are kept for 7 days in our log system',
+				'overwritten after a few tens of megabytes',
+				'we do not keep backups of the database at the moment, so a deleted account cannot be restored from a copy',
+				'until the database reuses that space'
 			],
 			es: [
 				'Lo que ya está en una sala en curso',
@@ -439,7 +660,11 @@ describe('static/delete-account.html', () => {
 				'se crea una cuenta nueva y vacía',
 				'no se puede deshacer',
 				'no los borra, y desinstalar la app de Android tampoco',
-				'Tu cuenta de Google</strong> no se toca'
+				'Tu cuenta de Google</strong> no se toca',
+				'Los registros del servidor se conservan 7 días en nuestro sistema de registros',
+				'se sobrescriben después de unas decenas de megabytes',
+				'por ahora no guardamos copias de seguridad de la base de datos, así que una cuenta eliminada no se puede recuperar desde una copia',
+				'hasta que la base de datos reutiliza ese espacio'
 			],
 			nl: [
 				'Wat al in een lopende kamer staat',
@@ -447,7 +672,11 @@ describe('static/delete-account.html', () => {
 				'ontstaat er een nieuw, leeg account',
 				'niet ongedaan worden gemaakt',
 				'wist ze niet, en de Android-app verwijderen ook niet',
-				'Je Google-account</strong> blijft onaangeroerd'
+				'Je Google-account</strong> blijft onaangeroerd',
+				'Serverlogs worden 7 dagen bewaard in ons logsysteem',
+				'worden overschreven na enkele tientallen megabytes',
+				'we maken op dit moment geen back-ups van de database, dus een verwijderd account kan niet uit een kopie worden teruggezet',
+				'tot de database die ruimte opnieuw gebruikt'
 			]
 		};
 		for (const locale of locales) {
