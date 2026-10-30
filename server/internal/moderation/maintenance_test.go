@@ -36,12 +36,6 @@ func (c *fakeClock) Now() time.Time {
 	return c.now
 }
 
-func (c *fakeClock) set(t time.Time) {
-	c.mu.Lock()
-	c.now = t
-	c.mu.Unlock()
-}
-
 func (c *fakeClock) After(d time.Duration) <-chan time.Time {
 	c.mu.Lock()
 	c.waits = append(c.waits, d)

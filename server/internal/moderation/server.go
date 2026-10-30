@@ -64,9 +64,8 @@ type Deps struct {
 
 // Server is the control server: an http.Handler over a Unix socket.
 type Server struct {
-	d       Deps
-	mux     *http.ServeMux
-	handler http.Handler
+	d   Deps
+	mux *http.ServeMux
 }
 
 // timeout bounds one command (a sweep may touch every live room).
