@@ -12,6 +12,11 @@ Tutti Frutti
 
 Woordspel in realtime met vrienden: kies een letter en vul alle categorieën in.
 
+> **Publicatievoorwaarden:** de alinea "VEILIG EN EERLIJK" geeft de moderatietoezeggingen uit `docs/MODERATION.md` weer
+> (poort G4 in `docs/PLAY-RELEASE.md`, opgelost): publiceer hem zodra de release met de veiligheidslaag (voorwaarden,
+> meldingen, blokkeren, de `moderate`-tool van de beheerder) live staat. Noem nooit steunlinks, fooien of donaties
+> (poort G2), en voeg geen claims toe over ranglijsten, beoordelingen, "gratis", downloads of offline spelen.
+
 ## Volledige beschrijving (4000)
 
 Tutti Frutti is het klassieke woordspel met pen en papier, nu live op je telefoon.

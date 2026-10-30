@@ -31,6 +31,13 @@ Longhorn storage, shared CloudPirates Postgres — **never Bitnami**).
 * Secrets come from the existing Secret `tutti-frutti-secrets`
   (`database-url`, `session-secret`, `google-client-id`, `google-client-secret`,
   and the optional `cloudflare-account-id`, `cloudflare-api-token` of the AI judge).
+* The Android app (`android/`, package `xyz.aresius.tuttifrutti`) is a **Trusted Web Activity** of
+  this same website: no WebView, no native game code, no permissions. Web changes reach it through
+  the website; only shell changes need a Play release (`docs/ANDROID.md`, `docs/PLAY-RELEASE.md`).
+  The Cafecito/Ko-fi support links stay **hidden inside the Android app** (Google Play payments
+  policy, gate G2); the website keeps them.
+* Public play depends on the content-safety layer (terms, reports, blocks, operator `/moderate`
+  CLI; `docs/MODERATION.md`). Never weaken it without updating the Play declarations.
 * The AI judge (review, `server/internal/judge`) runs on **Cloudflare Workers AI, Free
   plan** (10,000 Neurons/day, refused after that, never billed). **Never add a payment
   method to that Cloudflare account or upgrade it to Workers Paid**, and never use a
@@ -49,6 +56,8 @@ go tool tygo generate
 npm ci && npm run check && npm run lint && npm run test && npm run build
 # helm
 helm lint helm/tutti-frutti && helm template t helm/tutti-frutti
+# android/ (JDK 17 + Android SDK; see docs/ANDROID.md)
+./gradlew testDebugUnitTest lintRelease assembleDebug bundleRelease && node --test scripts/*.test.mjs
 # everything locally
 docker compose up --build
 ```

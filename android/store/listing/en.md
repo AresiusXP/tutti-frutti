@@ -12,9 +12,10 @@ Tutti Frutti
 
 Real-time word game with friends: pick a letter, race to fill every category.
 
-> **Publication gates:** the "SAFE AND FAIR" paragraph is a commitment (gate G4 in `docs/PLAY-RELEASE.md`): publish it only
-> once the reporting, blocking and review process is live and the owner can honour it. Do not add claims about
-> rankings, ratings, "free", downloads or offline play.
+> **Publication gates:** the "SAFE AND FAIR" paragraph states the moderation commitments defined in
+> `docs/MODERATION.md` (gate G4 in `docs/PLAY-RELEASE.md`, resolved): publish it once the release with the safety layer
+> (terms, reports, blocks, the operator's `moderate` tool) is deployed. Never mention support links, tips or donations
+> (gate G2), and do not add claims about rankings, ratings, "free", downloads or offline play.
 
 ## Full description (4000)
 

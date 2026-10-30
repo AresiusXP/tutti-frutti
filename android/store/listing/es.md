@@ -12,6 +12,12 @@ Tutti Frutti
 
 Juego de palabras en tiempo real: elegí una letra y completá las categorías.
 
+> **Condiciones de publicación:** el párrafo "SEGURO Y JUSTO" expresa los compromisos de moderación definidos en
+> `docs/MODERATION.md` (puerta G4 en `docs/PLAY-RELEASE.md`, resuelta): publicalo cuando esté desplegada la versión con la
+> capa de seguridad (términos, denuncias, bloqueos, la herramienta `moderate` del operador). Nunca menciones enlaces de
+> apoyo, propinas ni donaciones (puerta G2), y no agregues afirmaciones sobre rankings, calificaciones, "gratis",
+> descargas ni juego sin conexión.
+
 ## Descripción completa (4000)
 
 Tutti Frutti es el clásico juego de lápiz y papel, ahora en vivo en tu celular.
