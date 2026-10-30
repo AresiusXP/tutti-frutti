@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isAndroidApp } from '$lib/android/context';
 	import { m } from '$lib/paraglide/messages';
 	import { supportLink } from '$lib/support/support';
 
@@ -8,20 +9,25 @@
 	 * It opens in a new tab so a game in progress is never left (the room reconnects anyway), and
 	 * `noreferrer` keeps the game's address from being sent along. `rel="external"`: not an SPA route
 	 * (and what the SvelteKit lint rule wants on a link it cannot resolve). `class` adds layout classes.
+	 * Inside the Android app it renders nothing at all (Google Play's payments policy; the website keeps it):
+	 * callers must not leave a heading or a gap of their own around it (see `isAndroidApp`).
 	 */
 	let { class: className = '' }: { class?: string } = $props();
 
 	// Decided once per mount: the timezone and the language list do not change while the page is open.
 	const href = supportLink();
+	const hidden = isAndroidApp();
 </script>
 
-<a
-	{href}
-	target="_blank"
-	rel="external noopener noreferrer"
-	class="flex h-12 items-center justify-center gap-1.5 rounded-2xl px-2 text-sm font-bold text-cream-muted transition active:bg-night-3 {className}"
->
-	<span aria-hidden="true">☕</span>
-	<span class="underline underline-offset-4">{m.support_link()}</span>
-	<span class="sr-only">{m.support_new_tab()}</span>
-</a>
+{#if !hidden}
+	<a
+		{href}
+		target="_blank"
+		rel="external noopener noreferrer"
+		class="flex h-12 items-center justify-center gap-1.5 rounded-2xl px-2 text-sm font-bold text-cream-muted transition active:bg-night-3 {className}"
+	>
+		<span aria-hidden="true">☕</span>
+		<span class="underline underline-offset-4">{m.support_link()}</span>
+		<span class="sr-only">{m.support_new_tab()}</span>
+	</a>
+{/if}

@@ -55,6 +55,35 @@ describe('SupportLink', () => {
 		expect(screen.getByRole('link').textContent).toContain('Steun het spel');
 	});
 
+	it('renders nothing at all inside the Android app, in every language', () => {
+		device('America/Argentina/Buenos_Aires', ['es-AR']);
+		sessionStorage.setItem('tf.android', '1');
+		try {
+			for (const locale of ['es', 'en', 'nl'] as const) {
+				i18n.set(locale);
+				const { container, unmount } = render(SupportLink);
+				expect(screen.queryByRole('link'), locale).toBeNull();
+				expect(container.textContent, locale).toBe('');
+				expect(container.querySelector('a')).toBeNull();
+				unmount();
+			}
+		} finally {
+			sessionStorage.clear();
+		}
+	});
+
+	it('is back on the website, which shares the browser but not the tab marker', () => {
+		device('Europe/Amsterdam', ['nl-NL']);
+		sessionStorage.clear();
+		localStorage.setItem('tf.android', '1'); // a localStorage flag would be shared with the website: ignored
+		try {
+			render(SupportLink);
+			expect(screen.getByRole('link')).toBeTruthy();
+		} finally {
+			localStorage.clear();
+		}
+	});
+
 	it('puts the coffee cup out of reach of screen readers', () => {
 		device('Europe/Amsterdam', ['en-US']);
 		render(SupportLink);

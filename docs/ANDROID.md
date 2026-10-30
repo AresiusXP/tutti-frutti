@@ -62,6 +62,36 @@ Key files: `android/app/build.gradle` (configuration), `android/app/src/main/And
   `false`, on a web intent-filter without exact path restrictions or with a catch-all, and on any
   exported component outside its allow-list.
 
+### Android context in the web app and the support links
+
+The web app has to know it runs inside this shell for one thing: the Cafecito / Ko-fi *support the game* links are
+**hidden in the app** and kept on the website (owner gate G2 in [`PLAY-RELEASE.md`](PLAY-RELEASE.md); Privacy and Terms
+stay). The shell injects nothing and exposes no bridge; the page recognises the launch itself
+(`web/src/lib/android/context.ts`, tests in `context.test.ts` and `e2e/tests/23-android-context.spec.ts`):
+
+* A TWA launch loads its first document with `document.referrer` = `android-app://xyz.aresius.tuttifrutti`. The package is
+  compared exactly (that string, then the end or `/`): `android-app://xyz.aresius.tuttifrutti.evil` or another app's
+  referrer is not it. The root layout reads the referrer once and stores the marker `sessionStorage['tf.android'] = '1'`.
+* `isAndroidApp()` reads **only that marker** (plus the second signal below): never the user agent, never display mode alone
+  (an installed PWA from the website is `standalone` too) and **never `localStorage`** (the TWA and the website share the
+  browser's localStorage, so a flag there would hide the links on the website). The marker is per tab, presentation only,
+  never an authorization and never sent to the server.
+* Same-tab navigation keeps it. So does a **reload**, and so does the way back from **Google sign-in**
+  (`accounts.google.com` and the callback) and from `/privacy`, `/terms` and `/delete-account` (`rel="external"`, same tab):
+  those documents have another referrer, but `sessionStorage` lives as long as the tab, and nothing clears the marker
+  because the referrer differs.
+* A second conservative signal: if the browser refuses `sessionStorage`, a page whose referrer names this package AND runs in
+  `(display-mode: standalone)` or `fullscreen` also counts. A plain installed PWA (no referrer, or another app's) does not.
+* `SupportLink` renders nothing in the app; Final drops the whole card (sentence included), Home's footer row keeps the
+  privacy link alone. No empty heading or gap.
+
+**Residual risk (the links can still show in the app).** The marker is per tab. A document that opens in ANOTHER browsing
+context without the app's referrer, for example a Chrome Custom Tab that re-opens the site for an external link or a task
+restored after the browser lost its tab state, has no marker and (without the referrer) no second signal, so the links show
+there. They are a voluntary link on a screen the player reached by leaving the TWA tab, which is why the default is to hide
+only when the evidence is present. If the owner wants the opposite default, the change is one function. Verify on a real
+device (PLAY-RELEASE.md test matrix): cold start, Google sign-in and back, `/privacy` and back, the Final screen.
+
 ### Resume after the browser process dies
 
 Android may kill the browser that hosts the TWA while it is in the background; the per-tab room marker is lost with it.

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '../app.css';
+	import { startAndroidContext } from '$lib/android/context';
 	import OfflineBanner from '$lib/components/OfflineBanner.svelte';
 	import Toasts from '$lib/components/Toasts.svelte';
 	import UpdatePrompt from '$lib/components/UpdatePrompt.svelte';
@@ -9,6 +10,9 @@
 	import { m } from '$lib/paraglide/messages';
 
 	let { children } = $props();
+
+	// Once, before any screen renders: a launch from the Android app (document.referrer) marks this tab.
+	startAndroidContext();
 
 	$effect(() => {
 		document.documentElement.lang = i18n.locale;

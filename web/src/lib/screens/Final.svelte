@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isAndroidApp } from '$lib/android/context';
 	import Button from '$lib/components/Button.svelte';
 	import Screen from '$lib/components/Screen.svelte';
 	import SupportLink from '$lib/components/SupportLink.svelte';
@@ -19,6 +20,9 @@
 	 * home (`leave()`: the room shell navigates when the session closes).
 	 */
 	let { session }: { session: RoomSession } = $props();
+
+	/** The "support the game" card is not part of the Android app (Google Play payments policy); the website keeps it. */
+	const showSupport = !isAndroidApp();
 
 	const view = $derived(session.view);
 	const podium = $derived(view ? buildPodium(view) : null);
@@ -68,13 +72,15 @@
 
 		<RoundHistory rounds={history} meId={view.youId} />
 
-		<section
-			aria-label={m.support_link()}
-			class="flex flex-col items-center gap-1 rounded-2xl bg-night-2 px-4 py-3 text-center"
-		>
-			<p class="text-sm text-cream-muted">{m.support_final_text()}</p>
-			<SupportLink class="text-base text-cream" />
-		</section>
+		{#if showSupport}
+			<section
+				aria-label={m.support_link()}
+				class="flex flex-col items-center gap-1 rounded-2xl bg-night-2 px-4 py-3 text-center"
+			>
+				<p class="text-sm text-cream-muted">{m.support_final_text()}</p>
+				<SupportLink class="text-base text-cream" />
+			</section>
+		{/if}
 
 		{#snippet footer()}
 			<div class="flex items-center gap-2">

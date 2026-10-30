@@ -146,6 +146,14 @@ code and by invite link, Not now, persistence, a client that wrongly believes it
 WebSocket), `20-reports.spec.ts` reports (an answer and a nickname answered `201`, a failed send kept as a draft and
 retried with the same idempotency key, `429`) and `21-blocks.spec.ts` "Block and leave" and the block list.
 
+**Android batch.** `22-resume-recent-room.spec.ts` simulates a killed browser process with `relaunchBrowser(app, player)`
+(`src/flows.ts`: the old context is closed and a new one starts from its `storageState`, so the cookies and localStorage come
+back and sessionStorage does not; `app.player(name, { storageState })`) and checks "Resume recent game" on Home: the same seat
+in a lobby and in a running round, the card gone for a room that is gone, another instance id, an expired or corrupt entry, and
+Home fitting 360×740. `23-android-context.spec.ts` defines `document.referrer` as `android-app://xyz.aresius.tuttifrutti` with an
+init script on the first document of a tab (a navigation cannot produce it) and checks that the support links disappear from
+Home and Final while Privacy stays, that the marker survives Back from a static page and a reload, and that it is per tab.
+
 Run against the already-built stack with bots enabled and default production timings:
 
 ```bash

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FakeSession } from '$lib/game/fake.svelte';
 import { i18n } from '$lib/i18n.svelte';
 import { reviewView, vote, type ReviewOptions } from '$lib/review/fixtures';
@@ -192,6 +192,37 @@ describe('Final support link', () => {
 		expect(screen.getByText(text)).toBeTruthy();
 		expect(screen.getByRole('link', { name })).toBeTruthy();
 		expect(document.body.textContent).not.toMatch(/cafecito|ko-fi/i);
+	});
+});
+
+describe('Final in the Android app', () => {
+	// the marker `startAndroidContext` leaves in this tab after a launch from the app
+	beforeEach(() => sessionStorage.setItem('tf.android', '1'));
+	afterEach(() => sessionStorage.clear());
+
+	it.each([
+		['es', 'Invitame un café', 'El juego es gratis'],
+		['en', 'Support the game', 'The game is free'],
+		['nl', 'Steun het spel', 'Het spel is gratis']
+	] as const)(
+		'has no support card in %s: no link, no sentence, no empty section or heading',
+		(locale, link, sentence) => {
+			i18n.set(locale);
+			const { container } = open({ lang: locale });
+			expect(screen.queryByRole('link', { name: new RegExp(`^${link}`) })).toBeNull();
+			expect(screen.queryByText(new RegExp(sentence))).toBeNull();
+			expect(screen.queryByRole('region', { name: link })).toBeNull();
+			expect(container.querySelector('section[aria-label]')).toBeNull();
+			expect(container.querySelectorAll('a[target="_blank"]')).toHaveLength(0);
+			expect(container.textContent).not.toMatch(/☕/);
+		}
+	);
+
+	it('keeps the rematch and home buttons and the rest of the screen', () => {
+		open();
+		expect(screen.getByRole('button', { name: 'Revancha' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Inicio' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Clasificación final' })).toBeTruthy();
 	});
 });
 

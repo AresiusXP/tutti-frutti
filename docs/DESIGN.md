@@ -565,7 +565,7 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
    toast and can ask again.
 7. **Round summary** — round points, totals, **Next round** (host).
 8. **Final** — podium, stats, **Rematch**, **Home**, and under the round history a quiet
-   *support the game* card (see "Support links").
+   *support the game* card (see "Support links"; not shown in the Android app).
 
 Accessibility: touch targets ≥ 48 px, high contrast (4.5:1 for text, after opacity), `aria-live` for Basta and
 letter reveal. Every screen has **exactly one `h1`** (visually hidden where the design shows none: the playing
@@ -707,11 +707,26 @@ script or embedded resource, so the CSP and the privacy policy are untouched.
 * **Where it shows.** Home: on the same row as the privacy link (no extra height; Home still fits 360×740).
   Final: a card under the round history with one sentence, for the host and the guests, **not** in the sticky
   footer (Rematch and Home stay the main actions). Never in the lobby, during a round, in a popup or as a toast.
+* **Hidden inside the Android app.** The website keeps the links; the Android app (a Trusted Web Activity, section 11)
+  does not show them (Google Play's payments policy, owner gate G2 in `docs/PLAY-RELEASE.md`). `SupportLink` renders
+  nothing when `isAndroidApp()` (`web/src/lib/android/context.ts`), and Final leaves out the whole card (sentence
+  included, so no empty section or heading); on Home the row simply holds the privacy link alone. Privacy and Terms stay.
+  The context is **presentation only** (never authorization, never sent to the server) and is read from
+  `document.referrer`, which a TWA launch sets to `android-app://xyz.aresius.tuttifrutti` (the package compared exactly:
+  `…tuttifrutti.evil` is not it): the root layout calls `startAndroidContext()` once, which stores the marker
+  `sessionStorage['tf.android'] = '1'` of THAT tab; `isAndroidApp()` reads the marker, never `localStorage` (the TWA and
+  the website share the browser's localStorage) and never the user agent. Same-tab navigations, a reload and the way back
+  from Google sign-in or from `/privacy`, `/terms` and `/delete-account` (`rel="external"`, same tab, another referrer)
+  keep the marker; nothing ever clears it. A second conservative signal covers a browser that refuses sessionStorage: the
+  referrer names this package AND the display mode is `standalone` or `fullscreen` (a plain installed PWA, or one opened
+  by another app, matches neither). Residual risk, in `docs/ANDROID.md`: a document opened in another tab or Custom Tab
+  without the referrer shows the links.
 * **Adding a region.** Add a rule to `REGIONS` in `support.ts` (first match wins; `SUPPORT_DEFAULT` is the
   fallback), e.g. `Europe/Amsterdam` or `nl-NL` to a `bunq.me` link if that ever becomes possible, and a row to
   the table in `support.test.ts` and to `DEVICES` in `e2e/tests/14-support.spec.ts`.
 * **Tests.** `support.test.ts` (every timezone / language case and the never-throws path), `SupportLink.test.ts`,
-  the Home and Final component tests, and `e2e/tests/14-support.spec.ts` (see "End-to-end tests").
+  the Home and Final component tests (web and Android), `android/context.test.ts` (referrer look-alikes, marker across a
+  reload, the second signal), `e2e/tests/14-support.spec.ts` and `23-android-context.spec.ts` (see "End-to-end tests").
 
 ## 7. Repository layout
 
