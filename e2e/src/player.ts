@@ -8,6 +8,7 @@ import { CategoryPicker, LobbyPage } from './pages/lobby';
 import { LetterPage, PlayingPage } from './pages/playing';
 import { FinalPage, ReviewPage, SummaryPage } from './pages/review';
 import { RoomsPage } from './pages/rooms';
+import { SafetyPage, TermsGatePage } from './pages/safety';
 
 export type ScreenName = 'lobby' | 'letter' | 'playing' | 'review' | 'summary' | 'final';
 
@@ -35,6 +36,12 @@ export interface PlayerOptions {
 	 * through it, so a test that fakes `/api/*` (a signed-in account) needs this.
 	 */
 	serviceWorkers?: 'allow' | 'block';
+	/**
+	 * Every player starts with the terms accepted (the way a returning player would be) so that the
+	 * specs about something else never meet the terms gate; `false` is a first visit: the gate shows
+	 * before the first create / join (`19-terms-gate.spec.ts`).
+	 */
+	acceptTerms?: boolean;
 }
 
 /** One player = one browser context (own cookies/storage, so own guest id) with one tab. */
@@ -50,6 +57,8 @@ export class Player {
 	readonly final = new FinalPage(this);
 	readonly closed = new ClosedPage(this);
 	readonly rooms = new RoomsPage(this);
+	readonly terms = new TermsGatePage(this);
+	readonly safety = new SafetyPage(this);
 
 	/** The `t` of every frame this player's first tab has sent over its room sockets, in order. */
 	readonly #sent: string[] = [];

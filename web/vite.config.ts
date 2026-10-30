@@ -44,6 +44,9 @@ export default defineConfig({
 								// the privacy policy is a static page outside the app, always fetched fresh
 								'**/privacy.html',
 								'**/privacy.css',
+								// the terms and the account-deletion page are static pages like it
+								'**/terms.html',
+								'**/delete-account.html',
 								// Digital Asset Links of the Android app: fetched by Google, not part of the app
 								'**/.well-known/**'
 							],
@@ -53,6 +56,7 @@ export default defineConfig({
 								/^\/(?:api|ws|healthz|readyz|metrics)(?:\/|$)/,
 								// a real page of its own, not an SPA route: let the network answer it
 								/^\/privacy(?:\/|\.html)?$/,
+								/^\/(?:terms|delete-account)(?:\/|\.html)?$/,
 								// Digital Asset Links (/.well-known/assetlinks.json): a file, never the app shell
 								/^\/\.well-known(?:\/|$)/
 							],

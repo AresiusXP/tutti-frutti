@@ -33,6 +33,7 @@ export class FakeSession implements RoomSession {
 	/** Like `state.canJudge`: the "Ask the AI" button is offered to the host. */
 	canJudge = $state(false);
 	visibility = $state<'private' | 'public'>('private');
+	roomInstanceId = $state<string | null>('room-instance-1');
 
 	/** Every command called, in order. Not reactive. */
 	sent: SentCommand[] = [];
@@ -148,6 +149,11 @@ export class FakeSession implements RoomSession {
 	}
 	leave() {
 		this.#record('leave', []);
+		this.closedReason = 'left';
+		this.status = 'closed';
+	}
+	leaveLocally() {
+		this.#record('leaveLocally', []);
 		this.closedReason = 'left';
 		this.status = 'closed';
 	}

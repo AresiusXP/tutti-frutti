@@ -5882,14 +5882,415 @@
    "id": 62
   },
   {
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "description": "Reports of players' content stored in the database (tuttifrutti_reports_total): player = a nickname or avatar, custom_label = a custom category label, answer, ai_verdict = what the AI judge said. Only counts, never the reported text. A report that could not be stored is not counted (the client retries). Empty means nobody reported anything; every report is in the reports table for the moderator (see docs/DESIGN.md, Safety).",
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "axisBorderShow": false,
+      "axisCenteredZero": false,
+      "axisColorMode": "text",
+      "axisLabel": "",
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "drawStyle": "bars",
+      "fillOpacity": 60,
+      "gradientMode": "none",
+      "hideFrom": {
+       "legend": false,
+       "tooltip": false,
+       "viz": false
+      },
+      "insertNulls": false,
+      "lineInterpolation": "linear",
+      "lineWidth": 1,
+      "pointSize": 4,
+      "scaleDistribution": {
+       "type": "linear"
+      },
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "group": "A",
+       "mode": "normal"
+      },
+      "thresholdsStyle": {
+       "mode": "off"
+      }
+     },
+     "mappings": [],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "unit": "short",
+     "min": 0,
+     "decimals": 2,
+     "noValue": "no reports yet"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "calcs": [
+      "sum"
+     ],
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "sum by (kind) (rate(tuttifrutti_reports_total{namespace=\"$namespace\", job=\"$job\"}[$__rate_interval])) * 3600",
+     "instant": false,
+     "legendFormat": "{{kind}}",
+     "range": true,
+     "refId": "A"
+    }
+   ],
+   "title": "Content reports by kind (per h)",
+   "type": "timeseries",
+   "gridPos": {
+    "h": 6,
+    "w": 8,
+    "x": 12,
+    "y": 111
+   },
+   "id": 63
+  },
+  {
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "description": "Reports stored in the selected range, by reason (harassment, hate, sexual, violence, self_harm, spam, impersonation, other).",
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "mappings": [],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     },
+     "unit": "short",
+     "decimals": 0,
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto",
+    "orientation": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "showPercentChange": false,
+    "textMode": "auto",
+    "wideLayout": true
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "sum by (reason) (increase(tuttifrutti_reports_total{namespace=\"$namespace\", job=\"$job\"}[$__range]))",
+     "instant": true,
+     "legendFormat": "{{reason}}",
+     "range": false,
+     "refId": "A"
+    }
+   ],
+   "title": "Reports in range by reason",
+   "type": "stat",
+   "gridPos": {
+    "h": 6,
+    "w": 4,
+    "x": 20,
+    "y": 111
+   },
+   "id": 64
+  },
+  {
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "description": "Content reports waiting for the operator (tuttifrutti_reports_open, status open). A metric is not a notification: Alertmanager is disabled in the homelab, so the owner's daily check is `kubectl exec deploy/<server> -- /moderate status` (docs/MODERATION.md). Anything above 0 needs a look; resolve them with `moderate reports resolve`.",
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "mappings": [],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       },
+       {
+        "color": "red",
+        "value": 10
+       }
+      ]
+     },
+     "unit": "short",
+     "decimals": 0,
+     "noValue": "no data"
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "value",
+    "graphMode": "area",
+    "justifyMode": "auto",
+    "orientation": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "showPercentChange": false,
+    "textMode": "auto",
+    "wideLayout": true
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "max(tuttifrutti_reports_open{namespace=\"$namespace\", job=\"$job\"})",
+     "instant": false,
+     "legendFormat": "__auto",
+     "range": true,
+     "refId": "A"
+    }
+   ],
+   "title": "Open reports",
+   "type": "stat",
+   "gridPos": {
+    "h": 6,
+    "w": 4,
+    "x": 0,
+    "y": 117
+   },
+   "id": 65
+  },
+  {
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "description": "How long the oldest open report has waited (tuttifrutti_report_oldest_open_age_seconds; 0 when none is open). The retention clock keeps running: a report is deleted 90 days after it was filed even if nobody looked at it, so one that is weeks old is about to disappear unresolved. Orange from 1 day, red from 3 days.",
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "mappings": [],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 86400
+       },
+       {
+        "color": "red",
+        "value": 259200
+       }
+      ]
+     },
+     "unit": "s",
+     "decimals": 0,
+     "noValue": "no data"
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "value",
+    "graphMode": "area",
+    "justifyMode": "auto",
+    "orientation": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "showPercentChange": false,
+    "textMode": "auto",
+    "wideLayout": true
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "max(tuttifrutti_report_oldest_open_age_seconds{namespace=\"$namespace\", job=\"$job\"})",
+     "instant": false,
+     "legendFormat": "__auto",
+     "range": true,
+     "refId": "A"
+    }
+   ],
+   "title": "Oldest open report",
+   "type": "stat",
+   "gridPos": {
+    "h": 6,
+    "w": 4,
+    "x": 4,
+    "y": 117
+   },
+   "id": 66
+  },
+  {
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "description": "1 = the AI judge is on, 0 = an operator switched it off with `moderate judge disable` (tuttifrutti_judge_enabled; absent when the server has no Cloudflare credentials). The switch only lives in memory: a restart turns the judge on again.",
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "OFF",
+         "color": "red",
+         "index": 0
+        },
+        "1": {
+         "text": "on",
+         "color": "green",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     },
+     "unit": "short",
+     "noValue": "not configured"
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto",
+    "orientation": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "showPercentChange": false,
+    "textMode": "auto",
+    "wideLayout": true
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "max(tuttifrutti_judge_enabled{namespace=\"$namespace\", job=\"$job\"})",
+     "instant": true,
+     "legendFormat": "__auto",
+     "range": false,
+     "refId": "A"
+    }
+   ],
+   "title": "AI judge switch",
+   "type": "stat",
+   "gridPos": {
+    "h": 6,
+    "w": 4,
+    "x": 8,
+    "y": 117
+   },
+   "id": 67
+  },
+  {
    "collapsed": false,
    "gridPos": {
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 117
+    "y": 123
    },
-   "id": 63,
+   "id": 68,
    "panels": [],
    "title": "HTTP API",
    "type": "row"
@@ -5988,9 +6389,9 @@
     "h": 8,
     "w": 8,
     "x": 0,
-    "y": 118
+    "y": 124
    },
-   "id": 64
+   "id": 69
   },
   {
    "datasource": {
@@ -6161,9 +6562,9 @@
     "h": 8,
     "w": 8,
     "x": 8,
-    "y": 118
+    "y": 124
    },
-   "id": 65
+   "id": 70
   },
   {
    "datasource": {
@@ -6262,9 +6663,9 @@
     "h": 8,
     "w": 8,
     "x": 16,
-    "y": 118
+    "y": 124
    },
-   "id": 66
+   "id": 71
   },
   {
    "datasource": {
@@ -6381,9 +6782,9 @@
     "h": 8,
     "w": 12,
     "x": 0,
-    "y": 126
+    "y": 132
    },
-   "id": 67
+   "id": 72
   },
   {
    "datasource": {
@@ -6478,9 +6879,9 @@
     "h": 8,
     "w": 12,
     "x": 12,
-    "y": 126
+    "y": 132
    },
-   "id": 68
+   "id": 73
   },
   {
    "collapsed": false,
@@ -6488,9 +6889,9 @@
     "h": 1,
     "w": 24,
     "x": 0,
-    "y": 134
+    "y": 140
    },
-   "id": 69,
+   "id": 74,
    "panels": [],
    "title": "Go runtime and container",
    "type": "row"
@@ -6628,9 +7029,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 135
+    "y": 141
    },
-   "id": 70
+   "id": 75
   },
   {
    "datasource": {
@@ -6789,9 +7190,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 135
+    "y": 141
    },
-   "id": 71
+   "id": 76
   },
   {
    "datasource": {
@@ -6926,9 +7327,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 135
+    "y": 141
    },
-   "id": 72
+   "id": 77
   },
   {
    "datasource": {
@@ -7050,9 +7451,9 @@
     "h": 7,
     "w": 8,
     "x": 0,
-    "y": 142
+    "y": 148
    },
-   "id": 73
+   "id": 78
   },
   {
    "datasource": {
@@ -7145,9 +7546,9 @@
     "h": 7,
     "w": 8,
     "x": 8,
-    "y": 142
+    "y": 148
    },
-   "id": 74
+   "id": 79
   },
   {
    "datasource": {
@@ -7249,9 +7650,9 @@
     "h": 7,
     "w": 8,
     "x": 16,
-    "y": 142
+    "y": 148
    },
-   "id": 75
+   "id": 80
   }
  ],
  "refresh": "30s",

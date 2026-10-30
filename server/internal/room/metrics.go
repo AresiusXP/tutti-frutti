@@ -86,6 +86,7 @@ type metrics struct {
 	stopVotes      *prometheus.CounterVec
 	snapshotErrors prometheus.Counter
 	statsRecorded  *prometheus.CounterVec
+	statsSkipped   *prometheus.CounterVec
 
 	gamesStarted    prometheus.Counter
 	gamesFinished   *prometheus.CounterVec
@@ -135,6 +136,10 @@ func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
 			Name: "tuttifrutti_stats_recorded_total",
 			Help: "Finished games handed to the statistics store, by result: ok, error (a failed attempt, retried) or dropped (given up)."},
 			[]string{"result"}),
+		statsSkipped: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "tuttifrutti_stats_skipped_users_total",
+			Help: "Users taken out of a finished game's statistics because their account was deleted, by source: forgotten (a room dropped it when the account was deleted), restore (a restored snapshot named a deleted account) or store (the store skipped it at delivery)."},
+			[]string{"source"}),
 
 		gamesStarted: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "tuttifrutti_games_started_total", Help: "Games started by a host (a rematch and a new start count again)."}),
@@ -194,6 +199,9 @@ func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
 	for _, r := range []string{statsOK, statsError, statsDropped} {
 		m.statsRecorded.WithLabelValues(r)
 	}
+	for _, r := range skipSources {
+		m.statsSkipped.WithLabelValues(r)
+	}
 	for _, r := range stopResults {
 		m.stopVotes.WithLabelValues(r)
 	}
@@ -217,6 +225,7 @@ func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
 	m.stopVotes = register(reg, m.stopVotes, log)
 	m.snapshotErrors = register(reg, m.snapshotErrors, log)
 	m.statsRecorded = register(reg, m.statsRecorded, log)
+	m.statsSkipped = register(reg, m.statsSkipped, log)
 	m.gamesStarted = register(reg, m.gamesStarted, log)
 	m.gamesFinished = register(reg, m.gamesFinished, log)
 	m.timeUps = register(reg, m.timeUps, log)

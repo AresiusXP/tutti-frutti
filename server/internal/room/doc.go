@@ -10,6 +10,11 @@
 // room, and rooms only take it for a moment (retire), so there is no lock
 // order to get wrong.
 //
+// Database I/O never runs in an actor. The one lookup a join needs, the terms
+// gate (Config.Terms), runs on the transport's goroutine inside Session.Handle
+// and travels to the actor with the frame; report evidence is a mailbox task
+// (Hub.ReportEvidence) whose answer comes back over a channel.
+//
 // The room never waits for a client: Client.Send is non-blocking and a client
 // whose queue is full is closed with protocol.ClosePolicy and treated as
 // disconnected (it reconnects and receives a fresh state).
@@ -128,4 +133,17 @@
 // written before the outbox existed (a game id but no Persisted.Outbox marker)
 // rebuilds its record once at restore. Without Config.Recorder none of this
 // exists.
+//
+// # Deleting an account
+//
+// A seat is the guest's; the account only adds links on top of it (the
+// connection's, Persisted.Users, Persisted.Accounts, the authors of custom
+// labels and the outbox). Hub.ForgetAccount, called by DELETE /api/me after the
+// store deleted the account, remembers the id and posts a task to every room that
+// removes all of those links, saves the room and tells the players their state
+// changed (canJudge); the seat, its scores and its answers stay. A connection
+// that was identified before the deletion and attaches after it is made a guest
+// by onConnect. Hub.Start does the same for the accounts deleted while the
+// process was down, by looking up the accounts a snapshot names before the room
+// is rebuilt. The order and the argument are in docs/DESIGN.md, section 9b.
 package room

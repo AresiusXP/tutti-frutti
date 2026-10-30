@@ -43,6 +43,7 @@ import {
 	CmdVoteStop,
 	CodeInternal,
 	CodeKicked,
+	ErrCodeJoinUnavailable,
 	ErrRateLimited,
 	ErrRoomClosed,
 	ErrRoomNotFound,
@@ -167,6 +168,7 @@ export class WsRoomSession implements RoomSession {
 	#lastError = $state.raw<SessionError | null>(null);
 	#canJudge = $state(false);
 	#visibility = $state<'private' | 'public'>('private');
+	#roomInstanceId = $state<string | null>(null);
 
 	readonly #d: SessionDeps;
 	readonly #api: Api;
@@ -258,6 +260,9 @@ export class WsRoomSession implements RoomSession {
 	get visibility(): 'private' | 'public' {
 		return this.#visibility;
 	}
+	get roomInstanceId(): string | null {
+		return this.#roomInstanceId;
+	}
 
 	serverNow(): number {
 		return this.#d.now() + this.#offset;
@@ -347,6 +352,9 @@ export class WsRoomSession implements RoomSession {
 		this.#leavePending = true;
 		this.#startTimer('leave', LEAVE_GRACE_MS, () => this.#finish('left'));
 	}
+	leaveLocally() {
+		this.#finish('left');
+	}
 	destroy() {
 		this.#shutdown();
 	}
@@ -388,6 +396,10 @@ export class WsRoomSession implements RoomSession {
 
 	#preflightFailed(e: unknown): void {
 		if (e instanceof ApiError && e.status === 404) return this.#finish('room_gone');
+		// A safety refusal (a block between this guest and a player of the room): final, and as vague as the server is.
+		if (e instanceof ApiError && e.code === ErrCodeJoinUnavailable) {
+			return this.#finish('join_rejected', ErrCodeJoinUnavailable);
+		}
 		const err = e instanceof ApiError ? e : null;
 		const busy = err?.code === 'server_busy';
 		const minDelay = Math.min((err?.retryAfter ?? 0) * 1000, MAX_RETRY_AFTER_MS);
@@ -571,6 +583,10 @@ export class WsRoomSession implements RoomSession {
 		this.#view = view;
 		this.#canJudge = state.canJudge === true;
 		this.#visibility = state.visibility === 'public' ? 'public' : 'private';
+		this.#roomInstanceId =
+			typeof state.roomInstanceId === 'string' && state.roomInstanceId !== ''
+				? state.roomInstanceId
+				: null;
 		const round = view.round?.number ?? null;
 		if (first || round !== this.#answerRound) this.#sentAnswers.clear();
 		this.#answerRound = round;

@@ -57,6 +57,6 @@
 			<h3 class="text-sm font-bold text-cream-muted">{m.lobby_cats_title()}</h3>
 			<span class="text-sm font-extrabold">{settings.categories.length}/{MAX_CATEGORIES}</span>
 		</div>
-		<CategoryChips refs={settings.categories} {labels} />
+		<CategoryChips refs={settings.categories} {labels} reportable />
 	</div>
 </section>

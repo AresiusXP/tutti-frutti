@@ -29,6 +29,9 @@ func normalizeVisibility(value string) (string, error) {
 type publicEntry struct {
 	room      api.PublicRoom
 	createdAt time.Time
+	// members are the human seats of the lobby: a private index that only the
+	// block filter of PublicRoomsFor reads, never part of a response.
+	members []string
 }
 
 var _ PublicRoomLister = (*Hub)(nil)
@@ -36,11 +39,17 @@ var _ PublicRoomLister = (*Hub)(nil)
 // PublicRooms only reads actor-published values, never live games or mailboxes.
 // Each response owns its labels, so a caller cannot mutate the directory.
 func (h *Hub) PublicRooms(lang game.Lang) []api.PublicRoom {
+	return h.publicRooms(lang, nil)
+}
+
+// publicRooms lists the directory; keep, when set, drops the entries it
+// refuses (the caller's blocks, see PublicRoomsFor).
+func (h *Hub) publicRooms(lang game.Lang, keep func(publicEntry) bool) []api.PublicRoom {
 	h.mu.Lock()
 	entries := make([]publicEntry, 0, len(h.directory))
 	if !h.shuttingDown {
 		for _, entry := range h.directory {
-			if lang == "" || entry.room.Lang == lang {
+			if (lang == "" || entry.room.Lang == lang) && (keep == nil || keep(entry)) {
 				entries = append(entries, entry)
 			}
 		}
@@ -67,11 +76,12 @@ func (r *room) publishPublic() {
 		host != nil && !host.dead && !r.g.IsAutomated(r.g.HostID)
 	var entry publicEntry
 	if eligible {
+		labels, custom := publicLabels(r.g.Settings)
 		entry = publicEntry{createdAt: r.createdAt, room: api.PublicRoom{
 			Code: r.code, Lang: r.g.Settings.Lang, Players: r.seated(), MaxPlayers: game.MaxPlayers,
-			CategoryLabels: r.g.Settings.Labels(), Rounds: r.g.Settings.Rounds,
+			CategoryLabels: labels, CustomCategories: custom, Rounds: r.g.Settings.Rounds,
 			TimeLimitSeconds: r.g.Settings.TimeLimitSeconds,
-		}}
+		}, members: r.seatedHumans()}
 	}
 	r.h.mu.Lock()
 	defer r.h.mu.Unlock()

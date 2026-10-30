@@ -35,16 +35,19 @@
 				<section class="doc" id="en" lang="en">
 					<h1>Privacy Policy</h1>
 					<p class="meta">
-						Last updated: 29 October 2026 · Applies to
-						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>
+						Last updated: 30 October 2026 · Applies to
+						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a> and the Tutti Frutti
+						Android app · <a href="/terms#en">Terms of use</a> ·
+						<a href="/delete-account#en">Delete your account</a>
 					</p>
 
 					<div class="summary">
 						<h2>In short</h2>
 						<ul>
 							<li>
-								You can play without an account. We only keep a nickname, an emoji avatar and your answers,
-								and only while the game room exists.
+								You can play without an account. While a game room exists it holds your nickname, your emoji
+								avatar and your answers. Before you play, the game asks you to accept the terms of use and
+								to confirm that you are 13 or older.
 							</li>
 							<li>
 								Signing in with Google is optional. It gives us your Google display name and a
@@ -53,13 +56,20 @@
 							</li>
 							<li>
 								No advertising, no analytics, no tracking, no third-party scripts or fonts, and we never
-								sell or share your data.
+								sell your data. It is shared only with the optional services described in section 5 and,
+								if the law requires it, with authorities.
 							</li>
 							<li>
-								If a signed-in host taps the optional AI judge, the answers of that category (never nicknames) are sent to Cloudflare to get a suggestion. Cloudflare does not train AI models on them.
+								If a signed-in host taps the optional AI judge, the answers of that category from all players (never nicknames) are sent to Cloudflare to get a suggestion. According to Cloudflare, it does not train AI models on them.
 							</li>
 							<li>
-								You can delete your account and everything saved with it at any time, inside the app.
+								To keep games safe we keep a few small records for a limited time: your acceptance of the
+								terms, reports, blocks and restrictions (sections 2 and 4).
+							</li>
+							<li>
+								You can delete your account and everything saved with it at any time, in the app or without
+								installing it (see <a href="/delete-account#en">Delete your account</a>). What is already
+								inside a running game room disappears when the room ends.
 							</li>
 						</ul>
 					</div>
@@ -78,7 +88,8 @@
 					<ul>
 						<li>
 							<strong>Nickname and avatar</strong> (an emoji and a colour) that you choose, so other
-							players can recognise you. Please do not use your real name if you prefer not to.
+							players can recognise you. Your browser sends them to our server when you create or join a
+							room. Please do not use your real name if you prefer not to.
 						</li>
 						<li>
 							<strong>Your answers, scores and votes</strong> in the current game, so the game can be
@@ -86,19 +97,59 @@
 						</li>
 						<li>
 							<strong>A random guest ID</strong> in a cookie, so you can get your seat back if your
-							connection drops or you reload the page. It is not linked to your identity.
+							connection drops or you reload the page. It is not linked to your real identity, but it is
+							stored with the safety records described below.
 						</li>
 					</ul>
 					<p>
 						Other players in your room can see your nickname, your avatar, and your answers once a round has
-						been locked.
+						been locked, and the custom category names chosen for the game (they are part of the room's
+						settings).
 					</p>
 
 					<p>
 						Public room discovery shows visitors the room code, game language, occupied player seats,
-						settings and category labels, including custom labels. Private rooms are not listed.
+						settings and the names of the built-in categories. Custom category names are not shown there, only
+						that there are custom categories; the names are visible inside the room. Private rooms are not listed.
 						Public games are casual: lifetime statistics are not recorded, even when you are signed in.
 					</p>
+
+					<h3>When you accept the terms</h3>
+					<p>
+						Before you play, the game asks you to accept the
+						<a href="/terms#en">Terms of use</a> and to confirm that you are 13 or older. We store a record of
+						that: your random guest ID, the version of the terms, the time, the language of the screen and the fact
+						that you made the 13+ confirmation. It is kept for up to 365 days; after that the game asks you to
+						accept the terms again. We use it to know which version of the rules applies to you.
+					</p>
+
+					<h3>When you report or block someone</h3>
+					<p>
+						If you report a player, an answer, a custom category name or an AI explanation, we store:
+					</p>
+					<ul>
+						<li>your guest ID, and your account ID if you are signed in,</li>
+						<li>the guest ID or account ID of the person reported, when we know it,</li>
+						<li>
+							the text that was shown in the game at that moment, so that it can be reviewed: nicknames,
+							custom category names, answers and AI explanations,
+						</li>
+						<li>the reason you chose and an optional comment of up to 280 characters.</li>
+					</ul>
+					<p>
+						We use this only to review abuse and enforce the rules. We do not share it with anybody, except with
+						authorities when the law requires it. A report is kept until 30 days after it is resolved and, in
+						any case, for at most 90 days.
+					</p>
+					<p>
+						If you block a player, we store your guest or account ID and the ID of the blocked player, so that the
+						game does not put you in a game together again. The record is kept until you unblock them.
+					</p>
+					<p>
+						If we restrict a browser identity or an account because the rules were broken, we keep a record of the
+						restriction for as long as it lasts plus 90 days, and a log of what we did and why for one year.
+					</p>
+
 					<h3>When you sign in with Google (optional)</h3>
 					<p>
 						We ask Google for the <code>openid</code> and <code>profile</code> permissions only. From
@@ -107,8 +158,10 @@
 					<ul>
 						<li>an opaque, stable <strong>Google account ID</strong> (so we recognise you next time), and</li>
 						<li>
-							your <strong>Google display name</strong>, which is shown only to you (for example "Signed in
-							as …"), never to other players.
+							your <strong>Google display name</strong>, which we store in your account and show to you (for
+							example "Signed in as …"). If you sign in for the first time and have no nickname saved or typed in
+							this browser, the game uses your Google display name as your nickname and saves it with your
+							profile, so other players see it in the rooms you join. You can change your nickname at any time.
 						</li>
 					</ul>
 					<p>
@@ -137,25 +190,31 @@
 					<h3>When a signed-in host uses the AI judge (optional)</h3>
 					<p>
 						Only a host who is signed in with Google sees the <em>Ask the AI</em> button in the review. When they tap it, our
-						server sends the category name, the round's letter, the game language and the answers typed in that category
+						server sends the category name (it can be a custom name typed by a player), the round's letter, the game language
+						and the answers that all players typed in that category, if they are not empty and start with the round's letter
 						(never nicknames, account IDs or anything else that identifies a player) to Cloudflare's Workers AI service, so
 						that a language model can suggest whether each answer fits the category.
 					</p>
 					<p>
 						The suggestion (valid or doubtful, with a short reason) is shown to everyone in the room, is kept in the room like
-						the rest of the game (section 4) and never changes the score: the players still decide by voting. According to
+						the rest of the game (section 4) and never changes the score: the players still decide by voting. Because an AI
+						model writes it, it can be wrong or inappropriate; any player can report an AI explanation (see the
+						<a href="/terms#en">Terms of use</a>). According to
 						Cloudflare it processes the text only to produce the suggestion, does not keep it and does not use it to train AI
 						models; it may keep operational metadata needed to run the service (for example which account and model were
-						used). Our server also keeps, in memory only and for at most 24 hours, the verdicts it already got for a category
-						and an answer text, so repeated answers are not sent again; it holds no information about who wrote them.
+						used). Our server also keeps, in memory only, the verdicts it already got for a category
+						and an answer text, so repeated answers are not sent again (section 4); it holds no information about who wrote them.
 					</p>
 
 					<h3>Technical data</h3>
 					<p>
-						Like any web server, ours handles your IP address and browser details to answer your requests.
-						The application logs only the method, path, status code and duration of each request, never
-						nicknames or answers. The web entry point of the server may also keep standard access logs
-						(address, requested URL, browser, time) for about 7 days to keep the service secure and
+						Like any web server, ours handles your IP address and browser details to answer your requests, and
+						keeps your IP address in its memory for roughly 10 to 15 minutes to limit abuse. The application logs the
+						method, path (which can contain a room code), status code and duration of each request; it does not
+						log nicknames or answers. Errors on the live connection of a game are logged with the IP address of
+						the connection and its random guest ID, and so are connection and disconnection events if the
+						server's debug log level is switched on (it is not by default). The web entry point of the server may
+						also keep standard access logs (address, requested URL, browser, time) to keep the service secure and
 						working. The server also publishes anonymous counters (number of rooms, connections, …) that
 						contain no personal data.
 					</p>
@@ -190,8 +249,13 @@
 						<div>
 							<dt>Local storage</dt>
 							<dd>
-								On your device only (never sent to us): your nickname, avatar, language, and the custom
-								categories you used recently. The installed app also keeps a cache of its own files so it
+								On your device: your nickname, avatar, language, the custom categories you used recently and, so
+								that you can come back to a game if your browser was closed, the code and a random technical ID of
+								the last game you joined (no names and no answers; it is forgotten after 24 hours or when you leave
+								that game).
+								Your browser sends your nickname and avatar to us when you create or join a room and, if you are
+								signed in, to save your profile; the custom category names you pick are sent as part of the
+								room's settings (section 2). The installed app also keeps a cache of its own files so it
 								opens fast and offline.
 							</dd>
 						</div>
@@ -202,38 +266,68 @@
 					<ul>
 						<li>
 							<strong>Game rooms</strong> (players, answers, scores) live in the server's memory and are
-							saved to its database so a game survives a server restart. A room is deleted when it closes
-							(for example when everybody has left for 30 minutes), and anything older than 6 hours is
-							removed by an automatic hourly cleanup.
+							saved to its database so a game survives a server restart. A room is closed, and its saved copy
+							deleted, when nobody has been connected for 30 minutes, when nobody joined it within 2 minutes of
+							its creation, or when everybody has left on purpose. As a safety net, an automatic hourly cleanup
+							deletes saved copies that were not updated for 6 hours. A room that is still in use keeps
+							refreshing its saved copy, so the data of an active room can exist for longer than 6 hours.
 						</li>
 						<li>
-							<strong>AI judge suggestions</strong> live in the room (first item) and disappear with it. The server's in-memory cache of verdicts is emptied at every restart and after 24 hours at most.
+							<strong>AI judge suggestions</strong> live in the room (first item) and disappear with it. The server's in-memory cache of verdicts is meant to be reused for 24 hours at most: an expired entry is removed when it is looked up or when the cache is full, and otherwise it may stay in memory until it is evicted or the server restarts. The cache is never saved anywhere else.
 						</li>
 						<li>
 							<strong>Account data</strong> is kept until you delete your account.
 						</li>
-						<li><strong>Server access logs</strong> are kept for about 7 days.</li>
+						<li>
+							<strong>Terms acceptance</strong> is kept for up to 365 days, then the game asks you to accept
+							again.
+						</li>
+						<li>
+							<strong>Reports</strong> are kept until 30 days after they are resolved and for at most 90 days.
+						</li>
+						<li>
+							<strong>Blocks</strong> are kept until you unblock the player.
+						</li>
+						<li>
+							<strong>Restrictions and the records of what we did</strong> are kept as follows: a restriction for as
+							long as it lasts plus 90 days, the records of what we did for one year.
+						</li>
+						<li>
+							<strong>Server logs</strong>: we aim to keep them for about 7 days. They are kept by the hosting
+							infrastructure, not by the game itself.
+						</li>
 					</ul>
 
 					<h2>5. Who we share it with</h2>
 					<p>
-						Nobody. We do not sell, rent or share personal data, and we use no advertising or analytics
-						services. Two third parties are involved, each only when you use the matching optional feature.
+						We do not sell, rent or share personal data, and we use no advertising or analytics
+						services. Three third parties can be involved, each only when you use the matching feature.
 						<strong>Google</strong>, only if you choose to sign in: your browser is sent to Google to sign in, and Google
 						tells us your account ID and display name. Google's own
 						<a href="https://policies.google.com/privacy" rel="noopener noreferrer">privacy policy</a>
 						applies to that step. <strong>Cloudflare</strong>, only when a signed-in host taps <em>Ask the AI</em>: it receives
 						the text described in section 2 and acts on our behalf as a service provider (data processor);
 						<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer">Cloudflare's privacy policy</a>
-						applies. Everything else is served from our own server, without external fonts, scripts or images.
+						applies. <strong>Google Play</strong>, if you installed the Android app (section 9). The game may also show
+						a voluntary support link that opens an external page only if you tap it; the game sends that page none
+						of your game data and its own policy applies. Everything else is served from our own server, without
+						external fonts, scripts or images. If a competent authority legally requires it, we may have to hand
+						over data, for example the records of a report.
 					</p>
 
 					<h2>6. Your choices and rights</h2>
 					<ul>
 						<li>
 							<strong>Delete your account:</strong> sign in, open <em>My stats</em> and choose
-							<em>Delete my account</em>. Your profile, statistics and game records are erased immediately
-							and permanently.
+							<em>Delete my account</em>. Your account record (Google account ID and display name), saved profile,
+							statistics and game records are erased immediately and permanently. This does not immediately
+							remove what is already inside a running game room (your nickname and answers disappear when the room
+							ends, section 4), the safety records of section 2 (until their retention ends), or the cookies and
+							local storage on your device (clear them in your browser). Signing in again with the same Google
+							account creates a new, empty account. As soon as your account is deleted, a game you are still in
+							stops treating you as signed in: you can no longer ask the AI judge there and nothing from it is
+							recorded for an account any more; your seat stays as a guest until the room ends. If you cannot
+							sign in, see <a href="/delete-account#en">Delete your account</a>.
 						</li>
 						<li>
 							<strong>Sign out</strong> at any time from the home screen. You can also remove the app's
@@ -243,8 +337,9 @@
 							>.
 						</li>
 						<li>
-							<strong>Guests</strong> have nothing to delete: room data disappears by itself (section 4) and
-							you can clear the cookies and storage of this site in your browser.
+							<strong>Guests</strong> have no account to delete: room data disappears by itself (section 4), the
+							safety records expire (section 4) and you can clear the cookies and storage of this site in your
+							browser.
 						</li>
 						<li>
 							Depending on where you live (for example in the EU/EEA under the GDPR) you have the right to
@@ -254,8 +349,8 @@
 						</li>
 					</ul>
 					<p>
-						We use your data because it is needed to provide the game you asked to play, and, for Google sign-in,
-						because you chose to use it.
+						We use your data because it is needed to provide the game you asked to play, to keep it safe for the
+						other players, and, for Google sign-in, because you chose to use it.
 					</p>
 
 					<h2>7. Security</h2>
@@ -265,20 +360,34 @@
 						we keep what we store to a minimum for exactly that reason.
 					</p>
 
-					<h2>8. Children</h2>
+					<h2>8. Age and children</h2>
 					<p>
-						Tutti Frutti is not directed at children under 13 (or under 16 where the law sets a higher age).
-						We do not knowingly collect their personal data. If you think a child has signed in, write to us and
-						we will delete the account.
+						Tutti Frutti is intended for people aged 13 and over, and the game asks you to confirm it before you play.
+						That confirmation is your own statement: we do not check ages, and it does not replace any rule about age or
+						permission that the law where you live may set. We do not knowingly collect the personal data of children
+						under 13. If you think a child has signed in or is playing, write to us and we will delete the account.
 					</p>
 
-					<h2>9. Changes</h2>
+					<h2>9. The Android app</h2>
+					<p>
+						The Tutti Frutti Android app is a thin container that opens the website
+						(<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>); everything in this policy
+						applies to it as it is. It has no accounts, advertising, analytics or trackers of its own and stores no
+						data of its own. The cookies and local storage of section 3 belong to the browser that hosts the app on your
+						device. Uninstalling the app does not delete them, and it does not delete your account or anything saved
+						on our server: to delete the account, see
+						<a href="/delete-account#en">Delete your account</a>. Google Play receives whatever Google itself collects
+						about the installation and use of the app, under
+						<a href="https://policies.google.com/privacy" rel="noopener noreferrer">Google's own policy</a>.
+					</p>
+
+					<h2>10. Changes</h2>
 					<p>
 						If this policy changes, the date at the top changes too. Significant changes will also be announced
-						in the app.
+						in the app. If the terms of use change, the game asks you to accept them again.
 					</p>
 
-					<h2>10. Contact</h2>
+					<h2>11. Contact</h2>
 					<p>
 						Questions or requests about your data:
 						<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>.
@@ -289,16 +398,19 @@
 				<section class="doc" id="es" lang="es">
 					<h1>Política de privacidad</h1>
 					<p class="meta">
-						Última actualización: 29 de octubre de 2026 · Rige para
-						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>
+						Última actualización: 30 de octubre de 2026 · Rige para
+						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a> y para la app de Android de
+						Tutti Frutti · <a href="/terms#es">Términos de uso</a> ·
+						<a href="/delete-account#es">Eliminar tu cuenta</a>
 					</p>
 
 					<div class="summary">
 						<h2>En pocas palabras</h2>
 						<ul>
 							<li>
-								Podés jugar sin cuenta. Solo guardamos un apodo, un avatar con emoji y tus respuestas, y solo
-								mientras exista la sala.
+								Podés jugar sin cuenta. Mientras exista la sala, esta guarda tu apodo, tu avatar con emoji y tus
+								respuestas. Antes de jugar, el juego te pide aceptar los términos de uso y confirmar que tenés
+								13 años o más.
 							</li>
 							<li>
 								Iniciar sesión con Google es opcional. Nos da tu nombre en Google y un ID de cuenta de Google
@@ -306,13 +418,21 @@
 							</li>
 							<li>
 								Sin publicidad, sin analítica, sin rastreo, sin scripts ni fuentes de terceros, y nunca
-								vendemos ni compartimos tus datos.
+								vendemos tus datos. Solo se comparten con los servicios opcionales de la sección 5 y, si la ley
+								lo exige, con las autoridades.
 							</li>
 							<li>
-								Si quien organiza la partida inició sesión y toca el botón opcional de la IA, las respuestas de esa categoría (nunca los apodos) se envían a Cloudflare para obtener una sugerencia. Cloudflare no las usa para entrenar modelos de IA.
+								Si quien organiza la partida inició sesión y toca el botón opcional de la IA, las respuestas de esa categoría de todos los jugadores (nunca los apodos) se envían a Cloudflare para obtener una sugerencia. Según Cloudflare, no las usa para entrenar modelos de IA.
 							</li>
 							<li>
-								Podés eliminar tu cuenta y todo lo guardado con ella cuando quieras, desde la app.
+								Para que las partidas sean seguras guardamos, por un tiempo limitado, unos pocos registros
+								pequeños: la aceptación de los términos, los reportes, los bloqueos y las restricciones
+								(secciones 2 y 4).
+							</li>
+							<li>
+								Podés eliminar tu cuenta y todo lo guardado con ella cuando quieras, desde la app o sin
+								instalarla (mirá <a href="/delete-account#es">Eliminar tu cuenta</a>). Lo que ya está dentro de
+								una sala en curso desaparece cuando la sala termina.
 							</li>
 						</ul>
 					</div>
@@ -331,7 +451,8 @@
 					<ul>
 						<li>
 							<strong>Apodo y avatar</strong> (un emoji y un color) que elegís vos, para que los demás te
-							reconozcan. Si preferís, no uses tu nombre real.
+							reconozcan. Tu navegador los envía a nuestro servidor cuando creás una sala o te unís a una. Si
+							preferís, no uses tu nombre real.
 						</li>
 						<li>
 							<strong>Tus respuestas, puntajes y votos</strong> de la partida en curso, para poder jugarla y
@@ -339,20 +460,63 @@
 						</li>
 						<li>
 							<strong>Un ID de invitado aleatorio</strong> en una cookie, para que puedas recuperar tu lugar
-							si se corta la conexión o recargás la página. No está vinculado a tu identidad.
+							si se corta la conexión o recargás la página. No está vinculado a tu identidad real, pero se guarda
+							junto con los registros de seguridad que se describen más abajo.
 						</li>
 					</ul>
 					<p>
 						Los demás jugadores de tu sala ven tu apodo, tu avatar y tus respuestas una vez que se cerró la
-						ronda.
+						ronda, y los nombres de las categorías propias elegidas para la partida (forman parte de los ajustes
+						de la sala).
 					</p>
 
 					<p>
 						El buscador de salas públicas muestra a los visitantes el código, el idioma, la cantidad de
-						jugadores, los ajustes y los nombres de las categorías, incluidas las personalizadas.
+						jugadores, los ajustes y los nombres de las categorías predefinidas. Los nombres de las categorías
+						propias no se muestran ahí, solo que hay categorías propias; los nombres se ven dentro de la sala.
 						Las salas privadas no aparecen. Las partidas públicas son casuales: no se guardan estadísticas
 						de por vida, incluso si iniciaste sesión.
 					</p>
+
+					<h3>Cuando aceptás los términos</h3>
+					<p>
+						Antes de jugar, el juego te pide aceptar los
+						<a href="/terms#es">Términos de uso</a> y confirmar que tenés 13 años o más. Guardamos un registro de
+						eso: tu ID de invitado aleatorio, la versión de los términos, la hora, el idioma de la pantalla y el
+						hecho de que hiciste la confirmación de 13+. Se conserva hasta 365 días; después el juego te pide
+						aceptar los términos de nuevo. Lo usamos para saber qué versión de las reglas rige para vos.
+					</p>
+
+					<h3>Cuando reportás o bloqueás a alguien</h3>
+					<p>
+						Si reportás a un jugador, una respuesta, el nombre de una categoría propia o una explicación de la IA,
+						guardamos:
+					</p>
+					<ul>
+						<li>tu ID de invitado y, si iniciaste sesión, el ID de tu cuenta,</li>
+						<li>el ID de invitado o de cuenta de la persona reportada, cuando lo conocemos,</li>
+						<li>
+							el texto que se mostraba en el juego en ese momento, para poder revisarlo: apodos, nombres de
+							categorías propias, respuestas y explicaciones de la IA,
+						</li>
+						<li>el motivo que elegiste y un comentario opcional de hasta 280 caracteres.</li>
+					</ul>
+					<p>
+						Usamos esto solo para revisar abusos y hacer cumplir las reglas. No lo compartimos con nadie, salvo
+						con las autoridades cuando la ley lo exige. Un reporte se conserva hasta 30 días después de que se
+						resuelve y, en todo caso, como máximo 90 días.
+					</p>
+					<p>
+						Si bloqueás a un jugador, guardamos tu ID de invitado o de cuenta y el ID del jugador bloqueado, para
+						que el juego no vuelva a ponerlos en una partida juntos. El registro se conserva hasta que lo
+						desbloqueés.
+					</p>
+					<p>
+						Si restringimos una identidad de navegador o una cuenta porque se incumplieron las reglas, guardamos un
+						registro de la restricción, mientras dure y 90 días más, y un registro de lo que hicimos y por qué durante
+						un año.
+					</p>
+
 					<h3>Si iniciás sesión con Google (opcional)</h3>
 					<p>
 						Solo le pedimos a Google los permisos <code>openid</code> y <code>profile</code>. De Google
@@ -363,8 +527,11 @@
 							un <strong>ID de cuenta de Google</strong> estable y opaco (para reconocerte la próxima vez), y
 						</li>
 						<li>
-							tu <strong>nombre visible en Google</strong>, que solo se te muestra a vos (por ejemplo "Sesión
-							iniciada como …") y nunca a otros jugadores.
+							tu <strong>nombre visible en Google</strong>, que guardamos en tu cuenta y te mostramos a vos (por
+							ejemplo "Sesión iniciada como …"). Si iniciás sesión por primera vez y no tenés un apodo guardado ni
+							escrito en este navegador, el juego usa tu nombre visible en Google como apodo y lo guarda con tu
+							perfil, así que los demás jugadores lo ven en las salas a las que te unís. Podés cambiar tu apodo
+							cuando quieras.
 						</li>
 					</ul>
 					<p>
@@ -394,29 +561,36 @@
 					<h3>Cuando quien organiza usa el juez de IA (opcional)</h3>
 					<p>
 						Solo quien organiza la partida y inició sesión con Google ve el botón <em>Preguntar a la IA</em> durante la
-						revisión. Cuando lo toca, nuestro servidor envía el nombre de la categoría, la letra de la ronda, el idioma de la
-						partida y las respuestas escritas en esa categoría (nunca apodos, IDs de cuenta ni nada que identifique a un
-						jugador) al servicio Workers AI de Cloudflare, para que un modelo de lenguaje sugiera si cada respuesta
-						corresponde a la categoría.
+						revisión. Cuando lo toca, nuestro servidor envía el nombre de la categoría (puede ser un nombre propio escrito
+						por un jugador), la letra de la ronda, el idioma de la partida y las respuestas que todos los jugadores
+						escribieron en esa categoría, si no están vacías y empiezan con la letra de la ronda (nunca apodos, IDs de
+						cuenta ni nada que identifique a un jugador) al servicio Workers AI de Cloudflare, para que un modelo de
+						lenguaje sugiera si cada respuesta corresponde a la categoría.
 					</p>
 					<p>
 						La sugerencia (válida o dudosa, con un motivo breve) la ve todo el mundo en la sala, se guarda en la sala como el
-						resto de la partida (sección 4) y nunca cambia el puntaje: los jugadores siguen decidiendo con sus votos. Según
+						resto de la partida (sección 4) y nunca cambia el puntaje: los jugadores siguen decidiendo con sus votos. Como la
+						escribe un modelo de IA, puede ser incorrecta o inapropiada; cualquier jugador puede reportar una explicación de
+						la IA (mirá los <a href="/terms#es">Términos de uso</a>). Según
 						Cloudflare, procesa el texto solo para generar la sugerencia, no lo conserva y no lo usa para entrenar modelos de
 						IA; puede guardar metadatos operativos necesarios para prestar el servicio (por ejemplo, qué cuenta y qué modelo
-						se usaron). Nuestro servidor además guarda, solo en memoria y como máximo 24 horas, los veredictos que ya obtuvo
-						para una categoría y un texto de respuesta, para no enviar de nuevo las respuestas repetidas; no tiene ninguna
+						se usaron). Nuestro servidor además guarda, solo en memoria, los veredictos que ya obtuvo
+						para una categoría y un texto de respuesta, para no enviar de nuevo las respuestas repetidas (sección 4); no tiene ninguna
 						información sobre quién las escribió.
 					</p>
 
 					<h3>Datos técnicos</h3>
 					<p>
 						Como cualquier servidor web, el nuestro procesa tu dirección IP y datos de tu navegador para
-						responder tus pedidos. La aplicación registra solo el método, la ruta, el código de estado y la
-						duración de cada pedido, nunca apodos ni respuestas. La puerta de entrada web del servidor también
-						puede guardar registros de acceso estándar (dirección, URL pedida, navegador, hora) durante unos 7
-						días, para mantener el servicio seguro y funcionando. Además, el servidor publica contadores
-						anónimos (cantidad de salas, conexiones, …) que no contienen datos personales.
+						responder tus pedidos, y guarda tu dirección IP en su memoria durante unos 10 a 15 minutos para limitar abusos.
+						La aplicación registra el método, la ruta (que puede incluir el código de una sala), el código de estado
+						y la duración de cada pedido; no registra apodos ni respuestas. Los errores de la conexión en vivo de una
+						partida se registran con la dirección IP de la conexión y su ID de invitado aleatorio, y lo mismo pasa con
+						los eventos de conexión y desconexión si se activa el nivel de registro de depuración del servidor (no
+						está activo por defecto). La puerta de entrada web del servidor también puede guardar registros de acceso
+						estándar (dirección, URL pedida, navegador, hora) para mantener el servicio seguro y funcionando. Además,
+						el servidor publica contadores anónimos (cantidad de salas, conexiones, …) que no contienen datos
+						personales.
 					</p>
 
 					<h2>3. Cookies y almacenamiento del navegador</h2>
@@ -449,9 +623,14 @@
 						<div>
 							<dt>Almacenamiento local</dt>
 							<dd>
-								Solo en tu dispositivo (nunca se nos envía): tu apodo, avatar, idioma y las categorías propias
-								que usaste hace poco. La app instalada también guarda una copia de sus propios archivos para
-								abrir rápido y sin conexión.
+								En tu dispositivo: tu apodo, avatar, idioma, las categorías propias que usaste hace poco y, para
+								que puedas volver a una partida si se cerró tu navegador, el código y un ID técnico aleatorio de la
+								última partida a la que entraste (sin nombres ni respuestas; se olvida pasadas 24 horas o cuando salís
+								de esa partida). Tu
+								navegador nos envía tu apodo y tu avatar cuando creás una sala o te unís a una y, si iniciaste
+								sesión, para guardar tu perfil; los nombres de las categorías propias que elegís se envían como
+								parte de los ajustes de la sala (sección 2). La app instalada también guarda una copia de sus propios
+								archivos para abrir rápido y sin conexión.
 							</dd>
 						</div>
 					</dl>
@@ -461,26 +640,44 @@
 					<ul>
 						<li>
 							<strong>Las salas</strong> (jugadores, respuestas, puntajes) viven en la memoria del servidor y
-							se guardan en su base de datos para que una partida sobreviva a un reinicio. Una sala se borra
-							cuando se cierra (por ejemplo, cuando todos se fueron hace 30 minutos), y todo lo que tenga más de
-							6 horas lo elimina una limpieza automática cada hora.
+							se guardan en su base de datos para que una partida sobreviva a un reinicio. Una sala se cierra, y su
+							copia guardada se borra, cuando nadie estuvo conectado durante 30 minutos, cuando nadie entró en los
+							2 minutos posteriores a su creación o cuando todos se fueron a propósito. Como red de seguridad, una
+							limpieza automática cada hora borra las copias guardadas que no se actualizaron en 6 horas. Una sala
+							que sigue en uso renueva su copia guardada, así que los datos de una sala activa pueden existir más de
+							6 horas.
 						</li>
 						<li>
-							<strong>Las sugerencias de la IA</strong> viven en la sala (primer punto) y desaparecen con ella. La memoria de veredictos del servidor se vacía en cada reinicio y, como máximo, a las 24 horas.
+							<strong>Las sugerencias de la IA</strong> viven en la sala (primer punto) y desaparecen con ella. La memoria de veredictos del servidor está pensada para reutilizarse como máximo 24 horas: una entrada vencida se elimina cuando se consulta o cuando la memoria se llena; si no, puede quedar en memoria hasta que se la desaloje o se reinicie el servidor. Nunca se guarda en ningún otro lugar.
 						</li>
 						<li>
 							<strong>Los datos de la cuenta</strong> se guardan hasta que eliminás tu cuenta.
 						</li>
 						<li>
-							<strong>Los registros de acceso del servidor</strong> se guardan unos 7 días.
+							<strong>La aceptación de los términos</strong> se conserva hasta 365 días; después el juego te pide
+							aceptar de nuevo.
+						</li>
+						<li>
+							<strong>Los reportes</strong> se conservan hasta 30 días después de resolverse y como máximo 90 días.
+						</li>
+						<li>
+							<strong>Los bloqueos</strong> se conservan hasta que desbloqueás al jugador.
+						</li>
+						<li>
+							<strong>Las restricciones y los registros de lo que hicimos</strong> se conservan así: la restricción,
+							mientras dure y 90 días más; los registros de lo que hicimos, un año.
+						</li>
+						<li>
+							<strong>Los registros del servidor</strong>: buscamos conservarlos unos 7 días. Los guarda la
+							infraestructura de alojamiento, no el juego en sí.
 						</li>
 					</ul>
 
 					<h2>5. Con quién los compartimos</h2>
 					<p>
-						Con nadie. No vendemos, alquilamos ni compartimos datos personales, y no usamos servicios de
-						publicidad ni de analítica. Hay dos terceros involucrados, cada uno solo cuando usás la función opcional
-						correspondiente. <strong>Google</strong>, solo si elegís iniciar sesión: tu navegador va a Google para iniciar
+						No vendemos, alquilamos ni compartimos datos personales, y no usamos servicios de publicidad ni de
+						analítica. Pueden intervenir tres terceros, cada uno solo cuando usás la función correspondiente.
+						<strong>Google</strong>, solo si elegís iniciar sesión: tu navegador va a Google para iniciar
 						sesión y Google nos informa tu ID de cuenta y tu nombre visible. En ese paso rige la
 						<a href="https://policies.google.com/privacy" rel="noopener noreferrer"
 							>política de privacidad de Google</a
@@ -489,15 +686,27 @@
 						servicios (encargado del tratamiento); rige la
 						<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer"
 							>política de privacidad de Cloudflare</a
-						>. Todo lo demás se sirve desde nuestro propio servidor, sin fuentes, scripts ni imágenes externas.
+						>. <strong>Google Play</strong>, si instalaste la app de Android (sección 9). El juego también puede
+						mostrar un enlace voluntario para apoyarlo, que abre una página externa solo si lo tocás; el juego no le
+						envía a esa página ningún dato de tu partida y rige su propia política. Todo lo demás se sirve desde
+						nuestro propio servidor, sin fuentes, scripts ni imágenes externas. Si una autoridad competente lo exige
+						legalmente, podríamos tener que entregar datos, por ejemplo los de un reporte.
 					</p>
 
 					<h2>6. Tus opciones y derechos</h2>
 					<ul>
 						<li>
 							<strong>Eliminar tu cuenta:</strong> iniciá sesión, abrí <em>Mis estadísticas</em> y elegí
-							<em>Eliminar mi cuenta</em>. Tu perfil, tus estadísticas y los registros de tus partidas se borran
-							al instante y de forma definitiva.
+							<em>Eliminar mi cuenta</em>. El registro de tu cuenta (ID de cuenta de Google y nombre visible), tu
+							perfil guardado, tus estadísticas y los registros de tus partidas se borran al instante y de forma
+							definitiva. Esto no borra al instante lo que ya está dentro de una sala en curso (tu apodo y tus
+							respuestas desaparecen cuando la sala termina, sección 4), los registros de seguridad de la sección 2
+							(hasta que termine su plazo de conservación) ni las cookies y el almacenamiento local de tu
+							dispositivo (borralos en tu navegador). Si volvés a iniciar sesión con la misma cuenta de Google, se
+							crea una cuenta nueva y vacía. En cuanto se elimina tu cuenta, una partida en la que seguís deja de
+							tratarte como alguien con sesión iniciada: ya no podés preguntar al juez de IA ahí y nada de esa
+							partida se registra para una cuenta; tu lugar sigue como invitado hasta que la sala termine. Si no
+							podés iniciar sesión, mirá <a href="/delete-account#es">Eliminar tu cuenta</a>.
 						</li>
 						<li>
 							<strong>Cerrá sesión</strong> cuando quieras desde la pantalla de inicio. También podés quitarle
@@ -507,8 +716,9 @@
 							>.
 						</li>
 						<li>
-							<strong>Los invitados</strong> no tienen nada que eliminar: los datos de la sala desaparecen
-							solos (sección 4) y podés borrar las cookies y el almacenamiento de este sitio en tu navegador.
+							<strong>Los invitados</strong> no tienen cuenta que eliminar: los datos de la sala desaparecen
+							solos (sección 4), los registros de seguridad vencen (sección 4) y podés borrar las cookies y el
+							almacenamiento de este sitio en tu navegador.
 						</li>
 						<li>
 							Según dónde vivas (por ejemplo, en la UE/EEE por el RGPD) tenés derecho a acceder a tus datos,
@@ -518,8 +728,8 @@
 						</li>
 					</ul>
 					<p>
-						Usamos tus datos porque hacen falta para darte el juego que querés jugar y, en el caso del inicio
-						de sesión con Google, porque elegiste usarlo.
+						Usamos tus datos porque hacen falta para darte el juego que querés jugar, para mantenerlo seguro para
+						los demás jugadores y, en el caso del inicio de sesión con Google, porque elegiste usarlo.
 					</p>
 
 					<h2>7. Seguridad</h2>
@@ -529,20 +739,33 @@
 						sistema es perfectamente seguro, y por eso mismo guardamos lo mínimo.
 					</p>
 
-					<h2>8. Menores</h2>
+					<h2>8. Edad y menores</h2>
 					<p>
-						Tutti Frutti no está dirigido a menores de 13 años (o de 16 donde la ley fije una edad mayor). No
-						recolectamos a sabiendas datos personales de menores. Si creés que un menor inició sesión,
-						escribinos y eliminamos la cuenta.
+						Tutti Frutti está pensado para personas de 13 años o más, y el juego te pide confirmarlo antes de jugar.
+						Esa confirmación es una declaración tuya: no verificamos edades, y no reemplaza ninguna regla sobre edad o
+						permisos que fije la ley del lugar donde vivís. No recolectamos a sabiendas datos personales de menores de
+						13 años. Si creés que un menor inició sesión o está jugando, escribinos y eliminamos la cuenta.
 					</p>
 
-					<h2>9. Cambios</h2>
+					<h2>9. La app de Android</h2>
+					<p>
+						La app de Android de Tutti Frutti es un contenedor liviano que abre el sitio web
+						(<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>); todo lo que dice esta política
+						rige tal cual para ella. No tiene cuentas, publicidad, analítica ni rastreadores propios y no guarda datos
+						propios. Las cookies y el almacenamiento local de la sección 3 pertenecen al navegador que aloja la app en tu
+						dispositivo. Desinstalar la app no los borra, y tampoco borra tu cuenta ni nada de lo guardado en nuestro
+						servidor: para eliminar la cuenta, mirá <a href="/delete-account#es">Eliminar tu cuenta</a>. Google Play
+						recibe lo que Google mismo recolecta sobre la instalación y el uso de la app, según
+						<a href="https://policies.google.com/privacy" rel="noopener noreferrer">la política de Google</a>.
+					</p>
+
+					<h2>10. Cambios</h2>
 					<p>
 						Si esta política cambia, cambia también la fecha de arriba. Los cambios importantes además se
-						avisan en la app.
+						avisan en la app. Si cambian los términos de uso, el juego te pide aceptarlos de nuevo.
 					</p>
 
-					<h2>10. Contacto</h2>
+					<h2>11. Contacto</h2>
 					<p>
 						Consultas o pedidos sobre tus datos:
 						<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>.
@@ -553,16 +776,19 @@
 				<section class="doc" id="nl" lang="nl">
 					<h1>Privacybeleid</h1>
 					<p class="meta">
-						Laatst bijgewerkt: 29 oktober 2026 · Geldt voor
-						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>
+						Laatst bijgewerkt: 30 oktober 2026 · Geldt voor
+						<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a> en voor de Android-app van
+						Tutti Frutti · <a href="/terms#nl">Gebruiksvoorwaarden</a> ·
+						<a href="/delete-account#nl">Je account verwijderen</a>
 					</p>
 
 					<div class="summary">
 						<h2>Kort samengevat</h2>
 						<ul>
 							<li>
-								Je kunt spelen zonder account. We bewaren alleen een bijnaam, een emoji-avatar en je
-								antwoorden, en alleen zolang de kamer bestaat.
+								Je kunt spelen zonder account. Zolang de kamer bestaat, bewaart die je bijnaam, je emoji-avatar en
+								je antwoorden. Voordat je speelt, vraagt het spel je de gebruiksvoorwaarden te accepteren en te
+								bevestigen dat je 13 jaar of ouder bent.
 							</li>
 							<li>
 								Inloggen met Google is optioneel. Dan krijgen we je Google-weergavenaam en een Google-account-ID,
@@ -570,13 +796,20 @@
 							</li>
 							<li>
 								Geen advertenties, geen analyse, geen tracking, geen scripts of lettertypen van derden, en we
-								verkopen of delen je gegevens nooit.
+								verkopen je gegevens nooit. Ze worden alleen gedeeld met de optionele diensten uit sectie 5 en,
+								als de wet dat eist, met autoriteiten.
 							</li>
 							<li>
-								Als een ingelogde host op de optionele AI-scheidsrechter tikt, worden de antwoorden van die categorie (nooit bijnamen) naar Cloudflare gestuurd voor een suggestie. Cloudflare traint er geen AI-modellen mee.
+								Als een ingelogde host op de optionele AI-scheidsrechter tikt, worden de antwoorden van die categorie van alle spelers (nooit bijnamen) naar Cloudflare gestuurd voor een suggestie. Volgens Cloudflare traint het er geen AI-modellen mee.
 							</li>
 							<li>
-								Je kunt je account en alles wat daarbij is opgeslagen op elk moment verwijderen, in de app.
+								Om spellen veilig te houden bewaren we een paar kleine gegevens voor beperkte tijd: je acceptatie
+								van de voorwaarden, meldingen, blokkades en beperkingen (paragraaf 2 en 4).
+							</li>
+							<li>
+								Je kunt je account en alles wat daarbij is opgeslagen op elk moment verwijderen, in de app of
+								zonder die te installeren (zie <a href="/delete-account#nl">Je account verwijderen</a>). Wat al in
+								een lopende kamer staat, verdwijnt wanneer de kamer eindigt.
 							</li>
 						</ul>
 					</div>
@@ -595,7 +828,8 @@
 					<ul>
 						<li>
 							<strong>Bijnaam en avatar</strong> (een emoji en een kleur) die je zelf kiest, zodat andere spelers
-							je herkennen. Je hoeft je echte naam niet te gebruiken.
+							je herkennen. Je browser stuurt ze naar onze server als je een kamer maakt of eraan deelneemt. Je
+							hoeft je echte naam niet te gebruiken.
 						</li>
 						<li>
 							<strong>Je antwoorden, scores en stemmen</strong> in het huidige spel, zodat het spel gespeeld
@@ -603,20 +837,63 @@
 						</li>
 						<li>
 							<strong>Een willekeurig gast-ID</strong> in een cookie, zodat je je plek terugkrijgt als je
-							verbinding wegvalt of je de pagina herlaadt. Het is niet aan je identiteit gekoppeld.
+							verbinding wegvalt of je de pagina herlaadt. Het is niet aan je echte identiteit gekoppeld, maar
+							wordt wel bewaard bij de veiligheidsgegevens die hieronder staan.
 						</li>
 					</ul>
 					<p>
 						Andere spelers in je kamer zien je bijnaam, je avatar en je antwoorden zodra een ronde is
-						afgesloten.
+						afgesloten, en de eigen categorienamen die voor het spel zijn gekozen (ze maken deel uit van de
+						instellingen van de kamer).
 					</p>
 
 					<p>
 						In de lijst met openbare kamers zien bezoekers de kamercode, speltaal, het aantal spelers,
-						instellingen en categorienamen, ook zelfgekozen namen. Privékamers staan niet in deze lijst.
-						Openbare spellen zijn vrijblijvend: levenslange statistieken worden niet bijgehouden,
-						ook niet als je bent ingelogd.
+						instellingen en de namen van de ingebouwde categorieën. Eigen categorienamen worden daar niet
+						getoond, alleen dat er eigen categorieën zijn; de namen zijn zichtbaar binnen de kamer. Privékamers
+						staan niet in deze lijst. Openbare spellen zijn vrijblijvend: levenslange statistieken worden niet
+						bijgehouden, ook niet als je bent ingelogd.
 					</p>
+
+					<h3>Als je de voorwaarden accepteert</h3>
+					<p>
+						Voordat je speelt, vraagt het spel je de
+						<a href="/terms#nl">Gebruiksvoorwaarden</a> te accepteren en te bevestigen dat je 13 jaar of ouder bent.
+						Daarvan bewaren we een gegeven: je willekeurige gast-ID, de versie van de voorwaarden, het tijdstip, de
+						taal van het scherm en het feit dat je de 13+-bevestiging hebt gedaan. Het wordt maximaal 365 dagen
+						bewaard; daarna vraagt het spel je de voorwaarden opnieuw te accepteren. We gebruiken het om te weten
+						welke versie van de regels voor jou geldt.
+					</p>
+
+					<h3>Als je iemand meldt of blokkeert</h3>
+					<p>
+						Als je een speler, een antwoord, een eigen categorienaam of een uitleg van de AI meldt, bewaren we:
+					</p>
+					<ul>
+						<li>je gast-ID, en je account-ID als je bent ingelogd,</li>
+						<li>het gast-ID of account-ID van de gemelde persoon, als we dat kennen,</li>
+						<li>
+							de tekst die op dat moment in het spel te zien was, zodat die beoordeeld kan worden: bijnamen,
+							eigen categorienamen, antwoorden en uitleg van de AI,
+						</li>
+						<li>de reden die je koos en een optionele opmerking van maximaal 280 tekens.</li>
+					</ul>
+					<p>
+						We gebruiken dit alleen om misbruik te beoordelen en de regels te handhaven. We delen het met niemand,
+						behalve met autoriteiten als de wet dat eist. Een melding wordt bewaard tot 30 dagen nadat ze is
+						afgehandeld en in elk geval maximaal 90 dagen.
+					</p>
+					<p>
+						Als je een speler blokkeert, bewaren we je gast- of account-ID en het ID van de geblokkeerde speler,
+						zodat het spel jullie niet opnieuw samen in een spel zet. Het gegeven blijft bewaard tot je de
+						blokkade opheft.
+					</p>
+					<p>
+						Als we een browseridentiteit of een account beperken omdat de regels zijn overtreden, bewaren we een
+						gegeven over de beperking zolang die duurt plus 90 dagen, en een logboek van wat we hebben gedaan en
+						waarom gedurende een jaar.
+					</p>
+
 					<h3>Als je inlogt met Google (optioneel)</h3>
 					<p>
 						We vragen Google alleen om de rechten <code>openid</code> en <code>profile</code>. Van Google
@@ -628,8 +905,11 @@
 							herkennen), en
 						</li>
 						<li>
-							je <strong>Google-weergavenaam</strong>, die alleen aan jou wordt getoond (bijvoorbeeld "Ingelogd
-							als …") en nooit aan andere spelers.
+							je <strong>Google-weergavenaam</strong>, die we in je account bewaren en aan jou tonen (bijvoorbeeld
+							"Ingelogd als …"). Als je voor het eerst inlogt en in deze browser geen bijnaam hebt opgeslagen of
+							getypt, gebruikt het spel je Google-weergavenaam als bijnaam en bewaart die bij je profiel, zodat
+							andere spelers hem zien in de kamers waaraan je deelneemt. Je kunt je bijnaam op elk moment
+							wijzigen.
 						</li>
 					</ul>
 					<p>
@@ -660,30 +940,36 @@
 					<h3>Als een ingelogde host de AI-scheidsrechter gebruikt (optioneel)</h3>
 					<p>
 						Alleen een host die met Google is ingelogd ziet de knop <em>Vraag het de AI</em> in de beoordeling. Als die wordt
-						ingedrukt, stuurt onze server de naam van de categorie, de letter van de ronde, de taal van het spel en de
-						antwoorden die in die categorie zijn getypt (nooit bijnamen, account-ID's of iets anders dat een speler
-						identificeert) naar de Workers AI-dienst van Cloudflare, zodat een taalmodel kan voorstellen of elk antwoord bij
-						de categorie past.
+						ingedrukt, stuurt onze server de naam van de categorie (dat kan een eigen naam zijn die een speler heeft getypt),
+						de letter van de ronde, de taal van het spel en de antwoorden die alle spelers in die categorie hebben getypt,
+						als ze niet leeg zijn en met de letter van de ronde beginnen (nooit bijnamen, account-ID's of iets anders dat een
+						speler identificeert) naar de Workers AI-dienst van Cloudflare, zodat een taalmodel kan voorstellen of elk
+						antwoord bij de categorie past.
 					</p>
 					<p>
 						De suggestie (geldig of twijfelachtig, met een korte reden) is zichtbaar voor iedereen in de kamer, wordt net als
 						de rest van het spel in de kamer bewaard (sectie 4) en verandert de score nooit: de spelers beslissen nog steeds
-						door te stemmen. Volgens Cloudflare verwerkt het de tekst alleen om de suggestie te maken, bewaart het die niet en
+						door te stemmen. Omdat een AI-model haar schrijft, kan ze onjuist of ongepast zijn; elke speler kan een uitleg
+						van de AI melden (zie de <a href="/terms#nl">Gebruiksvoorwaarden</a>). Volgens Cloudflare verwerkt het de tekst
+						alleen om de suggestie te maken, bewaart het die niet en
 						gebruikt het die niet om AI-modellen te trainen; het kan operationele metagegevens bewaren die nodig zijn om de
 						dienst te laten draaien (bijvoorbeeld welk account en welk model zijn gebruikt). Onze server bewaart bovendien,
-						alleen in het geheugen en hooguit 24 uur, de oordelen die al zijn opgehaald voor een categorie en een
-						antwoordtekst, zodat herhaalde antwoorden niet opnieuw worden verstuurd; het heeft geen informatie over wie ze
+						alleen in het geheugen, de oordelen die al zijn opgehaald voor een categorie en een
+						antwoordtekst, zodat herhaalde antwoorden niet opnieuw worden verstuurd (sectie 4); het heeft geen informatie over wie ze
 						heeft geschreven.
 					</p>
 
 					<h3>Technische gegevens</h3>
 					<p>
 						Zoals elke webserver verwerkt de onze je IP-adres en browsergegevens om je verzoeken te
-						beantwoorden. De applicatie logt alleen de methode, het pad, de statuscode en de duur van elk
-						verzoek, nooit bijnamen of antwoorden. De webingang van de server kan daarnaast standaard
-						toegangslogs bewaren (adres, opgevraagde URL, browser, tijd), ongeveer 7 dagen, om de dienst veilig
-						en werkend te houden. De server publiceert ook anonieme tellers (aantal kamers, verbindingen, …)
-						zonder persoonsgegevens.
+						beantwoorden, en houdt hij je IP-adres ongeveer 10 tot 15 minuten in zijn geheugen om misbruik te beperken. De
+						applicatie logt de methode, het pad (dat een kamercode kan bevatten), de statuscode en de duur van elk
+						verzoek; ze logt geen bijnamen of antwoorden. Fouten op de live verbinding van een spel worden gelogd met
+						het IP-adres van de verbinding en het willekeurige gast-ID, en hetzelfde geldt voor verbindings- en
+						verbrekingsgebeurtenissen als het debug-logniveau van de server is ingeschakeld (standaard niet). De
+						webingang van de server kan daarnaast standaard toegangslogs bewaren (adres, opgevraagde URL, browser,
+						tijd) om de dienst veilig en werkend te houden. De server publiceert ook anonieme tellers (aantal
+						kamers, verbindingen, …) zonder persoonsgegevens.
 					</p>
 
 					<h2>3. Cookies en opslag in je browser</h2>
@@ -716,9 +1002,14 @@
 						<div>
 							<dt>Lokale opslag</dt>
 							<dd>
-								Alleen op je apparaat (nooit naar ons gestuurd): je bijnaam, avatar, taal en de eigen
-								categorieën die je onlangs gebruikte. De geïnstalleerde app bewaart ook een cache van haar eigen
-								bestanden, zodat ze snel en offline opent.
+								Op je apparaat: je bijnaam, avatar, taal, de eigen categorieën die je onlangs gebruikte en, zodat
+								je naar een spel kunt terugkeren als je browser was gesloten, de code en een willekeurig technisch ID
+								van het laatste spel waaraan je deelnam (geen namen en geen antwoorden; het wordt na 24 uur of zodra
+								je dat spel verlaat vergeten). Je
+								browser stuurt je bijnaam en avatar naar ons als je een kamer maakt of eraan deelneemt en, als je
+								bent ingelogd, om je profiel op te slaan; de eigen categorienamen die je kiest worden verstuurd als
+								onderdeel van de instellingen van de kamer (paragraaf 2). De geïnstalleerde app bewaart ook een cache
+								van haar eigen bestanden, zodat ze snel en offline opent.
 							</dd>
 						</div>
 					</dl>
@@ -728,25 +1019,44 @@
 					<ul>
 						<li>
 							<strong>Spelkamers</strong> (spelers, antwoorden, scores) staan in het geheugen van de server en
-							worden in de database opgeslagen, zodat een spel een herstart overleeft. Een kamer wordt
-							verwijderd zodra hij sluit (bijvoorbeeld als iedereen 30 minuten weg is), en alles wat ouder is
-							dan 6 uur wordt door een automatische opruiming elk uur verwijderd.
+							worden in de database opgeslagen, zodat een spel een herstart overleeft. Een kamer wordt gesloten, en
+							zijn opgeslagen kopie verwijderd, als er 30 minuten niemand verbonden is geweest, als niemand binnen
+							2 minuten na het aanmaken is binnengekomen, of als iedereen er bewust is weggegaan. Als vangnet
+							verwijdert een automatische opruiming elk uur opgeslagen kopieën die 6 uur lang niet zijn bijgewerkt.
+							Een kamer die nog in gebruik is, ververst zijn opgeslagen kopie steeds, dus de gegevens van een actieve
+							kamer kunnen langer dan 6 uur bestaan.
 						</li>
 						<li>
-							<strong>Suggesties van de AI</strong> staan in de kamer (eerste punt) en verdwijnen daarmee. Het geheugen met oordelen van de server wordt bij elke herstart geleegd en na hooguit 24 uur.
+							<strong>Suggesties van de AI</strong> staan in de kamer (eerste punt) en verdwijnen daarmee. Het geheugen met oordelen van de server is bedoeld om hooguit 24 uur te worden hergebruikt: een verlopen item wordt verwijderd wanneer het wordt opgezocht of wanneer het geheugen vol is, en kan anders in het geheugen blijven staan tot het wordt verdrongen of de server herstart. Het wordt nergens anders opgeslagen.
 						</li>
 						<li>
 							<strong>Accountgegevens</strong> blijven bewaard tot je je account verwijdert.
 						</li>
 						<li>
-							<strong>Toegangslogs van de server</strong> worden ongeveer 7 dagen bewaard.
+							<strong>De acceptatie van de voorwaarden</strong> wordt maximaal 365 dagen bewaard; daarna vraagt het
+							spel je opnieuw te accepteren.
+						</li>
+						<li>
+							<strong>Meldingen</strong> worden bewaard tot 30 dagen nadat ze zijn afgehandeld en maximaal 90 dagen.
+						</li>
+						<li>
+							<strong>Blokkades</strong> blijven bewaard tot je de speler deblokkeert.
+						</li>
+						<li>
+							<strong>Beperkingen en de gegevens over wat we hebben gedaan</strong> worden zo bewaard: de beperking
+							zolang die duurt plus 90 dagen, de gegevens over wat we hebben gedaan een jaar.
+						</li>
+						<li>
+							<strong>Serverlogs</strong>: we streven ernaar ze ongeveer 7 dagen te bewaren. Ze worden bewaard
+							door de hostinginfrastructuur, niet door het spel zelf.
 						</li>
 					</ul>
 
 					<h2>5. Met wie we het delen</h2>
 					<p>
-						Met niemand. We verkopen, verhuren of delen geen persoonsgegevens en gebruiken geen advertentie- of
-						analysediensten. Er zijn twee derde partijen, elk alleen als je de bijbehorende optionele functie gebruikt.
+						We verkopen, verhuren of delen geen persoonsgegevens en gebruiken geen advertentie- of
+						analysediensten. Er kunnen drie derde partijen bij betrokken zijn, elk alleen als je de bijbehorende
+						functie gebruikt.
 						<strong>Google</strong>, alleen als je kiest om in te loggen: je browser gaat naar Google om in te loggen en Google
 						geeft ons je account-ID en weergavenaam. Voor die stap geldt de
 						<a href="https://policies.google.com/privacy" rel="noopener noreferrer"
@@ -756,15 +1066,26 @@
 						<a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer"
 							>privacyverklaring van Cloudflare</a
 						>
-						geldt. Al het andere komt van onze eigen server, zonder externe lettertypen, scripts of afbeeldingen.
+						geldt. <strong>Google Play</strong>, als je de Android-app hebt geïnstalleerd (paragraaf 9). Het spel kan
+						ook een vrijwillige steunlink tonen die alleen een externe pagina opent als je erop tikt; het spel stuurt
+						die pagina geen spelgegevens en haar eigen beleid geldt. Al het andere komt van onze eigen server, zonder
+						externe lettertypen, scripts of afbeeldingen. Als een bevoegde autoriteit dat wettelijk eist, moeten we
+						mogelijk gegevens overdragen, bijvoorbeeld die van een melding.
 					</p>
 
 					<h2>6. Jouw keuzes en rechten</h2>
 					<ul>
 						<li>
 							<strong>Je account verwijderen:</strong> log in, open <em>Mijn statistieken</em> en kies
-							<em>Mijn account verwijderen</em>. Je profiel, statistieken en spelgegevens worden direct en
-							definitief gewist.
+							<em>Mijn account verwijderen</em>. Je accountgegeven (Google-account-ID en weergavenaam), opgeslagen
+							profiel, statistieken en spelgegevens worden direct en definitief gewist. Dit wist niet meteen wat al
+							in een lopende kamer staat (je bijnaam en antwoorden verdwijnen wanneer de kamer eindigt, paragraaf 4),
+							de veiligheidsgegevens uit paragraaf 2 (tot hun bewaartermijn eindigt) of de cookies en lokale opslag
+							op je apparaat (wis ze in je browser). Als je opnieuw inlogt met hetzelfde Google-account, ontstaat er
+							een nieuw, leeg account. Zodra je account is verwijderd, behandelt een spel waar je nog in zit je niet
+							meer als ingelogd: je kunt er geen AI-scheidsrechter meer vragen en er wordt niets meer van vastgelegd
+							voor een account; je plek blijft als gast bestaan tot de kamer eindigt. Kun je niet inloggen, zie dan
+							<a href="/delete-account#nl">Je account verwijderen</a>.
 						</li>
 						<li>
 							<strong>Uitloggen</strong> kan op elk moment vanaf het beginscherm. Je kunt de toegang van de app
@@ -774,8 +1095,9 @@
 							>.
 						</li>
 						<li>
-							<strong>Gasten</strong> hebben niets te verwijderen: kamergegevens verdwijnen vanzelf
-							(paragraaf 4) en je kunt de cookies en opslag van deze site in je browser wissen.
+							<strong>Gasten</strong> hebben geen account om te verwijderen: kamergegevens verdwijnen vanzelf
+							(paragraaf 4), de veiligheidsgegevens verlopen (paragraaf 4) en je kunt de cookies en opslag van deze
+							site in je browser wissen.
 						</li>
 						<li>
 							Afhankelijk van waar je woont (bijvoorbeeld in de EU/EER onder de AVG) heb je recht op inzage,
@@ -785,8 +1107,8 @@
 						</li>
 					</ul>
 					<p>
-						We gebruiken je gegevens omdat ze nodig zijn om het spel te bieden dat je wilt spelen en, bij
-						inloggen met Google, omdat je ervoor hebt gekozen.
+						We gebruiken je gegevens omdat ze nodig zijn om het spel te bieden dat je wilt spelen, om het veilig te
+						houden voor de andere spelers en, bij inloggen met Google, omdat je ervoor hebt gekozen.
 					</p>
 
 					<h2>7. Beveiliging</h2>
@@ -796,20 +1118,34 @@
 						volledig veilig, en juist daarom bewaren we zo weinig mogelijk.
 					</p>
 
-					<h2>8. Kinderen</h2>
+					<h2>8. Leeftijd en kinderen</h2>
 					<p>
-						Tutti Frutti is niet bedoeld voor kinderen onder 13 jaar (of onder 16 waar de wet een hogere leeftijd
-						voorschrijft). We verzamelen niet bewust hun persoonsgegevens. Denk je dat een kind is ingelogd,
+						Tutti Frutti is bedoeld voor mensen van 13 jaar en ouder, en het spel vraagt je dat te bevestigen voordat
+						je speelt. Die bevestiging is een verklaring van jezelf: we controleren geen leeftijden, en ze vervangt
+						geen regel over leeftijd of toestemming die de wet van de plaats waar je woont kan stellen. We verzamelen
+						niet bewust persoonsgegevens van kinderen onder 13 jaar. Denk je dat een kind is ingelogd of speelt,
 						schrijf ons dan en we verwijderen het account.
 					</p>
 
-					<h2>9. Wijzigingen</h2>
+					<h2>9. De Android-app</h2>
 					<p>
-						Als dit beleid verandert, verandert ook de datum bovenaan. Belangrijke wijzigingen kondigen we
-						ook in de app aan.
+						De Android-app van Tutti Frutti is een dunne verpakking die de website opent
+						(<a href="https://tuttifrutti.aresius.xyz">tuttifrutti.aresius.xyz</a>); alles in dit beleid geldt er
+						ongewijzigd voor. De app heeft geen eigen accounts, advertenties, analyse of trackers en bewaart zelf geen
+						gegevens. De cookies en lokale opslag uit paragraaf 3 horen bij de browser die de app op je apparaat
+						host. De app verwijderen wist ze niet, en wist ook je account of iets dat op onze server is opgeslagen
+						niet: zie <a href="/delete-account#nl">Je account verwijderen</a> om het account te verwijderen. Google
+						Play ontvangt wat Google zelf verzamelt over de installatie en het gebruik van de app, volgens
+						<a href="https://policies.google.com/privacy" rel="noopener noreferrer">het eigen beleid van Google</a>.
 					</p>
 
-					<h2>10. Contact</h2>
+					<h2>10. Wijzigingen</h2>
+					<p>
+						Als dit beleid verandert, verandert ook de datum bovenaan. Belangrijke wijzigingen kondigen we
+						ook in de app aan. Als de gebruiksvoorwaarden veranderen, vraagt het spel je ze opnieuw te accepteren.
+					</p>
+
+					<h2>11. Contact</h2>
 					<p>
 						Vragen of verzoeken over je gegevens:
 						<a href="mailto:aresiusxp@gmail.com">aresiusxp@gmail.com</a>.

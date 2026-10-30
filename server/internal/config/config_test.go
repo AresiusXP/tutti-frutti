@@ -337,3 +337,17 @@ func TestLoadJudge(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadModerationSocket(t *testing.T) {
+	cfg, err := Load(env(nil))
+	if err != nil || cfg.ModerationSocket != "" {
+		t.Fatalf("default = %q, %v: the tool is off unless it is configured", cfg.ModerationSocket, err)
+	}
+	cfg, err = Load(env(map[string]string{"MODERATION_SOCKET": " /run/tutti/moderation.sock\n"}))
+	if err != nil || cfg.ModerationSocket != "/run/tutti/moderation.sock" {
+		t.Errorf("socket = %q, %v", cfg.ModerationSocket, err)
+	}
+	if _, err := Load(env(map[string]string{"MODERATION_SOCKET": "moderation.sock"})); err == nil {
+		t.Error("a relative socket path was accepted")
+	}
+}

@@ -165,6 +165,23 @@ func TestOnlyASignedInHostCanAskTheJudge(t *testing.T) {
 		}
 	})
 
+	t.Run("a judge the operator switched off", func(t *testing.T) {
+		sw := judge.NewSwitch(newFakeJudge(), nil)
+		sw.SetEnabled(false)
+		l := newJudgeReview(t, sw, "user-1")
+		l.send(0, game.CmdAskJudge, game.AskJudge{Category: 0})
+		l.expectFrames("ask while the judge is off", []string{"error:" + protocol.ErrJudgeUnavailable}, 0)
+		l.send(0, game.CmdReviewNav, game.ReviewNav{Category: 1})
+		if st := lastState(t, l.c[0].drain()); st.CanJudge {
+			t.Error("canJudge must be false while the operator switched the judge off")
+		}
+		sw.SetEnabled(true)
+		l.send(0, game.CmdReviewNav, game.ReviewNav{Category: 0})
+		if st := lastState(t, l.c[0].drain()); !st.CanJudge {
+			t.Error("canJudge must come back when the judge is switched on again")
+		}
+	})
+
 	t.Run("canJudge follows the account", func(t *testing.T) {
 		l := newJudgeReview(t, newFakeJudge(), "user-1")
 		l.send(0, game.CmdReviewNav, game.ReviewNav{Category: 1})

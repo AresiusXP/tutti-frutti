@@ -3,6 +3,7 @@
 	import OfflineBanner from '$lib/components/OfflineBanner.svelte';
 	import Toasts from '$lib/components/Toasts.svelte';
 	import UpdatePrompt from '$lib/components/UpdatePrompt.svelte';
+	import TermsGate from '$lib/safety/TermsGate.svelte';
 	import { BRAND } from '$lib/brand';
 	import { i18n } from '$lib/i18n.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -26,4 +27,5 @@
 
 {@render children()}
 
+<TermsGate />
 <Toasts />

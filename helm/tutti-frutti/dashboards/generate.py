@@ -1235,6 +1235,84 @@ def build_panels() -> list[dict]:
         12,
         6,
     )
+    lo.add(
+        timeseries(
+            "Content reports by kind (per h)",
+            "Reports of players' content stored in the database (tuttifrutti_reports_total): player = a nickname or avatar, custom_label = a "
+            "custom category label, answer, ai_verdict = what the AI judge said. Only counts, never the reported text. A report that could not "
+            "be stored is not counted (the client retries). Empty means nobody reported anything; every report is in the reports table "
+            "for the moderator (see docs/DESIGN.md, Safety).",
+            [(f"sum by (kind) (rate(tuttifrutti_reports_total{{{M}}}[{RI}])) * 3600", "{{kind}}")],
+            stack=True,
+            bars=True,
+            decimals=2,
+            legend="table",
+            legend_calcs=("sum",),
+            no_value="no reports yet",
+        ),
+        8,
+        6,
+    )
+    lo.add(
+        stat(
+            "Reports in range by reason",
+            "Reports stored in the selected range, by reason (harassment, hate, sexual, violence, self_harm, spam, impersonation, other).",
+            f"sum by (reason) (increase(tuttifrutti_reports_total{{{M}}}[$__range]))",
+            decimals=0,
+            instant=True,
+            no_value="0",
+            graph=False,
+            legend="{{reason}}",
+        ),
+        4,
+        6,
+    )
+    lo.add(
+        stat(
+            "Open reports",
+            "Content reports waiting for the operator (tuttifrutti_reports_open, status open). A metric is not a notification: "
+            "Alertmanager is disabled in the homelab, so the owner's daily check is `kubectl exec deploy/<server> -- /moderate status` "
+            "(docs/MODERATION.md). Anything above 0 needs a look; resolve them with `moderate reports resolve`.",
+            f"max(tuttifrutti_reports_open{{{M}}})",
+            decimals=0,
+            steps=((GREEN, None), (ORANGE, 1), (RED, 10)),
+            no_value="no data",
+        ),
+        4,
+        6,
+    )
+    lo.add(
+        stat(
+            "Oldest open report",
+            "How long the oldest open report has waited (tuttifrutti_report_oldest_open_age_seconds; 0 when none is open). The "
+            "retention clock keeps running: a report is deleted 90 days after it was filed even if nobody looked at it, so one that is "
+            "weeks old is about to disappear unresolved. Orange from 1 day, red from 3 days.",
+            f"max(tuttifrutti_report_oldest_open_age_seconds{{{M}}})",
+            "s",
+            decimals=0,
+            steps=((GREEN, None), (ORANGE, 86400), (RED, 259200)),
+            no_value="no data",
+        ),
+        4,
+        6,
+    )
+    lo.add(
+        stat(
+            "AI judge switch",
+            "1 = the AI judge is on, 0 = an operator switched it off with `moderate judge disable` (tuttifrutti_judge_enabled; absent "
+            "when the server has no Cloudflare credentials). The switch only lives in memory: a restart turns the judge on again.",
+            f"max(tuttifrutti_judge_enabled{{{M}}})",
+            graph=False,
+            instant=True,
+            steps=((RED, None), (GREEN, 1)),
+            mappings=[
+                {"type": "value", "options": {"0": {"text": "OFF", "color": RED, "index": 0}, "1": {"text": "on", "color": GREEN, "index": 1}}}
+            ],
+            no_value="not configured",
+        ),
+        4,
+        6,
+    )
 
     # ------------------------------------------------------------------ HTTP API
     lo.row("HTTP API")

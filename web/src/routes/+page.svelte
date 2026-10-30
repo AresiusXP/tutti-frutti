@@ -6,7 +6,7 @@
 	import { account, accountErrorMessage } from '$lib/account';
 	import AccountChip from '$lib/account/AccountChip.svelte';
 	import GoogleButton from '$lib/account/GoogleButton.svelte';
-	import PrivacyLink from '$lib/components/PrivacyLink.svelte';
+	import LegalLinks from '$lib/components/LegalLinks.svelte';
 	import SupportLink from '$lib/components/SupportLink.svelte';
 	import { ApiError, api, type RoomInfo } from '$lib/api';
 	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
@@ -22,6 +22,8 @@
 	import { m } from '$lib/paraglide/messages';
 	import { profile } from '$lib/profile.svelte';
 	import { isCompleteRoomCode } from '$lib/roomCode';
+	import LegalButton from '$lib/safety/LegalButton.svelte';
+	import { DECLINED, terms } from '$lib/safety/terms.svelte';
 	import { toasts } from '$lib/toast.svelte';
 
 	let draft = $state(profile.nickname);
@@ -84,13 +86,16 @@
 		if (!canCreate) return;
 		busy = 'create';
 		try {
-			const created = await api.createRoom({
-				name: profile.nickname,
-				avatar: profile.avatar,
-				lang: i18n.locale,
-				visibility
-			});
-			await enter(created.code);
+			// The terms come first; a 403 terms_required (a stale idea of the state) opens the gate and retries once.
+			const created = await terms.run(() =>
+				api.createRoom({
+					name: profile.nickname,
+					avatar: profile.avatar,
+					lang: i18n.locale,
+					visibility
+				})
+			);
+			if (created !== DECLINED) await enter(created.code);
 		} catch (e) {
 			toasts.show(errorMessage(e instanceof ApiError ? e.code : 'unknown'));
 		} finally {
@@ -104,7 +109,7 @@
 		try {
 			const info = await api.getRoom(code);
 			if (!info.joinable) toasts.show(notJoinable(info));
-			else await enter(info.code);
+			else if (await terms.ensure()) await enter(info.code);
 		} catch (e) {
 			toasts.show(errorMessage(e instanceof ApiError ? e.code : 'unknown'));
 		} finally {
@@ -134,7 +139,8 @@
 	<header class="flex flex-col items-center gap-1 text-center">
 		<div class="flex w-full items-center justify-between gap-2">
 			<AccountChip />
-			<div class="ml-auto">
+			<div class="ml-auto flex items-center gap-2">
+				<LegalButton />
 				<LanguageSwitch />
 			</div>
 		</div>
@@ -272,7 +278,7 @@
 			<GoogleButton returnTo="/" />
 		{/if}
 		<div class="-mt-2 flex flex-wrap items-center justify-center gap-x-2">
-			<PrivacyLink />
+			<LegalLinks pages={['privacy']} />
 			<SupportLink />
 		</div>
 	</section>

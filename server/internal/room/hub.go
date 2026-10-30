@@ -67,6 +67,9 @@ type Hub struct {
 
 	conns     atomic.Int64
 	botRandMu sync.Mutex
+	idMu      sync.Mutex // serializes Config.IDSource
+	// forgotten remembers the accounts this process deleted (see account.go).
+	forgotten forgottenAccounts
 
 	shutdownOnce sync.Once
 	shutdownErr  error
@@ -132,6 +135,9 @@ func NewHub(cfg Config) *Hub {
 	}
 	if cfg.BotRand == nil {
 		cfg.BotRand = mathrand.IntN
+	}
+	if cfg.IDSource == nil {
+		cfg.IDSource = rand.Reader
 	}
 	if cfg.MaxBots <= 0 {
 		cfg.MaxBots = 2
@@ -251,6 +257,8 @@ func (h *Hub) restore(ctx context.Context) ([]*room, error) {
 			}
 			continue
 		}
+		// An account deleted while the server was down leaves no trace in the room.
+		h.forgetDeletedAccounts(ctx, &p)
 		// A vote to stop does not survive a restart: with every seat
 		// disconnected it would have no voters and pass by itself, and its
 		// 15 s are long gone. It is dropped silently, before the seats are
@@ -288,6 +296,7 @@ func (h *Hub) restore(ctx context.Context) ([]*room, error) {
 		}
 		r := h.newRoom(p.Code, g, p.CreatedAt, true)
 		r.visibility, r.botSuppressed = p.Visibility, p.BotSuppressed
+		r.restoreInstance(p)
 		r.restoreStats(p)
 		h.spawnLocked(r)
 		h.mu.Unlock()
@@ -353,6 +362,11 @@ func (h *Hub) Create(ctx context.Context, req CreateRequest) (string, error) {
 	if h.shuttingDown {
 		return "", ErrShuttingDown
 	}
+	// Under h.mu, like the snapshot of rooms Sweep takes: a creation either
+	// sees the new restriction or is in the sweep (see policy.go).
+	if h.cfg.Policy.Restricted(req.PlayerID) || h.cfg.Policy.RestrictedUser(req.UserID) {
+		return "", ErrRestricted
+	}
 	if len(h.rooms) >= h.cfg.MaxRooms {
 		return "", ErrTooManyRooms
 	}
@@ -362,6 +376,7 @@ func (h *Hub) Create(ctx context.Context, req CreateRequest) (string, error) {
 	}
 	r := h.newRoom(code, g, now, false)
 	r.visibility, _ = normalizeVisibility(req.Visibility)
+	r.instanceID, r.matchID = h.newInstanceID(), h.newInstanceID()
 	h.spawnLocked(r)
 	return code, nil
 }
@@ -671,4 +686,55 @@ func (h *Hub) unretire(code string) {
 func (h *Hub) addConn(delta int64) {
 	h.m.connections.Add(float64(delta))
 	h.conns.Add(delta)
+}
+
+// newInstanceID returns a fresh random UUID (version 4) from Config.IDSource.
+// Room and match instance ids are not credentials and need no secrecy, only
+// uniqueness; an exhausted test source falls back to crypto/rand.
+func (h *Hub) newInstanceID() string {
+	var b [16]byte
+	h.idMu.Lock()
+	_, err := io.ReadFull(h.cfg.IDSource, b[:])
+	h.idMu.Unlock()
+	if err != nil {
+		_, _ = rand.Read(b[:])
+	}
+	b[6] = b[6]&0x0f | 0x40
+	b[8] = b[8]&0x3f | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+// termsState is the outcome of the terms gate for one "join" frame.
+type termsState int8
+
+const (
+	// termsAccepted: the guest accepted (or the gate is off).
+	termsAccepted termsState = iota
+	// termsRequired: the guest has not accepted the current terms.
+	termsRequired
+	// termsUnknown: the gate could not tell (the store failed): fail closed.
+	termsUnknown
+)
+
+// termsTimeout bounds one terms lookup.
+const termsTimeout = 3 * time.Second
+
+// termsState asks the gate about a guest. It runs on the transport's goroutine,
+// never inside an actor.
+func (h *Hub) termsState(guestID string) termsState {
+	gate := h.cfg.Terms
+	if gate == nil {
+		return termsAccepted
+	}
+	ctx, cancel := context.WithTimeout(h.baseCtx, termsTimeout)
+	defer cancel()
+	ok, err := gate.Accepted(ctx, guestID)
+	switch {
+	case err != nil:
+		h.log.Warn("the terms gate could not tell; refusing the join (retryable)", "err", err)
+		return termsUnknown
+	case !ok:
+		return termsRequired
+	}
+	return termsAccepted
 }

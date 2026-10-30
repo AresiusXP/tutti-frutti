@@ -99,12 +99,15 @@ func (c *clock) Advance(d time.Duration) {
 	c.t = c.t.Add(d)
 }
 
+// kt7pInstance is the room instance id the fake hub reports for KT7P.
+const kt7pInstance = "01020304-0506-4708-890a-0b0c0d0e0f10"
+
 func newRESTEnv(t *testing.T, tweak func(*Options)) *restEnv {
 	t.Helper()
 	logs := &bytes.Buffer{}
 	logger := slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	rooms := &fakeRooms{infos: map[string]room.Info{
-		"KT7P": {Code: "KT7P", Phase: game.PhaseLobby, Players: 2, MaxPlayers: 10, Lang: game.LangES, Joinable: true},
+		"KT7P": {Code: "KT7P", Phase: game.PhaseLobby, Players: 2, MaxPlayers: 10, Lang: game.LangES, Joinable: true, RoomInstanceID: kt7pInstance},
 	}}
 	guests := auth.NewGuests([]byte("test-secret"), true, logger)
 	clk := &clock{t: time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)}
@@ -180,7 +183,7 @@ func TestSession(t *testing.T) {
 
 	t.Run("mints a guest cookie", func(t *testing.T) {
 		rec := e.do(http.MethodGet, "/api/session", "")
-		if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"guest":true,"googleEnabled":false,"loggedIn":false}` {
+		if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"guest":true,"googleEnabled":false,"loggedIn":false,"terms":{"requiredVersion":"2026-10","acceptedVersion":null,"acceptanceRequired":false}}` {
 			t.Fatalf("= %d %q", rec.Code, rec.Body.String())
 		}
 		if cc := rec.Header().Get("Cache-Control"); cc != "no-store" {
@@ -559,7 +562,7 @@ func TestRoomInfo(t *testing.T) {
 	t.Run("info JSON shape", func(t *testing.T) {
 		e := newRESTEnv(t, nil)
 		body := e.do(http.MethodGet, "/api/rooms/KT7P", "").Body.String()
-		for _, key := range []string{`"code":"KT7P"`, `"phase":"lobby"`, `"players":2`, `"maxPlayers":10`, `"lang":"es"`, `"joinable":true`} {
+		for _, key := range []string{`"code":"KT7P"`, `"phase":"lobby"`, `"players":2`, `"maxPlayers":10`, `"lang":"es"`, `"joinable":true`, `"roomInstanceId":"` + kt7pInstance + `"`} {
 			if !strings.Contains(body, key) {
 				t.Errorf("body %s lacks %s", body, key)
 			}

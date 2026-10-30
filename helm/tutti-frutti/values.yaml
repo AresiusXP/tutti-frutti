@@ -70,6 +70,12 @@ server:
   # payment method to that account); the server keeps to dailyNeurons (1..10000).
   judge:
     dailyNeurons: 9000
+  # The operator's moderation tool (docs/MODERATION.md): the server listens on this
+  # Unix socket (mode 0600, the server's own user) and the owner runs
+  # `kubectl exec deploy/<server> -- /moderate status`. The directory is mounted as
+  # an emptyDir, which stays writable with readOnlyRootFilesystem. Empty disables it.
+  moderation:
+    socket: /run/tutti/moderation.sock
   # Extra env entries (list of EnvVar objects).
   extraEnv: []
   # Existing Secret, not created by this chart:
@@ -99,6 +105,10 @@ server:
     runAsNonRoot: true
     runAsUser: 65532
     runAsGroup: 65532
+    # Makes the group of the moderation emptyDir the server's own, so the control
+    # socket directory is writable by it however the node's kubelet sets the mode
+    # (it is 0777 by default; this does not depend on it).
+    fsGroup: 65532
     seccompProfile:
       type: RuntimeDefault
   resources:

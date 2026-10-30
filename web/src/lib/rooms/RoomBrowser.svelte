@@ -11,6 +11,7 @@
 	import { i18n } from '$lib/i18n.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { profile } from '$lib/profile.svelte';
+	import { terms } from '$lib/safety/terms.svelte';
 	import { toasts } from '$lib/toast.svelte';
 	import { RoomBrowser } from './browser.svelte';
 
@@ -44,6 +45,8 @@
 				void browser.refresh();
 				return;
 			}
+			// The terms come before the join (a declined gate joins nothing).
+			if (!(await terms.ensure()) || request.signal.aborted) return;
 			// With no nickname, the room route opens its existing profile gate.
 			if (profile.nickname) markRoom(info.code);
 			else clearRoomMark(info.code);
@@ -108,7 +111,23 @@
 					</h2>
 					<span>{m.rooms_players({ count: room.players, max: room.maxPlayers })}</span>
 				</div>
-				<p class="line-clamp-2 text-sm text-cream-muted">{room.categoryLabels.join(' · ')}</p>
+				<!-- The directory never carries text a player typed: built-in labels, and a count of custom ones. -->
+				<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+					{#if room.categoryLabels.length > 0}
+						<p class="line-clamp-2 text-sm text-cream-muted">{room.categoryLabels.join(' · ')}</p>
+					{/if}
+					{#if room.customCategories > 0}
+						<span
+							data-testid="custom-categories"
+							class="rounded-full bg-night-3 px-2.5 py-0.5 text-xs font-bold text-cream"
+						>
+							<span aria-hidden="true">✏️</span>
+							{room.customCategories === 1
+								? m.dir_custom_one()
+								: m.dir_custom_many({ count: room.customCategories })}
+						</span>
+					{/if}
+				</div>
 				<p class="text-sm text-cream-muted">
 					{room.rounds > 0 ? m.rooms_rounds({ count: room.rounds }) : m.rooms_unlimited()} · {room.timeLimitSeconds >
 					0

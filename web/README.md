@@ -89,6 +89,7 @@ src/routes/[code=roomcode]/      room route: gate -> connecting -> screens (+ ba
 src/lib/components/{JoinGate,ConnectingScreen,ConnectionBanner,ClosedScreen}.svelte
 src/lib/account/                 account store, REST client, GoogleButton, AccountChip (Phase 4)
 src/routes/stats/                the stats screen (+ delete-account dialog)
+src/lib/safety/                  terms gate, report / block sheet, block list (content safety; see below)
 ```
 
 ### The session contract
@@ -224,6 +225,30 @@ src/lib/account/account.testkit.ts  routable fake fetch, fake event targets, mem
   `/api/me` `{id, name, profile}` and `/api/me/stats`; or run the Go server with Google configured
   (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, redirect URI `<PUBLIC_URL>/api/auth/google/callback`).
 - **Messages:** `messages/account/{es,en,nl}.json` (`account_*`, `stats_*`; the REST failures are `account_err_*`).
+
+## Content safety (terms, reports, blocks)
+
+Design and rules: `../docs/DESIGN.md` → "Safety UI" (9c). Messages: `messages/safety/{es,en,nl}.json`.
+
+```
+src/lib/safety/api.ts              REST calls: terms accept, reports, blocks (typed ApiError, validated answers)
+src/lib/safety/terms.svelte.ts     TermsStore + `terms`: session terms state, `ensure()` / `run()` before an intent
+src/lib/safety/TermsGate.svelte    the gate sheet (mounted once in the layout)
+src/lib/safety/SafetyHost.svelte   one per room: provides the flag buttons' context and the one SafetySheet
+src/lib/safety/SafetySheet.svelte  players -> menu -> report form | "Block and leave" confirmation (one Sheet)
+src/lib/safety/SafetyButton.svelte the 48 px flag (renders nothing for oneself, an automated seat or without a host)
+src/lib/safety/report.svelte.ts    ReportDraft: one report being written, idempotency key per draft
+src/lib/safety/targets.ts          what a report is about + the POST /api/reports body builder
+src/lib/safety/blocks.svelte.ts    BlocksStore: in-memory cache of GET /api/blocks, block / unblock
+src/lib/safety/safety.testkit.ts   FakeSafetyApi, terms fixtures
+```
+
+- **Before create / join:** `if (!(await terms.ensure())) return;` or `await terms.run(() => api.createRoom(...))`
+  (which also handles a `403 terms_required`). Never call it for reporting, blocking, leaving or signing out.
+- **Navigating right after closing a sheet:** await `historySettled()` (`lib/lobby/historyPop.ts`) first; the pop of the
+  sheet's history entry would otherwise cancel the `goto()`.
+- **Tests:** stores and components take a `FakeSafetyApi` (`new TermsStore({ api })`, `new BlocksStore(api)`,
+  `render(SafetySheet, { api, blocks })`); the room screens use the real singletons, so spy on `safetyApi.report`.
 
 ## Dev playground
 

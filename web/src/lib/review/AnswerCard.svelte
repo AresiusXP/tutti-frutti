@@ -2,6 +2,7 @@
 	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { AIVerdict, Cell, Player } from '$lib/protocol';
+	import SafetyButton from '$lib/safety/SafetyButton.svelte';
 	import { classifyCell } from './badge';
 	import type { MergeUi } from './merge';
 	import { avatarOf } from './players';
@@ -11,6 +12,9 @@
 	interface Props {
 		player: Player;
 		isMe: boolean;
+		/** Round number (1-based) and category index: what a report of this answer names. */
+		round: number;
+		category: number;
 		answer: string;
 		cell: Cell | undefined;
 		letter: string;
@@ -31,6 +35,8 @@
 	let {
 		player,
 		isMe,
+		round,
+		category,
 		answer,
 		cell,
 		letter,
@@ -57,6 +63,15 @@
 	 * (WCAG 2.5.3 label in name) and then says whose answer it is.
 	 */
 	const rejectLabel = $derived(`${m.review_reject()} ${tally.votes}/${tally.needed}`);
+	const who = $derived({ id: player.id, name: player.name });
+	/** The AI's note as the viewer reads it (what a report of it quotes). */
+	const verdictText = $derived(
+		verdict
+			? `${verdict.verdict === 'valid' ? m.review_judge_valid() : m.review_judge_doubtful()}${
+					verdict.reason ? `: ${verdict.reason}` : ''
+				}`
+			: ''
+	);
 </script>
 
 <li
@@ -92,6 +107,18 @@
 			{/if}
 		</div>
 		<PointsBadge {badge} />
+		<!-- Others' answers only (a report names the author); nothing is offered for a hidden answer: cards exist from the review on. -->
+		<SafetyButton
+			request={{
+				start: 'person',
+				person: who,
+				answer: empty ? undefined : { round, category, text: answer }
+			}}
+			label={empty
+				? m.report_player_aria({ name: player.name })
+				: m.report_answer_aria({ name: player.name })}
+			class="-mr-1"
+		/>
 	</div>
 
 	<p
@@ -140,10 +167,19 @@
 				{valid ? m.review_judge_valid() : m.review_judge_doubtful()}
 			</span>
 			{#if verdict.reason}
-				<span class="min-w-0 text-sm [overflow-wrap:anywhere] text-cream-muted">
+				<span class="min-w-0 flex-1 text-sm [overflow-wrap:anywhere] text-cream-muted">
 					{verdict.reason}
 				</span>
 			{/if}
+			<SafetyButton
+				request={{
+					start: 'verdict',
+					person: who,
+					verdict: { round, category, text: verdictText }
+				}}
+				label={m.report_verdict_aria({ name: player.name })}
+				class="ml-auto"
+			/>
 		</div>
 	{/if}
 

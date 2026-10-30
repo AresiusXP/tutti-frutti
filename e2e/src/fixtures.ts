@@ -9,6 +9,7 @@ import { Guard } from './guard';
 import { LOCALE_TAGS } from './messages';
 import { Network } from './network';
 import { Player, type PlayerOptions } from './player';
+import { acceptTerms } from './terms';
 
 /**
  * The server limits room creation to 30/min with a burst of 10, as ONE global bucket (in the compose
@@ -75,6 +76,8 @@ export class App {
 		});
 		this.#contexts.push(context);
 		this.guard.attach(context, name);
+		// Over the context's own request API (same cookie jar as the page): a returning player.
+		if (options.acceptTerms !== false) await acceptTerms(context.request, locale);
 		const network = options.network ? new Network(context, this.guard) : undefined;
 		await network?.install();
 		const page = await context.newPage();

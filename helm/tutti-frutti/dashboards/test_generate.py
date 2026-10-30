@@ -28,7 +28,11 @@ HISTOGRAM_SUFFIX = re.compile(r"_(bucket|sum|count)$")
 
 # Server metrics that feed neither a panel nor an alert: diagnostic only, and
 # documented as such in the metrics table of docs/DESIGN.md. Keep it empty if you can.
-DIAGNOSTIC_ONLY: set[str] = set()
+DIAGNOSTIC_ONLY: set[str] = {
+    # Counts the users a restore or a deletion left out of the statistics (see the
+    # account deletion notes of docs/DESIGN.md); read in the logs and /metrics.
+    "tuttifrutti_stats_skipped_users_total",
+}
 
 
 def registered_metrics() -> set[str]:
@@ -159,6 +163,10 @@ class DashboardTest(unittest.TestCase):
             "tuttifrutti_http_requests_total",
             "tuttifrutti_http_request_duration_seconds_bucket",
             "tuttifrutti_logins_total",
+            "tuttifrutti_reports_total",
+            "tuttifrutti_reports_open",
+            "tuttifrutti_report_oldest_open_age_seconds",
+            "tuttifrutti_judge_enabled",
             "tuttifrutti_stats_recorded_total",
             "tuttifrutti_stats_queue_depth",
             "tuttifrutti_stats_outbox_pending",

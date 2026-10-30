@@ -21,6 +21,7 @@ to end the round. Hosted on the homelab at **https://tuttifrutti.aresius.xyz**.
 | Vote to stop | Whoever has not filled every category can ask everyone to stop: every other connected player must say yes within 15 s, and it then counts as their Basta (host setting, on by default) |
 | Review | Players vote to reject invalid answers (majority of other players); answers can be merged as "the same" by majority. A host signed in with Google can ask an **AI judge** about a category: an advisory verdict on each answer, visible to everyone, that never changes a score |
 | Extras v1 | Invite link + QR, optional round time limit, custom per-game categories, installable PWA, a voluntary "support the game" link (Cafecito in Argentina, Ko-fi elsewhere) |
+| Safety | Terms and community rules accepted (with a 13+ confirmation) before creating or joining a room or uploading a profile; in-app reports of players, custom labels, answers and AI verdicts with server-built evidence; instance ids and content provenance; blocking ("Block and leave"), moderation restrictions and a small operator tool over a local socket; retention of every record (section 9c, `MODERATION.md`) |
 
 ### Naming rules
 
@@ -67,8 +68,8 @@ to end the round. Hosted on the homelab at **https://tuttifrutti.aresius.xyz**.
   second, signed `HttpOnly` session cookie (`tf_session`) that only decides who
   gets a saved profile and lifetime stats: playing never needs an account.
   WebSocket is same-origin, authenticated by the guest cookie (the session
-  cookie, when valid, links the player to the user) and the `Origin` header is
-  checked. Details in section 9b.
+  cookie, when valid **and its account still exists**, links the player to the
+  user) and the `Origin` header is checked. Details in section 9b.
 * **Client version check**: client sends protocol version on connect. On
   mismatch the app shows "Nueva versión disponible → Recargar" / "New version
   available → Reload". Reload goes through the shared update flow (service
@@ -78,7 +79,8 @@ to end the round. Hosted on the homelab at **https://tuttifrutti.aresius.xyz**.
 ### Postgres
 
 Reuse the existing CloudPirates Postgres in the cluster with a dedicated
-database + user. Tables: `users`, `user_stats`, `user_games`, `room_snapshots`. Migrations
+database + user. Tables: `users`, `user_stats`, `user_games`, `room_snapshots`,
+`terms_acceptances`, `reports`, `blocks`, `restrictions`, `moderation_actions`. Migrations
 (goose) are embedded in the server binary and run at startup (safe with one
 replica). The category catalog is an embedded JSON file, not a table.
 Production runs Postgres 18; `docker-compose.yml` and the CI service container of
@@ -286,9 +288,12 @@ the players still decide by voting.
   * *Config:* `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (a token with only the Workers AI
     permission) from the Secret `tutti-frutti-secrets` (keys `cloudflare-account-id`,
     `cloudflare-api-token`, optional); the feature is off unless both are set.
-* **Privacy.** The category label, the letter, the language and the answer texts leave the
-  server for Cloudflare; never nicknames, player or account ids. The privacy policy page says so
-  (section 2, 4 and 5 in all three languages).
+* **Privacy.** The category label, the letter, the language and the non-empty answers that start with the
+  letter, of **all** players in the room, leave the server for Cloudflare; never nicknames, player or
+  account ids. The cache's 24 h is a reuse TTL: an expired entry is dropped on lookup or when the cache is
+  full, and otherwise may stay in memory until eviction or a restart. The explanation (the verdict's reason)
+  is room content and can be reported (see "Safety"). The privacy policy page says all this (sections 2, 4
+  and 5 in all three languages).
 * **Metrics.** `tuttifrutti_judge_requests_total{outcome}` (`ok`, `cache_hit`, `busy`, `error`)
   and `tuttifrutti_judge_neurons_used`; both are on the gameplay row of the dashboard.
 
@@ -330,8 +335,12 @@ Round total = sum over categories; added to the player's running total.
   human host and capacity for another seat are listed. No started/final,
   human-empty, unclaimed, closing or draining rooms. The actor publishes an
   immutable summary; the hub never reads actor-owned game state. Entries contain
-  only code, language, occupied seats/capacity, category labels, rounds and time
-  limit: no roster, identities, account links or answers. Lists are advisory;
+  only code, language, occupied seats/capacity, the **built-in** category labels
+  (lobby language, selection order) plus `customCategories` (a count: the client
+  shows a localized "Custom category"), rounds and time limit: no roster,
+  identities, account links, answers and **no text a player typed** (the
+  directory is open to everybody, so custom category labels never leave the
+  room). Lists are advisory;
   admission is revalidated by the actor. Invite-based mid-game joining remains.
 * **Presentation:** public/private creation choice, a separate room browser,
   and a visibility indicator. Public creation, browsing, invite gates, lobbies
@@ -427,9 +436,12 @@ Round total = sum over categories; added to the player's running total.
 `POST /rooms` · `GET /rooms` (public directory) · `GET /rooms/{code}` · `GET /session` · `GET /me` ·
 `PUT /me/profile` · `GET /me/stats` · `DELETE /me` ·
 `GET /auth/google/login?returnTo=` · `GET /auth/google/callback` ·
-`POST /auth/logout` · `GET /categories?lang=` · plus `/healthz`, `/readyz`,
+`POST /auth/logout` · `GET /categories?lang=` · `POST /terms/accept` · `POST /reports` ·
+`POST /blocks` · `GET /blocks` · `DELETE /blocks/{playerId}` ·
+plus `/healthz`, `/readyz`,
 `/metrics` at the root. The account endpoints and their bodies are specified in
-section 9b (`web/src/lib/protocol/api.ts` is generated from `internal/api`).
+section 9b, the terms, report and block endpoints in section 9c
+(`web/src/lib/protocol/api.ts` is generated from `internal/api`).
 
 ### WebSocket (`/ws`)
 
@@ -457,6 +469,12 @@ Envelope `{ "t": string, "d": object, "v": protocolVersion }`.
   `RoundView.reviewVoters`; older clients must reload because their review vote
   thresholds count every connected seat. Room REST types also come from
   `internal/api` and are generated, not duplicated in the web client.
+  **Version 5** adds the content-safety layer (section 9c): `join` is refused with
+  `terms_required` until the guest accepted the terms, `State` carries `roomInstanceId`
+  and `matchInstanceId`, and the public directory drops custom labels; `join` is also refused with
+  the generic `join_unavailable` (a block or a restriction, never says which; additive). A version 4
+  client has no terms screen, so it must reload (the existing "new version" screen)
+  instead of meeting an unexplained refusal.
   Connection state is **not** a wire command: the room layer calls the trusted
   `Game.SetConnected(now, playerID, connected)` on connect/disconnect, and a wire
   `set_connected` is rejected as an unknown command (a client must not be able to
@@ -501,9 +519,12 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 
 1. **Home** — logo, nickname, avatar (emoji + colour), **Create game**, **Join**
    (4-box code input), links: Google login, ES/EN/NL, privacy policy and
-   *support the game* (side by side on one row, see "Support links").
-   Creation has a Private/Public choice (private by default) and a **Browse public
-   games** link. The `/rooms` browser filters by lobby language, shows settings
+   *support the game* (side by side on one row, see "Support links") and, in the header
+   next to ES/EN/NL, a round shield button ("Terms, safety and legal": the terms, the privacy
+   policy, the account-deletion page and *Blocked players*; see "Safety UI" in 9c). The first
+   create / join of a guest that has not accepted the terms opens the terms gate first.
+   Creation has a Private/Public choice
+   (private by default) and a **Browse public games** link. The `/rooms` browser filters by lobby language, shows settings
    and occupied seats, and refreshes about every 15 s only while visible, with
    cancellation, no overlapping fetches and rate-limit backoff. Empty state
    offers public creation; stale listing joins fail gracefully.
@@ -565,33 +586,101 @@ refused). See "Web client architecture" in 9a.
 (OAuth branding: *Application home page* `https://tuttifrutti.aresius.xyz`, *Application privacy policy
 link* `https://tuttifrutti.aresius.xyz/privacy`, *Authorized domain* `aresius.xyz`). It is **not** an SPA
 route: `web/static/privacy.html` + `privacy.css` are plain HTML with no script and no inline style (so the
-strict CSP needs no change, and crawlers and people without JavaScript read it the same).
+strict CSP needs no change, and crawlers and people without JavaScript read it the same). Two sibling pages
+(`terms.html`, `delete-account.html`, below) use the same stylesheet, language switch and test conventions.
 
 * **Languages.** One file, three `<section class="doc" id="en|es|nl" lang="…">` blocks; the URL fragment
   picks one (`/privacy#es`), pure CSS (`:target`). English is shown without a fragment or with an unknown
-  one. The app's link (`PrivacyLink`, on Home and on the stats page, 48 px, `rel="external"` so SvelteKit
-  does a real page load) appends the current screen language. The sticky bar has EN / ES / NL and a way
+  one. The app's links (`LegalLinks`, `web/src/lib/components/`: privacy on Home, privacy + terms + deletion on the stats page
+  and in Home's legal sheet, 48 px, `rel="external"` so SvelteKit does a real page load, never `target`, so that the Android app
+  comes back with Back) append the current screen language. The sticky bar has EN / ES / NL and a way
   back to the game.
 * **Serving.** nginx answers `/privacy`, `/privacy/` and `/privacy.html` with `privacy.html` and
-  `/privacy.css`, all `Cache-Control: no-cache` plus the usual security headers. The service worker neither
-  precaches them nor treats them as an SPA fallback (`navigateFallbackDenylist`), so an installed app opens
-  the real page. It needs the network; that is intentional (a corrected policy is never stale).
+  `/privacy.css`, all `Cache-Control: no-cache` plus the usual security headers (`/terms` and
+  `/delete-account` the same way, with their own `.html` file and the shared `/privacy.css`). The service
+  worker neither precaches them nor treats them as an SPA fallback (`navigateFallbackDenylist`), so an
+  installed app opens the real page. It needs the network; that is intentional (a corrected policy is never
+  stale).
 * **Contact.** `aresiusxp@gmail.com`, the address already used for the cluster's Let's Encrypt issuer.
 * **What it says** is derived from this document and the code: the data in 9b *Privacy* (Google `sub` and
-  display name only, scopes `openid profile`, no email or picture), the three cookies (`tf_guest` 1 year,
+  display name only, scopes `openid profile`, no email or picture; the display name becomes the first
+  nickname when the browser has none, so other players can see it), the three cookies (`tf_guest` 1 year,
   `tf_session` 30 days, `tf_oauth` 10 minutes, all `HttpOnly`, `Secure`, `SameSite=Lax`), the browser
-  storage (`tf.nickname`, `tf.avatar`, `tf.customs`, the language), retention (room snapshots until the room
-  closes and never past 6 h; accounts until deleted; Loki access logs 7 days), the Google API Services
-  User Data Policy *Limited Use* statement, deletion (in-app *Delete my account*, or by email, 30 days) and
-  the GDPR rights, and the optional AI judge: the answers of a category (never nicknames or ids) go to
-  Cloudflare Workers AI when a signed-in host asks, which acts as a processor and does not train on them.
+  storage (`tf.nickname`, `tf.avatar`, `tf.customs`, `tf.recentRoom`, the language; the nickname, the avatar and the picked
+  custom category labels are sent to the server when creating or joining a room and, signed in, to save
+  the profile), what the server logs (per request: method, path, status, duration; WebSocket errors with
+  the IP and the guest id; the same for connection events only at debug level), the safety records
+  (terms acceptance, reports, blocks, restrictions: see "Safety" and the figures below), the Android app (a
+  thin container; browser data belongs to the hosting browser; Google Play's own collection), and the
+  retention:
+  * rooms close after `IdleTTL` 30 min without connected players, `UnclaimedTTL` 2 min unclaimed or
+    when everybody left; the hourly janitor deletes snapshots **not updated** for 6 h, and a live room
+    refreshes its snapshot, so an active room's data can outlive 6 h (it is **not** a hard 6 h limit);
+  * the judge cache (`cacheTTL` 24 h, ≤ 4096 entries) is a **reuse TTL**, not a physical deletion: an
+    expired entry goes on lookup or when the cache is full, otherwise it may stay in memory until
+    eviction or a restart;
+  * accounts until deleted; terms acceptance up to 365 days, then re-accepted; reports until 30 days
+    after resolved and at most 90 days after filing; blocks until unblocked; restrictions for the
+    restriction plus 90 days and the audit records of the operator's actions for one year (the server
+    purges all of this itself, see "Safety");
+  * server logs: "we aim for about 7 days" (the repository cannot show the Loki/Traefik retention, it is
+    configured outside it; the page says so instead of asserting a number);
+
+  plus the Google API Services User Data Policy *Limited Use* statement, deletion (in-app *Delete my
+  account*, or by email, 30 days; what it does **not** remove: content in a running room until the room
+  ends (the seat stays as a guest; from the deletion on the game no longer treats the player as signed in:
+  no AI judge, nothing recorded for an account), safety records until their retention ends, the `tf_guest`
+  cookie and browser storage, the Google account) and the GDPR rights, and the optional AI judge: the category label, the letter, the language
+  and the non-empty answers of **all** players that start with the letter (never nicknames or ids) go to
+  Cloudflare Workers AI when a signed-in host asks, which acts as a processor and does not train on them;
+  the generated explanation can be reported. The age wording says the game is intended for people aged 13
+  and over, asked as a self-declaration, and that this does **not** replace any rule of the player's
+  country; the repository never claims legal compliance (see `docs/ANDROID-PLAN.md`, owner gates).
 * **Keeping it true.** Any change to what is collected, stored or set as a cookie, to a retention period or
   to the Google scopes needs the three language blocks and the *Last updated* date changed in the same
-  commit. `src/lib/privacy.test.ts` checks the three languages have the same sections and facts (cookie
-  names, scopes, contact, retention figures, Google links); `13-privacy.spec.ts` checks that the cookie the
-  app really sets is the one the page names, that the page is reachable with an active service worker, that
-  Home still fits one screen with the link, and runs axe on all three languages. `security.test.ts` fails
-  if the page gains a script, an inline style or an embedded third-party resource.
+  commit, in all three pages. `src/lib/privacy.test.ts` checks the three languages of the policy have the
+  same facts (cookie names, scopes, contact, retention figures, Google links, the safety records);
+  `src/lib/legal.test.ts` checks all three legal pages: one section per language with the same structure
+  and links, no script/style/handler, links that resolve (own pages carry the reader's language), the
+  brand written exactly, no `Basta` as a name (English and Dutch never use it), one last-updated date per
+  page across languages and, for the terms, the version string and the server's `TermsVersion`;
+  `13-privacy.spec.ts` checks that the cookie the app really sets is the one the page names, that the page
+  is reachable with an active service worker, that Home still fits one screen with the link, and runs axe
+  on all three languages. `security.test.ts` fails if the page gains a script, an inline style or an
+  embedded third-party resource.
+
+### Terms of use page
+
+`https://tuttifrutti.aresius.xyz/terms` (`web/static/terms.html`, same stylesheet and language switch as the
+policy) holds the terms of use and community rules that the game asks every player to accept (see "Safety").
+It shows its **version label** (`2026-10`, in `<code>`, twice per language); it must equal the server's
+`safety.TermsVersion`, and changing one means changing the other (a test compares them) and, because a new
+version makes every guest accept again, it is a deliberate deploy. Content: who may play (intended for 13+,
+asked as a self-declaration; the page says it does not replace any local rule), play fair, what is not
+allowed in nicknames/avatars, custom category names, answers and any other text, the AI judge being
+advisory and reportable, how to report and block (*Block and leave* removes the player from the game and
+stops future games with that browser identity; clearing cookies or another browser/device evades it, and
+the page says so plainly), what the owner may do (remove content, close a game, restrict a browser identity
+or an account, remove a saved profile), no automatic penalty from report counts, appeals by email, the
+service as-is by an individual, voluntary support links that give no benefit, and re-acceptance on change.
+It makes **no promise about response times** ("we review reports regularly and prioritise serious safety
+concerns") and no claim of legal compliance; both are owner decisions.
+
+### Account deletion page
+
+`https://tuttifrutti.aresius.xyz/delete-account` (`web/static/delete-account.html`) is the public
+account-deletion resource that Google Play asks for. It works without installing the Android app and shows
+the app name, the Play package (`xyz.aresius.tuttifrutti`) and the developer contact at the top. It says
+what "account" means (optional Google sign-in; guests have none), the steps (open the game, sign in,
+*My stats*, *Delete my account*, confirm; a test compares the labels with the app's messages), what is
+deleted immediately (account record, saved profile, statistics, per-game records, the `tf_session` cookie),
+what is not or not immediately (content in a running room, which stays while the seat is kept as a guest: from
+the deletion on the game no longer treats the player as signed in, see "Deleting an account while a game is on";
+safety records until their retention ends, browser cookies and storage, server logs, the Google account itself)
+and the email route for people who
+cannot sign in. Because the server stores no email address, the email route cannot look an account up: the
+owner replies with instructions to verify control (for example by signing in) and then deletes it, within
+30 days. The retention figures are the ones of the policy and must stay equal.
 
 ### Support links
 
@@ -635,6 +724,9 @@ server/                Go module (github.com/AresiusXP/tutti-frutti/server)
   internal/httpapi/    REST, health, metrics
   internal/auth/       guest cookie + Google OIDC        (Phase 4)
   internal/store/      Postgres (pgx)                    (Phase 2/4)
+  internal/safety/     content-safety domain + policy index
+  internal/moderation/ operator control server, maintenance loop
+  cmd/moderate/        the operator's command (talks to the socket)
   migrations/
 web/                   SvelteKit static PWA
 helm/tutti-frutti/     one chart: web + server + ingress
@@ -704,13 +796,16 @@ the persistence contract is `server/internal/store`.
 | Package | Responsibility |
 |---|---|
 | `internal/protocol` | Wire types, error codes, close codes, limits (no logic) |
-| `internal/store` | `Store` interface + `Memory` + `Postgres` (pgx, goose migrations embedded) |
+| `internal/store` | `Store` interface + `Memory` + `Postgres` (pgx, goose migrations embedded); `Accounts`, `Safety` (terms acceptances, reports) and `Moderation` (blocks, restrictions, audit log) contracts on both |
+| `internal/safety` | Content-safety domain (pure): `TermsVersion`, the terms gate, report kinds/reasons/refs/evidence, retention (`PurgeAt`), the `Policy` index of blocks and restrictions; see section 9c |
 | `internal/room` | `Hub` (registry, room codes, reaper, restore, shutdown) and one actor goroutine per room that owns a `*game.Game` |
 | `internal/auth` | Signed guest cookie (`tf_guest`) → player ID; account session cookie (`tf_session`) and the Google OIDC flow (Phase 4, section 9b) |
 | `internal/judge` | The AI judge of the review: Cloudflare Workers AI client with a daily Neuron budget, rate limit and cache (the only code that calls the model; see "AI judge") |
 | `internal/ratelimit` | Per-IP token buckets + trusted client-IP extraction |
 | `internal/ws` | WebSocket endpoint: upgrade, Origin check, read/write pumps, ping, per-connection limits |
 | `internal/httpapi` | REST routes (`/api/session`, `/api/categories`, `/api/rooms`, `/api/rooms/{code}`, and the account endpoints of section 9b) |
+| `internal/moderation` | The operator's control server (Unix socket, JSON), its client, the daily retention loop and the report gauges (section 9c, `MODERATION.md`) |
+| `cmd/moderate` | The operator's command, built into the server image as `/moderate` |
 | `cmd/server` | Wiring and the shutdown sequence |
 
 ### Identity
@@ -732,15 +827,16 @@ the persistence contract is `server/internal/store`.
 
 1. Client calls `POST /api/rooms {name, avatar, lang?, visibility?}` (creates the room; the
    caller is the host seat, still disconnected) or learns a code from a friend.
-   `GET /api/rooms/{code}` → `{code, phase, players, maxPlayers, lang, joinable, visibility}`
+   `GET /api/rooms/{code}` → `{code, phase, players, maxPlayers, lang, joinable, visibility, roomInstanceId}`
    or 404 `room_not_found`. While the server drains (deploy/reboot) an unknown
    room answers **503 `server_busy` + `Retry-After: 2`** instead of 404: the room
    is restored from its snapshot by the next pod, so clients must retry, never
    give up. The same holds for the WebSocket (`server_busy` + close 1012).
 2. Client opens `wss://host/ws` (cookie authenticates). The **first frame must be
-   `join`** (`protocol.JoinRequest`, `v` = the protocol version: 4 since public rooms, 3 since the vote to stop,
+   `join`** (`protocol.JoinRequest`, `v` = the protocol version: 5 since content safety, 4 since public rooms, 3 since the vote to stop,
    2 since Dutch).
-   The server looks the room up, applies `game.Join` and then the trusted `Game.SetConnected(now, id, true)`.
+   The server looks the room up, asks the terms gate (section 9c: `error terms_required`, or the retryable
+   `server_busy` when the answer is unknown), applies `game.Join` and then the trusted `Game.SetConnected(now, id, true)`.
 3. After every accepted command the room broadcasts `state` (a per-viewer
    `game.View`) to all connected clients, preceded by `event` frames for the
    engine events produced by that command or tick.
@@ -785,12 +881,17 @@ the persistence contract is `server/internal/store`.
   Additive visibility and filling-suppression metadata retain schema version 1;
   old snapshots restore private. Automated identities persist inside the game,
   never as sockets; scheduled actions are rebuilt after a human returns.
-* **Restore (startup):** `Hub.Start` loads all snapshots, rebuilds the rooms with
+  The safety layer adds `instanceId`, `matchId`, `labelAuthors` and `accounts`
+  (section 9c), also additive in schema version 1: a snapshot without ids restores
+  with freshly minted ones.* **Restore (startup):** `Hub.Start` loads all snapshots, rebuilds the rooms with
   **every player disconnected** (`SetConnected(false)`; nobody has a socket yet),
   sets `lastActive = now` (so the idle clock restarts) and re-arms timers.
   Corrupt/unknown-version snapshots are logged and deleted. An open **vote to stop** is
   dropped silently first (see "Vote to stop"), and a snapshot written before the
-  `stopVote` setting existed restores with it off.
+  `stopVote` setting existed restores with it off. Before a room is rebuilt, the accounts its snapshot names
+  (`users`, `accounts`, the label authors, the outbox) are looked up in the accounts store and the ones that
+  no longer exist are removed as if the deletion had reached the live room (section 9b, "Deleting an account
+  while a game is on"): a snapshot written before an account was deleted cannot bring it back.
 * **Shutdown:** `Hub.Shutdown(ctx)`: stop accepting joins → broadcast `event
   server_restarting` → flush a final snapshot of every room (synchronously) →
   close every socket with `1012` → wait for the pumps to finish or ctx to expire.
@@ -849,7 +950,9 @@ CREATE INDEX room_snapshots_updated_at_idx ON room_snapshots (updated_at);
 ```
 
 `users`, `user_stats` and `user_games` arrived with Phase 4 (migration
-`00002_accounts.sql`, section 9b). `DATABASE_URL` empty → in-memory
+`00002_accounts.sql`, section 9b); `terms_acceptances` and `reports` with the safety
+layer (`00003_safety.sql`, section 9c) and `blocks`, `restrictions` and `moderation_actions` with
+`00004_moderation.sql` (none of them has a foreign key). `DATABASE_URL` empty → in-memory
 store with a warning (games do not survive restarts); `/readyz` also pings the
 store when it is a database.
 
@@ -864,7 +967,8 @@ lib/game/fake.svelte.ts    FakeSession for tests and the /dev playground
 lib/api.ts                 REST client, typed ApiError
 lib/protocol/*             generated wire types (tygo), never hand-edited
 lib/screens/*              one screen per phase, picked by RoomScreen.svelte
-lib/components/            JoinGate, ConnectingScreen, ConnectionBanner, ClosedScreen, ...
+lib/components/            JoinGate, ConnectingScreen, ConnectionBanner, ClosedScreen, LegalLinks, ...
+lib/safety/                terms store + gate, report / block sheet, block list (see "Safety UI", 9c)
 routes/+page.svelte        Home (create / join)
 routes/[code=roomcode]/    the room: gate -> connecting -> phase screens -> closed
 ```
@@ -889,7 +993,10 @@ last `view` kept) → `connected` …, or `closed` with a reason: `room_gone`, `
 * **Final outcomes:** preflight 404 or close `4004` / `room_not_found` / `room_closed` → `room_gone`;
   `4001` / `replaced` → `replaced` (the UI can take the seat back with a new session); `4002` /
   `kicked` → `kicked`; `4003` / `unsupported_version` → the "new version" screen (update flow, below); `4005` / `leave()` → `left`;
-  a refused join (anything but `server_busy`, `rate_limited`, `internal`) → `join_rejected`.
+  a refused join (anything but `server_busy`, `rate_limited`, `internal`) → `join_rejected`; `join_rejected` with
+  `terms_required` is not an error screen: the room route shows the terms gate and joins ONCE more after the
+  acceptance (see "Safety UI"); `join_unavailable` (a block or a restriction) stays the generic "you can't join this game
+  right now".
   Every other close code (1006, 1001, 1012, 1008, 1009, 1000, unknown) reconnects.
 * **Liveness:** `ping` every 20 s; no frame for 45 s drops the socket; `online` and a tab becoming
   visible reconnect immediately (and probe a seemingly live socket with a ping).
@@ -925,7 +1032,9 @@ Code: `lib/account/` (store, REST client, types, `GoogleButton`, `AccountChip`, 
   local value wins and is uploaded (typing is never overwritten). Afterwards every nickname/avatar change is
   saved with `PUT /api/me/profile` after 800 ms of quiet (trailing debounce, at most one request in flight, never an
   empty nickname), flushed with `keepalive` on `visibilitychange → hidden` and `pagehide`. Failures are silent (the
-  next change retries); after 3 consecutive failures one calm toast, again only after a success. A `401` means the
+  next change retries); after 3 consecutive failures one calm toast, again only after a success. Uploads wait for the
+  terms: while `GET /api/session` says `acceptanceRequired` (or a save answered `403 terms_required`) nothing is sent
+  and nothing counts as a failure; the sync resumes by itself once they are accepted (never a retry loop). A `401` means the
   session is gone: back to guest, no more requests. Home/gate inputs follow the adopted profile
   (`draft` re-syncs unless it already normalises to the same nickname).
 * **Home:** the old "coming soon" link is one slot above the fold, in four states: reserved blank while `loading`
@@ -991,6 +1100,7 @@ dashboard and the alerts disagree.
 | `tuttifrutti_stop_votes_total`                        | counter   | `result`: `asked`, `passed`, `declined`, `timeout`, `ended`             | Votes to stop: opened (or passed at once), then how each ended                                                                             |
 | `tuttifrutti_judge_requests_total`                    | counter   | `outcome`: `ok`, `cache_hit`, `busy`, `error`                           | Categories the host asked the AI judge about, by outcome (see "AI judge"); absent without Cloudflare credentials                           |
 | `tuttifrutti_judge_neurons_used`                      | gauge     |                                                                         | Workers AI Neurons this process spent today (UTC); the Free plan allows 10000 a day, the judge stops at `JUDGE_DAILY_NEURONS` (9000)       |
+| `tuttifrutti_judge_enabled`                           | gauge     |                                                                         | 1 while the AI judge is on, 0 after the operator switched it off with `moderate judge disable` (absent without Cloudflare credentials; see "Operator tool" in section 9c) |
 | `tuttifrutti_snapshot_saves_total`                    | counter   | `result`: `ok`, `error`                                                 | Room snapshot save attempts: a failed write is retried and every attempt counts; an encoding failure is an `error`                         |
 | `tuttifrutti_snapshot_save_duration_seconds`          | histogram |                                                                         | One snapshot write to the store, successful or not (buckets 1 ms … 5 s; the saver gives up after 10 s)                                     |
 | `tuttifrutti_snapshot_last_success_timestamp_seconds` | gauge     |                                                                         | Unix time of the last successful snapshot write; 0 until the first one of the process                                                      |
@@ -1001,9 +1111,13 @@ dashboard and the alerts disagree.
 | `tuttifrutti_restore_duration_seconds`                | gauge     |                                                                         | How long the startup restore took (loading the snapshots and starting the rooms); 0 until it ran                                           |
 | `tuttifrutti_restore_errors_total`                    | counter   |                                                                         | Saved rooms the restore could not bring back: unusable snapshots (logged and deleted) and snapshots beyond `MAX_ROOMS` (left in the store) |
 | `tuttifrutti_stats_recorded_total`                    | counter   | `result`: `ok`, `error` (failed attempt, retried), `dropped` (given up) | Finished games handed to the stats store                                                                                                   |
+| `tuttifrutti_stats_skipped_users_total`               | counter   | `source`: `forgotten`, `restore`, `store`                               | Diagnostic (no panel, no alert): users taken out of a finished game's statistics because their account was deleted; not an error, not a dropped game |
 | `tuttifrutti_stats_queue_depth`                       | gauge     |                                                                         | Finished games queued in the stats recorder (the one being written is not counted)                                                         |
 | `tuttifrutti_stats_outbox_pending`                    | gauge     |                                                                         | Finished games the rooms keep in their outbox (and snapshot) until the store confirms them                                                 |
 | `tuttifrutti_logins_total`                            | counter   | `result`: `ok`, `failed`, `cancelled`                                   | Google logins that reached the callback                                                                                                    |
+| `tuttifrutti_reports_total`                           | counter   | `kind` (`player`, `custom_label`, `answer`, `ai_verdict`), `reason` (8 fixed codes) | Content reports stored in the database (never counted when the insert failed or on an idempotent replay; never any report text, see "Content safety") |
+| `tuttifrutti_reports_open`                            | gauge     |                                                                         | Content reports waiting for the operator (status open); set from the database at start, daily and after every resolution, raised when a report is filed. **A metric is not a notification** (Alertmanager is disabled): the owner's daily check is `moderate status` (docs/MODERATION.md) |
+| `tuttifrutti_report_oldest_open_age_seconds`          | gauge     |                                                                         | Age of the oldest open report, computed at every scrape; 0 when none is open. Reports are deleted 90 days after filing whether or not anybody looked, so a report weeks old is about to vanish unresolved |
 | `tuttifrutti_ws_closes_total`                         | counter   | `code` (1000, 1001, 1006, 1008, 1009, 1011, 1012, 4001–4005, `other`)   | Why connections ended                                                                                                                      |
 | `tuttifrutti_ws_send_drops_total`                     | counter   |                                                                         | Slow clients closed (1008) because their send queue was full (once per connection; the client reconnects)                                  |
 | `tuttifrutti_ws_frames_total`                         | counter   | `dir` (`in`/`out`), `type`                                              | WebSocket frames                                                                                                                           |
@@ -1054,7 +1168,7 @@ means and what to check; a purple annotation marks every server (re)start):
 | Gameplay (public rooms)  | Connected humans versus automated seats and discoverable lobbies; fills per hour; fill wait p50/p95 |
 | Connections              | Upgrades by status, close codes (readable legend), reconnect churn, 429s by route, frames in/out, policy closes (1008) next to slow-client drops (send queue full)                                                                                                                                                                                                                      |
 | Persistence              | Snapshot errors (stat and rate), time since last successful save (stat and over time), rooms restored / restore duration / restore errors at the last start, snapshots deleted (stat and per hour, by source), snapshot saves by result, save error ratio, save latency p50/p95/p99, save queue, pod readiness, `/readyz` responses (503 = DB ping failing), container restarts, uptime |
-| Accounts                 | Logins by result, stats recorded by result (empty until used), stats backlog (recorder queue and room outboxes)                                                                                                                                                                                                                                                                         |
+| Accounts                 | Logins by result, stats recorded by result (empty until used), stats backlog (recorder queue and room outboxes), content reports by kind and by reason, open reports, the age of the oldest one and the AI judge switch                                                                                                                                                                                                                                                                         |
 | HTTP API                 | Requests by route and by status code, 5xx ratio, latency p50/p95/p99, p95 by route                                                                                                                                                                                                                                                                                                      |
 | Go runtime and container | Goroutines vs expected, memory (heap, RSS, working set, limit), CPU, GC, allocation rate, file descriptors                                                                                                                                                                                                                                                                              |
 
@@ -1478,9 +1592,20 @@ in `server/internal/api` (→ generated `web/src/lib/protocol/api.ts`).
   upgrade request only links the player to the user (an invalid or missing one
   is a guest, never an error). A session without a guest cookie is refused like
   any request without one.
-* Sessions are stateless: logout clears the browser's cookie but cannot revoke a
-  copy. Deleting the account does (every account endpoint checks that the user
-  still exists). There is no sliding renewal: a login gives 30 days.
+* The cookie is stateless (logout clears the browser's cookie but cannot revoke a copy), so the **account behind
+  it is checked**: a valid session is only an identity while its user still exists. `auth.Sessions.Lookup` asks
+  the store (`GetUser`) through a process-local cache (a positive answer for 30 s, a negative one for 10 min,
+  each bounded to 4096 ids) and answers `active`, `none`, `gone` (a copy of a deleted account's cookie) or
+  `unknown` (the store failed: fail closed, no account capability, but the cookie is **not** cleared because the
+  account may well exist). Every reader goes through it: the account endpoints, `loggedIn` of `GET /api/session`,
+  the WebSocket upgrade and the report's reporter account (`Sessions.Identify` is `Lookup` reduced to a bool).
+  Deleting the account through this process calls `Sessions.Forget` straight after the store, which drops the
+  cached answer and refuses any lookup that was in flight (it may have read the row just before the delete), so
+  a copied cookie stops working at once, not when the cache expires. The check is wired by `auth.WithAccounts`,
+  and `httpapi.New` turns it on by itself when it is given both Sessions and Accounts. **Limits:** the cache is
+  per process; a restart or the `Recreate` strategy flushes it, and an account removed by something that is not
+  this process (a database edit, the moderation tool) is noticed by the endpoints that read the store at once
+  and by the others within 30 s. There is no sliding renewal: a login gives 30 days.
 * `Secure` is set when `PUBLIC_URL` is https. Cookies are never logged.
 
 ### Endpoints
@@ -1495,11 +1620,11 @@ for malformed JSON or unknown fields).
 
 | Endpoint | Answer |
 |---|---|
-| `GET /api/session` | `{"guest":true,"googleEnabled":bool,"loggedIn":bool}`; mints `tf_guest`; `loggedIn` = a valid unexpired `tf_session`, **no database lookup** |
+| `GET /api/session` | `{"guest":true,"googleEnabled":bool,"loggedIn":bool,"terms":{"requiredVersion","acceptedVersion":string\|null,"acceptanceRequired"}}`; mints `tf_guest`; `loggedIn` = a valid unexpired `tf_session` **whose account exists** (the cached check above; the cookie of a deleted account is expired in this response, one the store could not check is left alone and reads as not logged in; the `terms` part reads the guest's acceptance, cached for the process: 503 `server_busy` when the store cannot tell, section 9c) |
 | `GET /api/me` | `{"id","name","profile":null\|{"nickname","avatar":{"emoji","color"}}}`; `name` = Google display name (cleaned, ≤ 16 runes, may be empty); `401 unauthorized` without a valid session **or** when the user no longer exists (the cookie is then expired) |
-| `PUT /api/me/profile` | body `{"nickname","avatar":{"emoji","color"}}` → `204`; nickname through `game.CleanName` (`400 invalid_name`), emoji and color non-empty, ≤ 32 bytes, no control characters (`400 invalid_avatar`); `401` |
+| `PUT /api/me/profile` | body `{"nickname","avatar":{"emoji","color"}}` → `204`; nickname through `game.CleanName` (`400 invalid_name`), emoji and color non-empty, ≤ 32 bytes, no control characters (`400 invalid_avatar`); `401`; `403 terms_required` until the guest of the `tf_guest` cookie accepted the terms (503 `server_busy` when that is unknown) |
 | `GET /api/me/stats` | `{"gamesPlayed","wins","totalPoints","bestRound","uniqueAnswers"}` (integers, all 0 before the first game); `401` |
-| `DELETE /api/me` | `204`: deletes the user, profile, stats and game rows (cascade) and expires `tf_session`; the guest cookie stays; `401` |
+| `DELETE /api/me` | `204`: deletes the user, profile, stats and game rows (cascade), makes the sessions and the rooms forget the account (see "Deleting an account while a game is on") and expires `tf_session`; the guest cookie stays; `401` (also for a second delete with a copy of the cookie) |
 | `POST /api/auth/logout` | `204`, expires `tf_session` (also without a session) |
 | `GET /api/auth/google/login?returnTo=` | `302` to Google; `404 auth_disabled` when Google is not configured; `429 rate_limited` (+ `Retry-After`); if Google's discovery fails, `302 /?login=failed` (the browser is mid-navigation: never leave it on JSON) |
 | `GET /api/auth/google/callback?code&state` | **always `302`, empty body**, `Location` is a constant of ours: success → `returnTo` with `tf_session`; any failure → `/?login=failed`; `error=access_denied` → `/?login=cancelled`; rate limited → `/?login=failed`; `404 auth_disabled` when Google is off. Query parameters are never echoed, never logged and never decide where it redirects |
@@ -1575,7 +1700,8 @@ Credit rules:
   a win for everybody who tied). Two seats linked to the same user (two devices)
   count once, the first seat.
 * **The link player → user** is taken at `join` from the connection's
-  `tf_session`, kept in the room's snapshot and dropped with the seat. It follows
+  `tf_session` (an account that exists, see "Cookies"), kept in the room's snapshot and dropped with the seat
+  **or when the account is deleted** (see "Deleting an account while a game is on"). It follows
   the latest join **only until the player takes part in the game** (they are a
   participant of the round in progress, or appear in a scored round); from then
   until the rematch it is **frozen**, a missing link included. So a guest who
@@ -1593,7 +1719,12 @@ Guarantees:
 * **Idempotent per (user, game id)**: `RecordGame` inserts the `user_games` row
   `ON CONFLICT DO NOTHING` and updates `user_stats` only when the row was
   inserted, in one transaction; users that no longer exist are skipped silently
-  (a share lock on the user's key keeps a concurrent `DELETE /api/me` safe).
+  (a share lock on the user's key keeps a concurrent `DELETE /api/me` safe: it either finds the row and holds
+  the delete off until the transaction ended, or finds nothing and skips the user, so the foreign keys of
+  `user_games` and `user_stats` cannot be violated by a deletion racing a record, nothing is retried and no row
+  comes back; an FK violation that happened anyway would roll the whole transaction back and the next attempt would
+  skip the user: a bounded retry, not a loop). Both backends implement `store.GameSkipper`
+  (`RecordGameSkips`: `RecordGame` plus the number of users skipped), which the recorder uses to count them.
   Together with the id minted at the start, retries, restarts, a crash between
   the commit and the next snapshot, and a double delivery never double count.
 * **Delivery never blocks a room.** The recorder is one goroutine per hub with a
@@ -1613,7 +1744,12 @@ Guarantees:
   (callbacks that ended in each outcome), `tuttifrutti_stats_recorded_total{result=ok|error|dropped}`:
   `ok` = a game recorded, `error` = a failed attempt (it is retried), `dropped` =
   a game that will never be recorded (refused by the store, evicted from a full
-  outbox, unreadable in a snapshot, or abandoned with its room).
+  outbox, unreadable in a snapshot, or abandoned with its room);
+  `tuttifrutti_stats_skipped_users_total{source=forgotten|restore|store}`: users taken out of a finished game's
+  statistics because their account was deleted (`forgotten`: a room dropped the result when the account was deleted,
+  `restore`: a restored snapshot named an account deleted while the server was down, `store`: the store skipped the
+  user at delivery). It is not an error and not a dropped game; a record left with no result at all leaves the outbox
+  counted only here.
 
 ### Schema (`00002_accounts.sql`)
 
@@ -1637,12 +1773,84 @@ characters), the nickname/avatar the user chose to save, timestamps, the stats
 above and one row per finished game (id, time, score numbers). **Not stored:**
 email, profile picture, locale, access/refresh/ID tokens, IP addresses, answers
 or other players' ids. The `profile` scope is requested for the display name
-only. `DELETE /api/me` removes
-everything about the user at once; logging in again with the same Google account
-creates a new, empty one. Room snapshots hold user ids (the player → user links
-and the results of games not recorded yet, the outbox) until the room is gone;
-recording a result of a user who deleted their account meanwhile is skipped
-silently.
+only. `DELETE /api/me` removes the account row and, by cascade, the saved profile, the stats and the
+per-game rows at once, and clears `tf_session` (not `tf_guest`, nor the browser's storage or caches); logging
+in again with the same Google account creates a new, empty one. It does **not** scrub the content of a
+running room (names, answers, votes: the guest seat is independent of the account): that goes through the
+normal room lifecycle (30 min idle, janitor 6 h of no updates, see "Room lifecycle (internal/room)"). What it
+**does** remove at once, in every running room, is every link to the account (the player → user links, the
+report links, the account of a custom label's author, the account's results in the outbox of finished games
+and the account of any open socket), as "Deleting an account while a game is on" below specifies. The safety
+tables (terms acceptances, reports, blocks, restrictions and the audit log) hold plain guest/user ids without foreign
+keys on purpose: they outlive the account until their own retention ends (see "Privacy policy page"). The
+public pages say exactly this (`/privacy` 6, `/delete-account`).
+
+### Deleting an account while a game is on
+
+A seat belongs to the guest (the `tf_guest` id); the account only adds links on top of it. Deleting the account
+removes the links, not the seat. The links live in five places, all handled:
+
+| Where | What | On deletion |
+|---|---|---|
+| `session.userID` of every attached socket (joined or not) | the account the connection arrived with: the AI judge (`canJudge`, `judgeRefusal`), statistics and report attribution of later joins, the author of a new custom label | cleared; the next `state` carries `canJudge: false`; `ask_judge` is `login_required` |
+| `room.users` (private rooms) | player → user, the statistics link | entries removed |
+| `room.accounts` (every room) | player → user, for reports | entries removed |
+| `room.labelAuthors[*].User` | account of the author of a custom label | emptied (the guest id stays) |
+| `room.pending` (the outbox) | the user's `UserResult` in finished games not yet confirmed | the result is removed; a record left with none is removed too (the gauge follows); records are never edited in place (the recorder may hold a copy) |
+
+**Order** (`DELETE /api/me`, `httpapi.forgetAccount`):
+
+1. `Accounts.DeleteUser`: the row and, by cascade, profile, stats and game rows. From here nothing can look the
+   account up, and `RecordGame` skips it.
+2. `Sessions.Forget(id)`: the account check refuses the id at once (a copied `tf_session` is `gone` on every
+   reader), and a lookup that read the row just before step 1 cannot put it back in the cache.
+3. `Hub.ForgetAccount(ctx, id)` (`room.AccountForgetter`, found on `Rooms` by interface like
+   `PublicRoomLister`): it remembers the id for 5 minutes (`forgotten`, bounded to 4096), then posts one mailbox
+   task per live room and waits for the answers (the request's 10 s context bounds it). The task runs on the room's
+   goroutine: it clears the sockets' ids, scrubs the four stores above, counts the results it removed
+   (`stats_skipped_users_total{source="forgotten"}`), saves the room, and sends the joined players a fresh `state`.
+4. The response `204` with `tf_session` expired.
+
+**Why no window remains.** (a) *Frames.* A room processes its mailbox in order, and the task of step 3 is queued
+before the response exists. A frame that reaches the room after the response is queued behind the task, so it is
+handled without the account; a frame queued before was accepted while the account existed, i.e. before the response
+(a question already put to the AI judge may still come back with its verdicts: they are room content, not an account
+capability). This holds even if a room is slow and `ForgetAccount` times out: the order was handed over (a timeout
+only logs `could not confirm they forgot a deleted account`; the response is still `204`, the account is gone).
+(b) *Sockets identified before the deletion.* The transport reads the session when the socket opens and the room is
+told at the first `join` frame, up to 10 s later; the account is taken from the connection **inside the room's
+`onConnect`**, which consults `forgotten` (set before the tasks are posted): either the session is attached before
+the task (and the task clears it) or after it (and the hub remembers the id). The same holds for a room created
+after the hub listed its rooms. (c) *Sockets identified after step 2* find the account `gone` and are guests.
+(d) *Game over racing the deletion.* The record is built on the room's goroutine from `users`: before the task, the
+user is in it and the recorder delivers it to a store that skips the deleted account (`tuttifrutti_stats_skipped_users_total{source="store"}`,
+no error, nothing retried, no row re-created: see "Stats", Guarantees); after the task the user is not in it. A
+record already in the outbox is scrubbed by the task; a copy the recorder holds is delivered as in the first case.
+(e) *Persistence.* The task saves the room, and the saver is latest-wins and serialised, so a snapshot that was
+being written from before cannot land after it. A crash or restart in between is covered by the restore.
+
+**Restore.** `ForgetAccount` cannot reach a snapshot while the process is down (or one written by the shutdown
+after the deletion). So `Hub.Start` looks up every account a snapshot names (`Config.Accounts`, else the
+`Recorder` when it also keeps accounts: `cmd/server` passes the store as both) **before** the room is rebuilt and
+removes the ones the store says are gone, exactly as the task would (counted as
+`stats_skipped_users_total{source="restore"}`); the room's first snapshot is then clean. A lookup that fails for
+another reason keeps the links and logs it: the restore has just read the same store, and the links grant nothing by
+themselves (every capability comes from a live, verified connection, and a result for a missing user is skipped by
+the store).
+
+**What happens, exactly.** Removed at once: the account row, the saved profile, the statistics and the game rows
+(database); the `tf_session` cookie of the browser that deleted it, and every copy (REST, `loggedIn`, WebSocket
+upgrade and reports treat it as a guest or a 401); the AI judge for the open sockets; the statistics link of the
+seat and the account's share of games not yet recorded; the report and label-author links. Stays: the guest seat
+(nickname, avatar, answers, votes, scores: nobody is ejected), the other players' accounts and statistics, the safety
+records (below), the `tf_guest` cookie and the browser's storage. A new Google login with the same account is a new
+user (new id, no profile, no stats: the `sub`-keyed upsert finds no row), and a game replayed or recorded later
+never credits the old id.
+
+**Retained on purpose.** Reports keep `reporter_user`, `target_user` and the ids inside `evidence_json` until their
+retention ends (30 days after resolution, 90 days at most; section 9c): they are pseudonymous ids, evidence for
+moderation, and nothing here blanks them. Blocks, restrictions and terms acceptances are keyed by the guest id and are
+not touched by an account deletion.
 
 **Accepted risk: the guest cookie is the bearer credential of a seat.** Whoever
 holds a player's `tf_guest` cookie can take the seat over (that was already so in
@@ -1690,9 +1898,381 @@ of clearing it.
   either way), but it speaks protocol version 2 and refuses `v:3`
   (`unsupported_version`, close 4003), so every open tab is told to reload and then runs
   the older client, which knows neither the setting nor the vote. Nothing else needs doing.
+* **Rolling back past the safety layer** is safe for the rooms (the old binary ignores the new
+  snapshot fields and loses the instance ids, the label authors and the account links when it
+  rewrites them) and the migration is additive (the new tables stay, unused: an older binary
+  enforces no block and no restriction). It speaks
+  protocol version 4, so every open tab gets the "new version" screen and runs the older
+  client, which has no terms gate: with the gate gone there is nothing to enforce, which is why
+  the Play listing must not be pointed at a server older than this release.
 * Stats are best effort. A finished game is lost without a `dropped` count only
   when the stats store keeps failing **and** its room closes for good before the
   record is delivered; the `error` counter and the log still show it.
+
+## 9c. Content safety (user-generated content)
+
+The game is published on Google Play as a Trusted Web Activity of this same site and backend
+(audience 13+, public rooms and the AI judge kept). Google's user-generated-content policy asks for
+terms accepted before users submit content, in-app reporting (AI output included), blocking and a real
+moderation process. This section is the server side: terms acceptance, instance ids, content provenance,
+reports, blocking, moderation restrictions, the operator's tool and the retention of every record
+(`docs/MODERATION.md` is the owner's runbook). Code: `internal/safety` (pure domain and the `Policy`
+index), `internal/store` (`Safety`, `Moderation`), `internal/room` (gate and admission at join, sweeps,
+evidence, provenance), `internal/httpapi` (endpoints), `internal/moderation` + `cmd/moderate` (the
+operator's tool and the maintenance loop); bodies in `internal/api`.
+
+### Terms acceptance
+
+* `safety.TermsVersion` (`"2026-10"`) is the version of the terms and community rules. Changing it is a
+  deploy: acceptance is per `(guest id, version)`, so every guest accepts again. An acceptance **counts for
+  365 days** (`safety.AcceptanceTTL`, the figure of the privacy page): past it the gate treats the guest as not
+  having accepted and asks again, and accepting replaces the stale row (the store keeps the first acceptance only
+  while it is still valid). The gate remembers accepted guests in memory **with the time they accepted**, so its
+  cache expires entries by the same rule and is never more generous than the table.
+* `POST /api/terms/accept {version, locale, age13Confirmed}`, authenticated by the `tf_guest` cookie
+  (never minted here: `401 unauthorized` without it). `version` must be the required one (`409
+  terms_version_mismatch`), `locale` one of `es`/`en`/`nl` (`400 invalid_locale`), `age13Confirmed`
+  must be `true` (`400 age_confirmation_required`); unknown fields are refused (`400 bad_request`),
+  so the client cannot send a time or a birth date. The server stamps the time. It answers `200` with
+  the `TermsStatus` and is idempotent: the first acceptance of a version is kept untouched (original
+  time and locale) for as long as it counts. A store failure is `503 server_busy` + `Retry-After`. Per IP: 120/min, burst 40.
+* **No birth date is ever collected**: only the confirmation of being 13 or older, stored with the
+  version, the locale (what the player was shown) and the time in `terms_acceptances (guest_id, version,
+  accepted_at, locale, age13_confirmed)`, primary key `(guest_id, version)`, `age13_confirmed` checked
+  true by the database. Rows are the proof of consent and are kept for 365 days, then deleted by the daily
+  maintenance loop ("Maintenance and retention").
+* `GET /api/session` carries `terms: {requiredVersion, acceptedVersion: string|null,
+  acceptanceRequired}`. A brand-new guest is known not to have accepted (no lookup); for a known
+  guest the answer is the gate's (cached) lookup, and an **unknown** acceptance (store error) is a
+  `503 server_busy` + `Retry-After`, never "not accepted" and never "accepted".
+* **Where it is enforced** (the cheapest correct places: once per connection, not per command):
+
+| Surface | How | Refusal |
+|---|---|---|
+| `POST /api/rooms` | `requireTerms` after the body is validated | `403 terms_required`; unknown: `503 server_busy` |
+| WebSocket `join` (first join, every reconnect, a restored seat) | `Session.Handle` asks the gate on the **transport goroutine** (database I/O never runs in an actor) and hands the verdict to the actor with the frame; `onJoin` refuses before the engine runs | `error {code: terms_required, ref: join}`; unknown: `error server_busy`; the socket stays open and no seat changes |
+| `set_answer`, `update_settings` (custom labels) | second line: the session's `termsOK` flag, set by the join | `error terms_required` |
+| `PUT /api/me/profile` | `requireTermsOfRequest`: the `tf_guest` cookie of the request (a session without a guest cookie has no acceptance) | `403 terms_required`; unknown: `503 server_busy` |
+
+  Every command after a join needs a seat, and a seat is only taken or reclaimed through `join`, so the
+  join check covers the rest. **Not gated on purpose:** reporting, blocking, `leave`, logout, `DELETE
+  /api/me`, `GET` endpoints. An unknown state **fails closed** for every upload, with the retryable
+  `server_busy`. `room.Config.Terms == nil` (tests) turns the gate off; `cmd/server` always sets it.
+* A guest that is refused `join` keeps the connection: the client shows the terms, accepts over REST and
+  sends `join` again on the same socket (every join asks the gate again), but only within the room's usual
+  10 s join deadline (a rejected join does not extend it): after that the room closes the unjoined socket
+  (`1008 "join timeout"`) and the client simply reconnects once the guest accepted. The simplest client
+  behaviour is the second one: on `terms_required` close the session, show the terms, accept, reconnect.
+
+### Instance ids
+
+* `roomInstanceId`: a random UUID (from `room.Config.IDSource`, default `crypto/rand`) made with the room,
+  persisted in its snapshots, kept across restarts **and** rematches. It identifies the room, not its code
+  (codes are reused). `matchInstanceId` is made with the room too and **renewed by every rematch**, so each
+  game has its own; it covers the lobby that leads to the game. Both are in every `State` frame and in public
+  rooms too. **They are not credentials:** knowing one authorizes nothing ("Resume recent game", in 9a, only uses
+  `roomInstanceId` to tell a room from a reused code; the join still needs the code and the cookie). `GET
+  /api/rooms/{code}` carries `roomInstanceId` (the room's, additive; `room.Info.RoomInstanceID`, filled by the actor
+  with the same id the `State` frames carry, equal for `Info` and `InfoFor`), which is what lets a client that remembers
+  a room notice that a recycled 4-character code now belongs to another room.
+* They live in the room layer (`room.Persisted.instanceId/matchId`), not in `game.Game`: the engine stays pure.
+  A snapshot written before this release has none (or a malformed one): the restore mints new ones and logs it,
+  so a report can only ever name ids that clients actually saw.
+
+### Content provenance (only what reports need)
+
+* **Custom category labels:** when the host's settings are accepted, a new label is recorded with its author:
+  `{guest, user?}` (the account the connection carried at that time). A label that is only kept or reordered keeps
+  its first author, a label that existed without a record (legacy snapshot) stays **unknown** instead of being
+  credited to the current host, and labels that are gone are forgotten. Kept in the snapshot (`labelAuthors`).
+* **Players:** the nickname and avatar belong to the player (their seat id is their guest id).
+* **Answers:** the author is the player whose answers they are.
+* **Accounts behind seats:** `Persisted.accounts` links player id -> user id at every join (the latest join wins, a
+  signed-out join removes it) in every kind of room, **public ones included** (unlike `users`, the statistics link,
+  which stays private-rooms-only and frozen once a player took part). It is only read to say, in a report, which
+  account sat behind a guest id; it is dropped with the seat, with the room and when the account is deleted
+  (section 9b, "Deleting an account while a game is on", which does the same for the authors of custom labels).
+
+### Reports
+
+* `POST /api/reports` `{kind, roomInstanceId?, code?, ref, reason, comment?, idempotencyKey, observedText?}`. `kind`:
+  `player` (nickname/avatar), `custom_label`, `answer`, `ai_verdict`. `reason`: `harassment`, `hate`, `sexual`,
+  `violence`, `self_harm`, `spam`, `impersonation`, `other`. `ref` (a structured reference in the vocabulary of the
+  room, never a database id): `player` -> `playerId`; `custom_label` -> `category` + `label` (the text the reporter
+  saw; the room compares it with its own copy, which is what makes a label that changed detectable); `answer` ->
+  `round` + `category` + `playerId`; `ai_verdict` -> `round` + `category` + `playerId` (whose answer was judged).
+  Authenticated by `tf_guest` (`401` without it; the session cookie, when valid, adds the reporter's account). It
+  needs **no** terms. The body stays under 4 KiB (`413`), JSON only (`415`), unknown fields are refused, so a client
+  cannot send a target. `comment` (<= 280 runes) and `observedText` (<= 200) go through the nickname/answer cleaners
+  (`game.CleanText`); too long or malformed is `400 invalid_report`. At least one of `code`/`roomInstanceId` is needed.
+* The answer is `201 {id}` (`200 {id}` for an idempotent replay) **only after the row is durable**. A database failure
+  is `503 server_busy` + `Retry-After`, nothing stored and nothing counted: the client retries with the same
+  `idempotencyKey` and gets exactly one report. `UNIQUE(reporter_guest, idempotency_key)` makes the retry return the
+  original id (a retry with another body changes nothing).
+* **Rate limits** (the existing `ratelimit` token buckets): per guest **and** per account 3 a minute (burst) and 20 a
+  day, plus a global per-IP bucket of 30/min (burst 10) that caps what cookie churn can write. `429 rate_limited` with
+  `Retry-After`. A retry costs a token like any request.
+* **Evidence is resolved through the room actor**, never from an HTTP handler: `Hub.ReportEvidence(ctx, code, req)` posts
+  a mailbox task and the actor builds the evidence from the **reporter's own `Game.View`** after checking that they are,
+  or were in this match, a player: a seat (also one that left in a started game) or a kicked id. A stranger gets `403
+  not_in_room` whatever the ref says (no oracle) and `Game.View(unknownId)` is never used as authorization. The room
+  copies the exact text it holds (answer, label, nickname, the AI verdict and reason as shown), the language, phase,
+  round, letter and category, and the known author: guest id (and account id) from the room, never from the client.
+  So: another player's answer is not evidence while the round is played (it is not in the reporter's view), an AI
+  verdict is only evidence while the review shows it, and the author of a label is the recorded one. The `roomInstanceId`
+  of the client must match the room that has the code now: a reused code is "gone".
+* **Room gone, content changed or never visible** (instance mismatch, room closed, stale reference): the report is still
+  taken, with `evidence_verified = false` and the evidence `{"source":"client","claimed":<ref>,"observedText":...}`, no
+  target ids, to be read as uncorroborated and **never actioned automatically**. While the server drains it answers `503
+  server_busy` instead (the room is not gone, it is restarting).
+  **Decision (kept on purpose): a stranger who knows a room code can file an unverified report.** The room checks the
+  instance before the membership (`room/report.go`), so anybody who sends a `roomInstanceId` that does not match the room
+  that has the code now gets the "gone" path and a `201`, member or not. The alternative, refusing a mismatch, would lose
+  the reports about rooms that ended and whose code was recycled (the common case for a report filed after the game),
+  and answering `403 not_in_room` only for matching instances would be an oracle on instance ids. The tradeoff is
+  contained instead: such a report is (a) stored with `evidence_verified = false`, no target ids and no match instance,
+  evidence only the client's `claimed`/`observedText`, so `restrict --report` refuses it (`no_verified_target`) and
+  nothing acts on it automatically; (b) charged to the same per-guest, per-account and per-IP limits as any report
+  (the limit runs before the evidence is resolved) and counted in `tuttifrutti_reports_total`; (c) printed `UNVERIFIED`
+  by `moderate reports list` and `show`, with the reasons spelled out. Test: `httpapi/safety_unverified_test.go`.
+* Table `reports(id, reporter_guest, reporter_user NULL, room_instance, match_instance NULL, content_key, kind,
+  target_guest NULL, target_user NULL, evidence_json, evidence_verified, reason, comment, status, idempotency_key,
+  created_at, resolved_at NULL, purge_at)`, `UNIQUE(reporter_guest, idempotency_key)`, index `(status, created_at)`, **no
+  foreign keys** (reports survive room deletion and account deletion). `content_key` groups reports about the same
+  content inside a room instance (`answer:r2:c1:<player>`, `player:<id>`, `verdict:...`, `label:<index>:<hash of the label>`).
+  Statuses: `open`, `actioned`, `dismissed`. Texts are stored raw (as typed, only cleaned) inside the JSON, which is always
+  valid (NUL is impossible: jsonb cannot store it and the store refuses it first).
+* **Retention:** `purge_at = created_at + 90 days`, or `resolved_at + 30 days` once resolved, whichever is earlier
+  (`safety.PurgeAt`). `store.Safety.PurgeReports(now)` deletes what is due; the daily maintenance loop calls it
+  ("Maintenance and retention") and the operator's `reports resolve` calls `ResolveReport` ("Operator tool").
+* **Account deletion:** `reporter_user` and `target_user` are plain ids with no foreign key, so `DELETE /api/me` leaves
+  reports untouched, **on purpose**: they stay, ids inside `evidence_json` included (`author.user`, `user`), until their
+  retention ends (30 days after resolution, 90 at most), as pseudonymous moderation evidence; nothing blanks or purges
+  them early and the deletion never nulls them silently (decided with the deletion hardening, section 9b). A report
+  filed from a copy of a deleted account's cookie carries no `reporter_user` (the session is checked, see "Cookies").
+* **Observability:** `tuttifrutti_reports_total{kind,reason}` (only stored reports, only fixed label values). Report text
+  never reaches the logs or the metric labels: handlers log ids and errors only.
+
+### Public directory
+
+`GET /api/rooms` never carries player-written text: `categoryLabels` holds the built-in categories only and
+`customCategories` counts the custom ones (the client renders a localized "Custom category"); the real labels are only
+in `State` inside the room. For a caller identified by `tf_guest` the directory (and `GET /api/rooms/{code}`) also
+leaves out, or reports as `joinable: false`, a room that holds a human who shares a block with the caller in either
+direction (see "Blocks"); anonymous callers see everything.
+
+### Blocks
+
+"Block and leave": one player does not want to share a room with another. **Keyed by guest id** (the player id of
+the `tf_guest` cookie), so the first release is **cookie based**: clearing cookies, another browser or another
+device evades a block, and nothing tries to prevent that (no fingerprinting, no cross-device promise; the terms and
+the in-app confirmation say so). A block never becomes an account punishment, report counts never trigger anything,
+and blocks never expire: they last until the blocker unblocks. Table `blocks(blocker_guest, blocked_guest,
+blocked_name, created_at)`, primary key `(blocker_guest, blocked_guest)`, an index on `blocked_guest`, no foreign
+keys, at most 100 per blocker.
+
+* **REST** (authenticated by `tf_guest`, `401` without it and never minted; never terms-gated; Origin check, 4 KiB JSON
+  bodies; 30 writes an hour per guest plus a global per-IP bucket of 30/min, burst 10, `429 rate_limited`):
+  `POST /api/blocks {playerId, name?}` -> `200 {block: {playerId, name, blockedAt}, leftRooms: [codes]}`; `400
+  invalid_block` (oneself, empty or malformed id, an automated `bot:` seat), `409 block_limit`, `503 server_busy`
+  (store or sweep failed: retry, the retry finishes the job). The name is cleaned with `game.CleanText` and cut to 40
+  runes; it only labels the blocker's own list. Idempotent: a replay returns the stored block and sweeps again.
+  `GET /api/blocks` -> `{blocks: [...]}` newest first, `no-store`, only the caller's own list (nobody can read who
+  blocked them). `DELETE /api/blocks/{playerId}` -> `204`, idempotent; unblocking never puts anybody back in a room.
+  The endpoints are only registered when the room hub can enforce (`Sweep`).
+* **Policy index.** `safety.Policy` is an in-memory index of the blocked pairs and the active restrictions, loaded
+  from the store (`moderation.LoadPolicy`) **before `Hub.Start`** (a store that cannot answer stops the server: an empty
+  policy would silently turn everything off) and changed only **after** the database write succeeded. Restrictions
+  expire by the policy's clock, so nothing has to run when one ends.
+* **Block and unblock are serialised per blocker.** The handlers of `POST` and `DELETE /api/blocks` hold a small keyed
+  mutex (`httpapi.keyedMutex`, keyed by the blocker's guest id) across the database write, the policy update and, for a
+  block, the sweep. Without it an unblock committing between a block's row and its policy update would leave the policy
+  with a block the database no longer has (or, the other way round, drop a block the database has) until the next
+  restart. The server is a single replica, so a process-level lock is enough; the request deadline starts once the
+  lock is held. **Lock order**, outermost first: `blockLocks[blocker]` -> store (database I/O) -> `Hub.Sweep` (`Hub.mu`
+  briefly, then the actors' mailboxes); `Policy.mu` is a leaf (nothing is called while it is held) and is taken under
+  any of them (`Hub.Create` reads it under `Hub.mu`, the actors in their join path). Admission and every reader only
+  take `Policy`'s read lock and never the blocks mutex, so a join never waits for a block in progress and there is no
+  cycle. Tests (`httpapi/blocks_race_test.go`, `-race`) force the bad interleavings deterministically with a store hook
+  between the write and the policy update (no sleeps) and check that the policy equals the store at the end.
+* **Enforcement, and why the race is closed** (`internal/room/policy.go`). A successful `POST /api/blocks` answers only
+  after (a) the row is durable, (b) the policy knows the pair, and (c) every live room has applied it: `Hub.Sweep`
+  posts one task to every actor's mailbox, each removes through the normal trusted `Leave` path (the same one a
+  player's own `leave` takes: a lobby seat goes, a seat of a started game is flagged `Left` and keeps its score) the
+  *blocker* of every pair that shares the room, plus any restricted human, closes their connection with the usual
+  `4005` and reports who it removed; the handler returns the codes where the blocker was removed as `leftRooms`.
+  **Admission** is inside the actor's serialized join path, before the engine runs (so before any automated seat is
+  replaced): `onJoin` refuses a guest who is restricted (or whose account is) or who shares a block, in either
+  direction, with any human **seated** in the room (connected or not: a reconnect and the reclaiming of a seat are
+  joins too), with the generic `join_unavailable` error frame (`ref: join`, the socket stays open), which never says who
+  or why. A join J and the sweep task S of a room are ordered by that room's mailbox: if J runs after S it reads the
+  new policy (the policy changed before S was posted) and is refused; if J runs before S, S finds whatever J seated
+  and removes it. A room created while the sweep is posted either is in the snapshot of rooms the sweep takes (taken
+  under the hub's mutex, like `Create`) or is spawned after it, so every join to it runs after the change. A restored
+  room sweeps itself in `onInit` (the policy is loaded before `Start`). So once the block is acknowledged no live
+  room seats the pair, and none can be made to; the stress tests (`room/policy_test.go`, `go test -race`) run
+  joins, reconnects and blocks concurrently and check the invariant after every acknowledgement. If the database
+  write fails nothing changes (`503`); if the sweep fails after it, admission already refuses the pair and the retry
+  completes the removal.
+* **Historical content.** A blocked player's old answers cannot reappear to the blocker through later joins: they
+  cannot join the same room again (the join is refused), and the blocker has already left the match.
+* **Directory and `RoomInfo`.** The hub keeps a private index of the human seats of each waiting public lobby (a
+  field of the actor-published directory entry, never part of a response); `PublicRoomsFor(lang, guest)` drops the
+  lobbies that hold a human who shares a block with `guest`, and `InfoFor(code, guest)` (asked of the actor) reports
+  `joinable: false`, exactly like a full room and with no other reason, for any room (private ones too). No roster is
+  ever returned.
+
+### Restrictions and the audit log
+
+A **restriction** says "this guest identity (and, when proven, this account) may not play". Table
+`restrictions(id, guest_id, user_id NULL, reason, report_id NULL, created_at, expires_at NULL, revoked_at NULL,
+operator)` and the **audit log** `moderation_actions(id, at, operator, action, target_kind, target_id, report_id NULL,
+details)` (no foreign keys, `00004_moderation.sql`). A restricted guest cannot create a room (`POST /api/rooms` ->
+`403 join_unavailable`, decided by the hub under its mutex), cannot join or reconnect (`join_unavailable` on the
+socket) and is removed from the live rooms when the restriction is applied, through the same sweep as blocks; **at most one
+restriction is in force per guest** (not revoked, not expired), enforced by the store and not by a check-then-write in the
+control server: the Postgres transaction takes `pg_advisory_xact_lock(hashtext('restrict:'||guest))`, looks for a row in
+force (`revoked_at IS NULL AND (expires_at IS NULL OR expires_at > created_at)`) and only then inserts the restriction and
+its audit record, so of two racing `restrict` commands exactly one is stored and audited and the other gets
+`store.ErrAlreadyRestricted` (`409 already_restricted`, nothing stored). A partial unique index cannot express "not
+expired" (the clock is not part of a row), hence the lock and no new migration; the memory store checks and inserts under
+its own mutex. The account is restricted too only when the operator names it **and** the report proves
+the link (`reports.target_user` is only set from the room's own `accounts` map: guest id -> account id at the join),
+and a restricted account is refused whatever guest cookie it signs in with. Everything the operator does is written to
+`moderation_actions` (restrict, unrestrict and report resolution in the same transaction as the change; room closure,
+profile removal and the judge switch right after it, with a `WARNING` to the operator if that record fails). **Resolving a
+report is a compare-and-set** (`UPDATE ... WHERE id = $1 AND status = 'open'`, in the same transaction as the audit
+insert; the memory store holds its lock across both): of two concurrent `reports resolve` exactly one wins, the other gets
+`store.ErrReportNotOpen` (`409 already_resolved`) with no audit record, and `resolved_at`/`purge_at` stay those of the first
+resolution. Restrictions
+and the audit log load/expire as described under "Maintenance and retention".
+
+### Operator tool (`internal/moderation`, `cmd/moderate`)
+
+There is **no public admin UI**. The server process listens on the Unix domain socket `MODERATION_SOCKET` (chart
+`server.moderation.socket`, `/run/tutti/moderation.sock` on an in-memory `emptyDir`, so it works with a read-only root
+filesystem; unset disables it): created with mode `0600` under the server's own user (even under a permissive umask),
+a stale socket from a crashed process is replaced and anything else at the path is refused, removed at shutdown, not a
+port, in no Service or Ingress. The directory is only created when it is missing (`0700`); an existing one is **never
+chmod'ed or chown'ed** (the socket's own `0600` is the access control, and a mounted volume is not the process's to
+change). Usability is decided by creating the socket: on a permission or read-only refusal `Listen` returns an error
+that names the path, the uid/gid the server runs as and the owner and mode of the directory (or of its closest existing
+ancestor), and `cmd/server` logs it as `ERROR`. The chart's server pod `securityContext` sets `fsGroup: 65532` (the
+server's gid), so the `emptyDir` is group-owned by the server and writable however the node's kubelet sets its mode
+(Kubernetes already creates it `0777`: this only makes the ownership explicit). The protocol is HTTP over that socket,
+`POST /v1/<command>` with a JSON body of at most 8 KiB, unknown fields and commands refused, and nothing after the JSON
+value but whitespace (a second `Decode` must hit the end of the body, else `400 bad_request`: `Decoder.More` alone
+would accept a stray `}` or `]`). The client is the static binary `/moderate` in the server image (the image
+has no shell): `kubectl exec deploy/<server> -- /moderate <command>`. It needs **no database credentials**: every action
+runs in the live process, which holds the database and the rooms (`Hub.Sweep`, `Hub.CloseRoom`: through the actors,
+never reading their state). The real access boundary is Kubernetes exec rights; `--operator NAME` (required for every
+command that changes something, validated, recorded in the audit log) is only a label. A control socket that cannot be
+created is logged loudly and does not stop the game (the owner's daily `moderate status` then fails and says so).
+
+Commands (flags before the arguments): `status` (open reports, age of the oldest, restrictions in force, number of
+blocks, judge state); `reports list [--status open|resolved|all] [--limit N]`; `reports show ID` (the evidence, the
+provenance, whether the evidence is verified, and every text typed by a player or the reporter marked UNVERIFIED where
+it is not the room's own copy; control and invisible characters are printed escaped so text cannot drive the operator's
+terminal); `reports resolve ID --note TEXT [--dismiss]`; `restrict (--guest ID | --report ID) [--user ID] --reason TEXT
+[--days N]` (the target of `--report` is the report's verified target, never the command line's; a report with no
+verified target is refused; `--user` needs `--report` and must be the account that report proved); `unrestrict ID`;
+`room close [CODE] [--instance ID]` (closes exactly that instance through its actor, deleting its snapshot; a code with
+an instance id that no longer holds the code is refused); `profile remove --user ID` (clears the saved nickname,
+avatar and Google display name; statistics stay); `judge status|enable|disable` (the AI judge's kill switch, below).
+`blocks show` is deliberately **not** offered: who blocked whom is the blockers' private data and the owner's needs
+are met by counts. Exit codes: 0 ok, 1 refused or failed, 2 usage.
+
+* **AI judge kill switch.** `judge.Switch` wraps the provider: while off every call fails with `ErrDisabled` (which is
+  `ErrBusy`), so nothing leaves the server; the gauge `tuttifrutti_judge_enabled` shows it. The room also asks the
+  switch (`room.judgeEnabled`, an optional `Enabled() bool` on the `Judge`): while off `State.canJudge` is false (the
+  button disappears with the next frame) and an `ask_judge` is refused with `judge_unavailable`. It lives only in
+  memory (a restart turns the judge on again; to turn it off for good remove the `cloudflare-*` keys from the Secret).
+  **Guarantees, exactly** (also in `docs/MODERATION.md`): (1) **no new call** reaches the provider once `SetEnabled(false)`
+  returned; (2) every call **in flight is cancelled**: the Switch keeps the cancel function of each running call and
+  `SetEnabled(false)` cancels them all synchronously, which aborts the HTTP request, but the provider may already have
+  received the request and what was sent cannot be recalled; (3) **no verdict is applied after the switch went off**:
+  when the inner call returns, the Switch checks again, under the same mutex as `SetEnabled`, whether it was switched off
+  since the call started (a generation counter, so an off/on cycle counts too) and returns `ErrDisabled`, discarding the
+  verdict; that check is the linearization point, and the room's `onJudged` checks `judgeEnabled()` once more on its own
+  goroutine before applying a verdict, which closes the gap between the Switch and the actor (a discarded verdict is
+  shown as the usual "AI busy" failure). Tests: `judge/switch_test.go` (blocking provider, real HTTP client against a
+  server that sees the connection drop) and `room/judge_switch_test.go`.
+* **Gauges.** `tuttifrutti_reports_open` and `tuttifrutti_report_oldest_open_age_seconds` are refreshed from the
+  database at start, by the daily loop and after every resolution, and raised in memory when a report is filed (the age
+  is computed at each scrape). **A metric is not a notification:** Alertmanager is disabled, so
+  `docs/MODERATION.md` defines the owner's daily check (`moderate status`) and the dashboard shows the two gauges.
+
+### Maintenance and retention
+
+`moderation.Maintenance` runs inside the server once at start and once a day (stopped at shutdown, before the store
+closes; the clock is injected in its tests) and deletes: reports (`PurgeReports`: 30 days after resolution, 90 days
+after filing at the latest), terms acceptances older than 365 days, restrictions that ended (expired or revoked) more
+than 90 days ago (one in force is never purged), and audit records older than 365 days. Each step is independent and
+only counts are logged. **Blocks are never purged by time**: they live until the blocker unblocks. The privacy and
+account-deletion pages state the same figures in all three languages and a test compares their phrases.
+
+### Hand-off to the next tracks
+
+* Account deletion and these records: blocks, restrictions and reports hold plain guest/user ids without foreign keys on
+  purpose, so `DELETE /api/me` leaves them until their own retention ends (blocks key on the guest id, which the
+  deletion never changes).
+* Web: done, see "Safety UI" below (terms gate, reports, blocks). Blocks are built against `POST /api/blocks`,
+  `GET /api/blocks` and `DELETE /api/blocks/{playerId}` (the wire types are generated).
+
+### Safety UI (web, `web/src/lib/safety/`, messages in `web/messages/safety/`)
+
+Web and the Android app are the same code, so the terms, reports and blocks below are what Google Play's user-generated
+content policy asks for on both. Strings are all in the `safety` message area (es/en/nl); the English and Dutch screens
+never carry the Spanish call or characters.
+
+* **Terms gate.** The `terms` store (`terms.svelte.ts`) holds what `GET /api/session` says (`terms`, fed by the account
+  store, or loaded by itself) and opens `TermsGate` (a sheet mounted in the layout) when an *intent* needs the
+  acceptance: `terms.ensure()` before **Create**, **Join** (Home), a join from the public list, **Join** on the invite gate
+  (so also QR links); `terms.run(action)` wraps a REST call and, on `403 terms_required` (a new version, an expired
+  acceptance, a stale client), opens the gate and runs the action ONCE more (a second refusal is shown). A WebSocket
+  `error {terms_required, ref: join}` closes the session as `join_rejected`; the room route shows the connecting screen,
+  the gate, then a new session (once; a second refusal right after the acceptance is the closed screen's message). The gate: a short plain
+  summary, a link to `/terms#<lang>` (`rel="external"`, same browsing context), the version, the required box "I am 13 or
+  older and accept the Terms", **Accept** and **Not now** (48 px). Accept sends `POST /api/terms/accept {version:
+  requiredVersion, locale: screen language, age13Confirmed: true}`: success continues the intent; `terms_version_mismatch`
+  refetches the session and shows the gate again with the new version and a notice; a network / busy / rate-limit error
+  stays in the gate with a retry; `401` mints the cookie with the session call and asks once more; closing the gate
+  (Not now, Escape, Back) declines and nothing is created or joined. An unknown state (the session could not be loaded)
+  never blocks the client: the server fails closed and its answer comes back here. Reporting, blocking, leaving, signing
+  out and deleting the account never need the acceptance. The profile sync does not open the gate (it is not a user
+  intent): it pauses and resumes after the acceptance.
+* **Where the flags are.** One flag button (48 px, named after its target, never colour or icon alone) per item:
+  the lobby player rows; the scoreboard rows of the round summary and the final; the answer cards of the review
+  (menu: *Report this answer*, *Report nickname or avatar*, *Block and leave*; only other players' answers and only in the
+  review, where the answers are visible); each answer of a merge proposal; the AI note of a review card (anybody's, the
+  viewer's own included); the custom category chips of a guest in the lobby and the custom category headers of the
+  playing screen; and, for the screens that show no player row (letter, playing), a text button *Report or block a
+  player* that lists the other players. Never for oneself, nor for an automated seat (`bot:` ids: the client tells them
+  by the prefix, which also means they are the only ones without a flag).
+  One `SafetyHost` per room provides them; the sheet has steps (players → menu → report form or block confirmation) inside a
+  single `Sheet`, so Android Back closes it in one press.
+* **Report form.** The eight fixed reasons as radios (none preselected), an optional comment (280, with a counter), the
+  explanation that the other person is not told. `POST /api/reports` always carries `roomInstanceId` (from `State`) and the
+  room `code`, the reference in the room's vocabulary (`playerId`; `category` + `label` as the reporter sees it; `round` +
+  `category` + `playerId`) and the text the reporter saw as `observedText` (≤ 200 characters; the server only keeps it when
+  the room is gone). A generated idempotency key belongs to the draft: a retry after a failure reuses it. "Sent" (toast, sheet
+  closes) is only shown after a `201`/`200`; a failure (`429`, `503`, network, `invalid_report`, `not_in_room`) keeps the sheet
+  and the draft and says why.
+* **Block and leave.** Confirmation text: you leave this game now; the player is blocked for this browser identity;
+  clearing cookies or switching browser can undo it; the player is not told. `POST /api/blocks {playerId, name}`; when
+  `leftRooms` has this room the server already removed the seat and the client leaves locally (`session.leaveLocally()`: no
+  second `leave`), otherwise it sends the normal `leave`; then a toast and Home. While it is in flight the room route treats
+  any socket close of that room (4005, 4002, 4004) as "going Home", never as "kicked". `invalid_block`, `block_limit` and
+  network errors stay in the sheet. **Blocked players** (Home's legal sheet, the stats page): `GET /api/blocks` with an
+  *Unblock* each (`DELETE`; the entry leaves only after the server answered), an empty state and the note that unblocking does
+  not put anyone back in a game. The block list is only cached in memory (the privacy policy lists the browser storage
+  keys, and a list of nicknames is not one of them). A join or room creation refused with `join_unavailable` (REST or
+  WebSocket) shows only "You can't join this game right now".
+* **Directory.** The public list shows the built-in category labels and a localized "N custom categories" chip
+  (`customCategories`); it never shows text a player typed.
+* **Tests.** `safety/*.test.ts` (store, gate, report draft and sheet, blocks, entry points, API client), the room route
+  (`RoomRoute.safety.test.ts`), Home (`page.terms.test.ts`), the account store's terms pause, and `e2e/tests/19-terms-gate` and
+  `20-reports`, `21-blocks`.
 
 ## 10. Assumptions / open tunables
 

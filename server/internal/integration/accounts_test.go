@@ -17,6 +17,7 @@ import (
 	"github.com/AresiusXP/tutti-frutti/server/internal/auth/authtest"
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
 	"github.com/AresiusXP/tutti-frutti/server/internal/room"
+	"github.com/AresiusXP/tutti-frutti/server/internal/safety"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 )
 
@@ -325,7 +326,7 @@ func TestAccountsEndToEnd(t *testing.T) {
 		r := anaB.do(http.MethodGet, "/api/session", "")
 		var session api.SessionInfo
 		r.jsonBody(t, &session)
-		if session != (api.SessionInfo{Guest: true, GoogleEnabled: true, LoggedIn: false}) {
+		if session != (api.SessionInfo{Guest: true, GoogleEnabled: true, LoggedIn: false, Terms: gateOff}) {
 			t.Fatalf("session = %+v", session)
 		}
 		if _, status := anaB.me(); status != http.StatusUnauthorized {
@@ -547,3 +548,7 @@ func TestAccountsEndToEnd(t *testing.T) {
 		}
 	})
 }
+
+// gateOff is the terms status of a server without the terms gate (these
+// harnesses do not enable it): the version is reported, nothing is required.
+var gateOff = api.TermsStatus{RequiredVersion: safety.TermsVersion}

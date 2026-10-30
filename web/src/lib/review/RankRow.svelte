@@ -2,6 +2,7 @@
 	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { Cell } from '$lib/protocol';
+	import SafetyButton from '$lib/safety/SafetyButton.svelte';
 	import { classifyCell } from './badge';
 	import { avatarOf } from './players';
 	import PointsBadge from './PointsBadge.svelte';
@@ -36,6 +37,14 @@
 		row.roundPoints > 0 ? `+${row.roundPoints}` : row.roundPoints === 0 && row.played ? '0' : ''
 	);
 </script>
+
+{#snippet flag()}
+	<SafetyButton
+		request={{ start: 'person', person: { id: row.player.id, name: row.player.name } }}
+		label={m.report_player_aria({ name: row.player.name })}
+		class="mr-1 self-center"
+	/>
+{/snippet}
 
 {#snippet head()}
 	<span
@@ -105,16 +114,19 @@
 	data-rank={row.rank ?? ''}
 >
 	{#if expandable}
-		<button
-			type="button"
-			class="flex min-h-16 w-full items-center gap-2 p-2.5 text-left"
-			aria-expanded={expanded}
-			aria-controls={detailsId}
-			onclick={ontoggle}
-		>
-			{@render head()}
-			<span aria-hidden="true" class="w-4 shrink-0 text-cream-muted">{expanded ? '▴' : '▾'}</span>
-		</button>
+		<div class="flex items-stretch">
+			<button
+				type="button"
+				class="flex min-h-16 min-w-0 flex-1 items-center gap-2 p-2.5 text-left"
+				aria-expanded={expanded}
+				aria-controls={detailsId}
+				onclick={ontoggle}
+			>
+				{@render head()}
+				<span aria-hidden="true" class="w-4 shrink-0 text-cream-muted">{expanded ? '▴' : '▾'}</span>
+			</button>
+			{@render flag()}
+		</div>
 		{#if expanded}
 			<ul id={detailsId} class="flex flex-col gap-1 border-t-2 border-night-3 p-2.5">
 				{#each cells ?? [] as cell, i (i)}
@@ -143,6 +155,7 @@
 	{:else}
 		<div class="flex min-h-16 items-center gap-2 p-2.5">
 			{@render head()}
+			{@render flag()}
 		</div>
 	{/if}
 </li>

@@ -71,6 +71,41 @@ describe('errorMessage', () => {
 		i18n.set('es');
 	});
 
+	it('explains the content-safety codes in every language, each differently, never with the generic sentence', () => {
+		const codes = [
+			'terms_required',
+			'terms_version_mismatch',
+			'age_confirmation_required',
+			'invalid_locale',
+			'invalid_report',
+			'not_in_room',
+			'invalid_block',
+			'block_limit',
+			'join_unavailable'
+		];
+		for (const locale of ['es', 'en', 'nl']) {
+			i18n.set(locale);
+			const texts = codes.map((code) => errorMessage(code));
+			// terms_version_mismatch deliberately says the same as the gate's "updated" notice
+			expect(new Set(texts).size, locale).toBe(codes.length);
+			for (const text of texts) expect(text, locale).not.toBe(m.err_unknown());
+		}
+		i18n.set('es');
+	});
+
+	it('join_unavailable never says who or why (a block, a restriction): one vague sentence', () => {
+		const texts: Record<string, string> = {};
+		for (const locale of ['es', 'en', 'nl']) {
+			i18n.set(locale);
+			texts[locale] = errorMessage('join_unavailable');
+			expect(texts[locale], locale).not.toMatch(
+				/block|bloque|blokk|restrict|ban|prohib|verbod|report|meld|jugador|player|speler/i
+			);
+		}
+		expect(texts.en).toBe("You can't join this game right now.");
+		i18n.set('es');
+	});
+
 	it('falls back to err_unknown for anything else and follows the language', () => {
 		i18n.set('es');
 		expect(errorMessage('definitely_new')).toBe(m.err_unknown());

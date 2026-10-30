@@ -12,6 +12,7 @@
 	import Screen from '$lib/components/Screen.svelte';
 	import Wordmark from '$lib/components/Wordmark.svelte';
 	import { capNickname, NICKNAME_MAX, normalizeNickname } from '$lib/nickname';
+	import { errorMessage } from '$lib/errors';
 	import { m } from '$lib/paraglide/messages';
 	import { profile } from '$lib/profile.svelte';
 
@@ -36,7 +37,7 @@
 		| { kind: 'loading' }
 		| { kind: 'ready'; info: RoomInfo }
 		| { kind: 'full' | 'over'; info: RoomInfo }
-		| { kind: 'not_found' | 'unavailable' };
+		| { kind: 'not_found' | 'unavailable' | 'denied' };
 
 	let check = $state<Check>({ kind: 'loading' });
 	let draft = $state(profile.nickname);
@@ -55,7 +56,15 @@
 			else check = { kind: 'unavailable' };
 		} catch (e) {
 			if (mine !== attempt) return;
-			check = { kind: e instanceof ApiError && e.status === 404 ? 'not_found' : 'unavailable' };
+			// A safety refusal (a block, a restriction) is shown as vaguely as the server says it.
+			check = {
+				kind:
+					e instanceof ApiError && e.status === 404
+						? 'not_found'
+						: e instanceof ApiError && e.code === 'join_unavailable'
+							? 'denied'
+							: 'unavailable'
+			};
 		}
 	}
 	onMount(() => {
@@ -124,6 +133,8 @@
 	)}
 {:else if check.kind === 'over'}
 	{@render blocked('🏁', m.gate_over_title(), m.gate_over_text(), false, true)}
+{:else if check.kind === 'denied'}
+	{@render blocked('🙈', m.closed_rejected_title(), errorMessage('join_unavailable'), false, false)}
 {:else if check.kind === 'unavailable'}
 	{@render blocked('📡', m.gate_unavailable_title(), m.gate_unavailable_text(), true, false)}
 {:else}

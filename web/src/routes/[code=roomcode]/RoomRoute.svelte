@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ClosedScreen from '$lib/components/ClosedScreen.svelte';
@@ -13,12 +13,18 @@
 	import type { RoomSession } from '$lib/game/session';
 	import { profile } from '$lib/profile.svelte';
 	import { holdReload } from '$lib/pwa/update.svelte';
+	import { blocks } from '$lib/safety/blocks.svelte';
+	import { terms } from '$lib/safety/terms.svelte';
 	import RoomScreen from '$lib/screens/RoomScreen.svelte';
 	import { toasts } from '$lib/toast.svelte';
 
 	/**
 	 * Shell of a room: gate -> connecting -> the phase screen (+ reconnect
 	 * banner) -> closed screen. One instance per room code (the route keys it).
+	 *
+	 * The terms: Join on the gate asks for the acceptance first (`terms.ensure`); a tab that is already
+	 * in the room just connects, and when the server answers `terms_required` to the join (a new
+	 * version, an expired acceptance) the gate opens and the join is attempted once more.
 	 */
 	let {
 		code,
@@ -37,10 +43,23 @@
 
 	let session = $state.raw<RoomSession | null>(initialSession());
 
-	function connect() {
+	function open() {
 		markRoom(code);
 		session?.destroy();
 		session = createSession(code);
+	}
+
+	let attempt = 0;
+	let destroyed = false;
+
+	/** The player pressed Join (or "take the seat back"): connect once the terms are accepted. */
+	function connect() {
+		const mine = ++attempt;
+		// The usual case, with nothing to wait for: connect in the same tick.
+		if (terms.status === 'ready' && !terms.acceptanceRequired) return open();
+		void terms.ensure().then((accepted) => {
+			if (!destroyed && mine === attempt && accepted) open();
+		});
 	}
 
 	function giveUp() {
@@ -48,7 +67,11 @@
 		session = null;
 	}
 
-	onDestroy(() => session?.destroy());
+	onDestroy(() => {
+		destroyed = true;
+		session?.destroy();
+		if (blocks.expecting === code) blocks.expectRemoval(null);
+	});
 
 	// An update accepted in ANOTHER tab must not reload this one while a round is being played.
 	onMount(() =>
@@ -70,6 +93,9 @@
 		if (s.status !== 'closed') toasts.show(errorMessage(error.code));
 	});
 
+	/** "Block and leave" is in flight or done: however the socket closed, the player simply goes Home. */
+	const blockedAway = $derived(session?.status === 'closed' && blocks.expecting === code);
+
 	// Leaving, being kicked, a vanished room or a refused join: this tab no longer "is in" the room.
 	$effect(() => {
 		if (session?.status !== 'closed') return;
@@ -77,14 +103,49 @@
 		if (reason !== 'replaced' && reason !== 'unsupported_version') clearRoomMark(code);
 		// A sheet that was open (the leave confirmation) pops its history entry as it goes away; a goto() that
 		// started before that pop arrived would be cancelled by it, so Home waits for it.
-		if (reason === 'left') void historySettled().then(() => goto(resolve('/')));
+		if (reason === 'left' || blockedAway) void historySettled().then(() => goto(resolve('/')));
 	});
+
+	// The server wants the terms (a new version was deployed, the acceptance expired): show them, then join
+	// once more. A second refusal right after the acceptance is not retried: the closed screen says it.
+	let termsRetries = $state(0);
+	let termsBusy = $state(false);
+	const needsTerms = $derived(
+		session?.status === 'closed' &&
+			session.closedReason === 'join_rejected' &&
+			session.joinError === 'terms_required' &&
+			termsRetries < 1
+	);
+	$effect(() => {
+		if (session?.status === 'connected') termsRetries = 0;
+	});
+	$effect(() => {
+		const closed = session;
+		if (!needsTerms || !closed) return;
+		untrack(() => void acceptThenRejoin(closed));
+	});
+
+	async function acceptThenRejoin(closed: RoomSession) {
+		termsRetries++;
+		termsBusy = true;
+		terms.require();
+		const accepted = await terms.ensure();
+		termsBusy = false;
+		if (destroyed || session !== closed) return;
+		if (accepted) return open();
+		clearRoomMark(code);
+		giveUp();
+	}
 </script>
 
 {#if !session}
 	<JoinGate {code} onjoin={connect} />
 {:else if session.status === 'closed'}
-	{#if session.closedReason && session.closedReason !== 'left'}
+	{#if needsTerms || termsBusy}
+		<ConnectingScreen {code} />
+	{:else if blockedAway}
+		<!-- going Home: nothing to show -->
+	{:else if session.closedReason && session.closedReason !== 'left'}
 		<ClosedScreen
 			reason={session.closedReason}
 			joinError={session.joinError}

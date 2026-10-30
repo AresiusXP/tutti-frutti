@@ -21,6 +21,7 @@ import (
 	"github.com/AresiusXP/tutti-frutti/server/internal/auth"
 	"github.com/AresiusXP/tutti-frutti/server/internal/auth/authtest"
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
+	"github.com/AresiusXP/tutti-frutti/server/internal/safety"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 )
 
@@ -329,7 +330,7 @@ func TestSessionEndpointReportsTheAccountState(t *testing.T) {
 		var got api.SessionInfo
 		r := e.browser().get("/api/session")
 		r.json(t, &got)
-		if got != (api.SessionInfo{Guest: true, GoogleEnabled: true, LoggedIn: false}) {
+		if got != (api.SessionInfo{Guest: true, GoogleEnabled: true, LoggedIn: false, Terms: gateOff}) {
 			t.Errorf("session = %+v", got)
 		}
 	})
@@ -337,7 +338,7 @@ func TestSessionEndpointReportsTheAccountState(t *testing.T) {
 		e := newAcctEnv(t, acctOpts{noGoogle: true})
 		var got api.SessionInfo
 		e.browser().get("/api/session").json(t, &got)
-		if got != (api.SessionInfo{Guest: true}) {
+		if got != (api.SessionInfo{Guest: true, Terms: gateOff}) {
 			t.Errorf("session = %+v", got)
 		}
 	})
@@ -389,7 +390,7 @@ func TestSessionEndpointReportsTheAccountState(t *testing.T) {
 		e := newAcctEnv(t, acctOpts{tweak: func(o *Options) { o.Sessions = nil; o.Accounts = nil; o.Google = nil }})
 		var got api.SessionInfo
 		e.browser().get("/api/session").json(t, &got)
-		if got != (api.SessionInfo{Guest: true}) {
+		if got != (api.SessionInfo{Guest: true, Terms: gateOff}) {
 			t.Errorf("session = %+v", got)
 		}
 	})
@@ -1322,3 +1323,7 @@ func TestSessionCookieValueIsAMAC(t *testing.T) {
 		t.Errorf("mac has %d characters", len(parts[2]))
 	}
 }
+
+// gateOff is the terms status of a server without the terms gate (these
+// harnesses do not enable it): the version is reported, nothing is required.
+var gateOff = api.TermsStatus{RequiredVersion: safety.TermsVersion}

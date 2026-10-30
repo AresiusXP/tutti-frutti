@@ -310,6 +310,35 @@ func testAccountsContract(t *testing.T, newAccounts func(t *testing.T) Accounts)
 		}
 	})
 
+	t.Run("RecordGameSkips counts the users whose account is gone", func(t *testing.T) {
+		a := newAccounts(t)
+		sk, ok := a.(GameSkipper)
+		if !ok {
+			t.Skip("the backend does not report skipped users")
+		}
+		ana := mustUser(t, a, "sub-ana", "Ana")
+		gone := mustUser(t, a, "sub-gone", "Gone")
+		if err := a.DeleteUser(t.Context(), gone.ID); err != nil {
+			t.Fatal(err)
+		}
+		stranger := User{ID: "11111111-2222-4333-8444-555555555555"}
+
+		skipped, err := sk.RecordGameSkips(t.Context(), rec(1, res(gone, true, 90, 40, 5), res(stranger, true, 1, 1, 1), res(ana, false, 20, 10, 1), res(gone, false, 1, 1, 1)))
+		if err != nil || skipped != 2 {
+			t.Errorf("RecordGameSkips = %d, %v; want 2 (a user listed twice counts once), nil", skipped, err)
+		}
+		// Replaying is not a skip: the live user was recorded before, and counts nothing.
+		if skipped, err := sk.RecordGameSkips(t.Context(), rec(1, res(ana, false, 20, 10, 1))); err != nil || skipped != 0 {
+			t.Errorf("replay = %d, %v; want 0, nil", skipped, err)
+		}
+		if got := mustStats(t, a, ana.ID); got.GamesPlayed != 1 {
+			t.Errorf("Ana = %+v, want the game counted once", got)
+		}
+		if _, err := sk.RecordGameSkips(t.Context(), GameRecord{ID: "nope"}); !errors.Is(err, ErrInvalidGame) {
+			t.Errorf("an invalid record = %v, want ErrInvalidGame", err)
+		}
+	})
+
 	t.Run("invalid records are refused and change nothing", func(t *testing.T) {
 		a := newAccounts(t)
 		ana := mustUser(t, a, "sub-ana", "Ana")

@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import { Version as PROTOCOL_VERSION, type State } from '../../web/src/lib/protocol/protocol';
 import { BASE_URL, ORIGIN } from './env';
+import { acceptTermsWithCookie } from './terms';
 
 /**
  * A cheap player without a browser: its own guest cookie and one WebSocket that joins a room.
@@ -22,6 +23,10 @@ export class Bot {
 		private readonly cookie: string
 	) {}
 
+	/**
+	 * Joins `code` as a new guest (or as the guest of `existingCookie`, `tf_guest=...`). The guest accepts the
+	 * terms first, like a player does: without them the server refuses the join (`terms_required`).
+	 */
 	static async join(code: string, name: string, existingCookie?: string): Promise<Bot> {
 		let cookie = existingCookie;
 		if (!cookie) {
@@ -32,6 +37,7 @@ export class Bot {
 				.find((c) => c?.startsWith('tf_guest='));
 		}
 		if (!cookie) throw new Error('the server did not hand out a guest cookie');
+		await acceptTermsWithCookie(cookie);
 		const bot = new Bot(name, cookie);
 		try {
 			await bot.#connect(code);

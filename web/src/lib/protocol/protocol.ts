@@ -37,8 +37,13 @@ Server -> client types: TypeState, TypeEvent, TypeError, TypePong.
  * never offer the setting, so it must reload.
  * Version 4 adds public casual rooms and authoritative review electorates.
  * Older clients compute voting thresholds from all seats and must reload.
+ * Version 5 adds the content-safety layer: "join" is refused with
+ * ErrTermsRequired until the guest accepted the terms (POST /api/terms/accept),
+ * State carries RoomInstanceID and MatchInstanceID, and the public directory no
+ * longer lists custom category labels. A version 4 client has no terms screen
+ * and would only see an unexplained refusal, so it must reload instead.
  */
-export const Version = 4;
+export const Version = 5;
 /**
  * TypePing is sent by clients every PingInterval (empty payload).
  */
@@ -131,6 +136,17 @@ export interface State {
    * Visibility is private or public. Public games are casual (no lifetime stats).
    */
   visibility: string;
+  /**
+   * RoomInstanceID identifies this room (not its code, which is reused): it is
+   * created with the room, survives restarts and rematches and is what a
+   * report names. It is NOT a credential: it authorizes nothing.
+   */
+  roomInstanceId: string;
+  /**
+   * MatchInstanceID identifies the match in progress: it is new for every
+   * game (the room creates one, and every rematch renews it).
+   */
+  matchInstanceId: string;
 }
 /**
  * Pong is the payload of TypePong.
@@ -204,6 +220,13 @@ export const ErrJudgeUnavailable = "judge_unavailable";
  * hosts (it keeps the shared allowance from being burnt anonymously).
  */
 export const ErrLoginRequired = "login_required";
+/**
+ * ErrTermsRequired: "join" from a guest that has not accepted the current
+ * terms (see api.ErrCodeTermsRequired for the REST twin). The connection
+ * stays open: the client shows the terms, accepts them over REST and joins
+ * again.
+ */
+export const ErrTermsRequired = "terms_required";
 /**
  * ClosePolicy: rate limit exceeded or repeated malformed frames.
  */

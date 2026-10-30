@@ -96,6 +96,18 @@ func TestMemoryStaysUsableAfterClose(t *testing.T) {
 	}
 }
 
+func TestMemoryModerationContract(t *testing.T) {
+	testModerationContract(t, func(*testing.T) moderationBackend { return NewMemory() })
+}
+
+func TestMemorySafetyContract(t *testing.T) {
+	testSafetyContract(t, func(*testing.T) Safety { return NewMemory() })
+}
+
+func TestMemoryReportsSurviveAccounts(t *testing.T) {
+	testReportsSurviveAccounts(t, NewMemory())
+}
+
 func TestMemoryAccountsContract(t *testing.T) {
 	testAccountsContract(t, func(*testing.T) Accounts { return NewMemory() })
 }

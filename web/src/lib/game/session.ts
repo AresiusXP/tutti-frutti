@@ -77,6 +77,11 @@ export interface RoomSession {
 	readonly canJudge: boolean;
 	/** Authoritative room visibility from the latest state; private until known. */
 	readonly visibility: 'private' | 'public';
+	/**
+	 * `State.roomInstanceId` of the latest state (null until known): identifies this room, not its code
+	 * (codes are reused). Reports name it; it is not a credential.
+	 */
+	readonly roomInstanceId: string | null;
 
 	/** The last 20 events, oldest first. */
 	readonly events: readonly SessionEvent[];
@@ -136,6 +141,11 @@ export interface RoomSession {
 	 * network stays down it closes locally anyway (`LEAVE_GRACE_MS`).
 	 */
 	leave(): void;
+	/**
+	 * Closes the session as `left` WITHOUT telling the server: for when the server already removed
+	 * this seat (e.g. "Block and leave" answered that it took this player out of the room).
+	 */
+	leaveLocally(): void;
 	/** Stops reconnecting and releases the socket (call from `onDestroy`). Does not leave the room. */
 	destroy(): void;
 }

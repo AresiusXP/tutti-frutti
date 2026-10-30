@@ -2,11 +2,12 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BRAND } from './brand';
 import { m } from './paraglide/messages';
+import { REPORT_REASONS } from './safety/targets';
 
 type Catalog = Record<string, string>;
 
 /** Message areas: the shared catalog plus one folder per feature (each owned by one part of the app). */
-const AREAS = ['', 'net/', 'lobby/', 'play/', 'review/', 'account/', 'support/', 'pwa/'];
+const AREAS = ['', 'net/', 'lobby/', 'play/', 'review/', 'account/', 'support/', 'pwa/', 'safety/'];
 
 function readArea(area: string, locale: string): Catalog {
 	const raw = JSON.parse(
@@ -248,5 +249,102 @@ describe('vote to stop wording', () => {
 				expect(catalog[key].length, key).toBeLessThanOrEqual(60);
 			}
 		}
+	});
+});
+
+describe('safety wording', () => {
+	const keysOf = (prefix: RegExp) =>
+		Object.keys(readArea('safety/', 'es')).filter((key) => prefix.test(key));
+
+	it('lives in its own area folder in all three languages', () => {
+		for (const locale of ['es', 'en', 'nl'] as const) {
+			const area = readArea('safety/', locale);
+			for (const key of [
+				'terms_gate_title',
+				'terms_gate_age_label',
+				'report_send',
+				'report_sent',
+				'block_confirm',
+				'blocked_title',
+				'err_terms_required',
+				'err_join_unavailable'
+			]) {
+				expect(area, `${locale}.${key}`).toHaveProperty(key);
+			}
+		}
+		// one message per reason the server accepts (the protocol constants), plus the legend and the "choose one" note
+		for (const reason of REPORT_REASONS) {
+			expect(keysOf(/^report_reason_/), reason).toContain(`report_reason_${reason}`);
+		}
+		expect(keysOf(/^report_reason_/)).toHaveLength(REPORT_REASONS.length + 2);
+	});
+
+	it('the terms box says what the server records: 13 or older and accepting the terms', () => {
+		expect(en.terms_gate_age_label).toBe('I am 13 or older and accept the Terms');
+		expect(es.terms_gate_age_label).toMatch(/13 años o más/);
+		expect(nl.terms_gate_age_label).toMatch(/13 jaar of ouder/);
+	});
+
+	it('"Block and leave" explains the four things the owner promised, in every language', () => {
+		const facts: Record<string, RegExp[]> = {
+			es: [/Salís/, /bloqueado/, /cookies/, /no recibe/],
+			en: [/leave this game/, /blocked/, /Clearing cookies/, /not told/],
+			nl: [/verlaat/, /geblokkeerd/, /Cookies wissen/, /niets van te horen/]
+		};
+		for (const [locale, catalog] of Object.entries(catalogs)) {
+			const text = [
+				catalog.block_leave,
+				catalog.block_blocked,
+				catalog.block_undo,
+				catalog.block_silent
+			].join(' ');
+			for (const fact of facts[locale]) expect(text, locale).toMatch(fact);
+		}
+	});
+
+	it('the accessible names of the icon buttons are longer than any text they show (WCAG 2.5.3) and say who or what', () => {
+		for (const [locale, catalog] of Object.entries(catalogs)) {
+			for (const key of [
+				'report_player_aria',
+				'report_answer_aria',
+				'report_proposal_aria',
+				'report_label_aria',
+				'report_verdict_aria'
+			]) {
+				const name = catalog[key];
+				expect(params(name).length, `${locale}.${key}`).toBe(1);
+			}
+			// "Desbloquear" is the visible text of the unblock button: its name must start with the same word
+			expect(catalog.blocked_unblock_aria.toLowerCase(), locale).toContain(
+				catalog.blocked_unblock.toLowerCase()
+			);
+		}
+	});
+
+	it('speaks plain Spanish with voseo, and informal Dutch', () => {
+		expect(es.terms_gate_intro).toMatch(/tenés/);
+		expect(es.report_reason_required).toMatch(/Elegí/);
+		expect(nl.terms_gate_intro).not.toMatch(/\b(u|uw)\b/);
+	});
+
+	it('English and Dutch never carry the Spanish call or characters (the generic checks cover every key; this names the area)', () => {
+		for (const key of Object.keys(readArea('safety/', 'es'))) {
+			expect(en[key], `en.${key}`).not.toMatch(/[¡¿ñáéíóúü]|basta/i);
+			expect(nl[key], `nl.${key}`).not.toMatch(/[¡¿ñ]|basta/i);
+		}
+	});
+
+	it('never names the game in a message (it is the BRAND constant)', () => {
+		for (const catalog of Object.values(catalogs)) {
+			for (const key of Object.keys(readArea('safety/', 'es'))) {
+				expect(catalog[key].toLowerCase()).not.toContain('tutti');
+			}
+		}
+	});
+
+	it('the comment limit is the one of the server (280) and the sheet says it with {max}', () => {
+		expect(params(es.report_comment_hint)).toEqual(['max']);
+		expect(params(en.report_comment_hint)).toEqual(['max']);
+		expect(params(nl.report_comment_hint)).toEqual(['max']);
 	});
 });

@@ -16,18 +16,34 @@ import (
 // shorter timeout; this also covers waiting for a free slot).
 const judgeTimeout = 30 * time.Second
 
-// canJudge reports whether s may ask the AI judge: the server has one and the
-// player is signed in. Guests cannot, so that the shared allowance is not
-// spent anonymously.
+// judgeEnabled reports whether the server has an AI judge that is switched on.
+// A Judge may implement Enabled() bool (the operator's kill switch,
+// judge.Switch); one that does not is always on.
+func (r *room) judgeEnabled() bool {
+	j := r.h.cfg.Judge
+	if j == nil {
+		return false
+	}
+	if sw, ok := j.(interface{ Enabled() bool }); ok {
+		return sw.Enabled()
+	}
+	return true
+}
+
+// canJudge reports whether s may ask the AI judge: the server has one that is
+// switched on and the player is signed in. Guests cannot, so that the shared
+// allowance is not spent anonymously. The state a player sees refreshes with
+// the next frame after the operator flips the switch; an ask_judge in between
+// is refused by judgeRefusal.
 func (r *room) canJudge(s *session) bool {
-	return r.h.cfg.Judge != nil && s.userID != ""
+	return r.judgeEnabled() && s.userID != ""
 }
 
 // judgeRefusal is the error code for an ask_judge that must not reach the
 // engine, or "".
 func (r *room) judgeRefusal(s *session) string {
 	switch {
-	case r.h.cfg.Judge == nil:
+	case !r.judgeEnabled():
 		return protocol.ErrJudgeUnavailable
 	case s.userID == "":
 		return protocol.ErrLoginRequired
@@ -70,6 +86,13 @@ func (r *room) callJudge(j Judge, req judge.Request) (results []judge.Result, er
 func (r *room) onJudged(q game.JudgeQuery, results []judge.Result, err error) {
 	now := r.clock.Now()
 	prev := r.g.Phase
+
+	// The operator may have switched the judge off while the answer travelled
+	// to this goroutine: nothing is applied after that (the Switch already
+	// discards what is answered later).
+	if err == nil && !r.judgeEnabled() {
+		err = judge.ErrDisabled
+	}
 
 	var verdicts []game.AIVerdict
 	if err == nil {

@@ -10,6 +10,8 @@ import { ApiError, api, type RoomInfo } from '$lib/api';
 import { hasRoomMark, clearRoomMark } from '$lib/game/roomMark';
 import { i18n } from '$lib/i18n.svelte';
 import { profile } from '$lib/profile.svelte';
+import { terms } from '$lib/safety/terms.svelte';
+import { TERMS_OK } from '$lib/safety/safety.testkit';
 import { toasts } from '$lib/toast.svelte';
 import Home from './+page.svelte';
 
@@ -42,6 +44,7 @@ const info = (over: Partial<RoomInfo> = {}): RoomInfo => ({
 	lang: 'es',
 	joinable: true,
 	visibility: 'private',
+	roomInstanceId: '01020304-0506-4708-890a-0b0c0d0e0f10',
 	...over
 });
 
@@ -72,6 +75,7 @@ describe('Home actions', () => {
 		profile.setAvatar({ emoji: '🍓', color: 'strawberry' });
 		toasts.items = [];
 		clearRoomMark('KT7P');
+		terms.apply(TERMS_OK);
 		fake.reset();
 		route.url = new URL('http://localhost/');
 		vi.mocked(goto).mockClear();
@@ -128,7 +132,8 @@ describe('Home actions', () => {
 					/^https:\/\/(cafecito\.app|ko-fi\.com)\//
 				);
 				expect(link.parentElement, locale).toBe(
-					screen.getByRole('link', { name: privacy }).parentElement
+					// the legal links sit in a `display: contents` <nav>: the row is its parent
+					screen.getByRole('link', { name: privacy }).closest('nav')?.parentElement
 				);
 				unmount();
 			}

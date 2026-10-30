@@ -13,7 +13,8 @@
 			"./messages/account/{locale}.json",
 			"./messages/support/{locale}.json",
 			"./messages/rooms/{locale}.json",
-			"./messages/pwa/{locale}.json"
+			"./messages/pwa/{locale}.json",
+			"./messages/safety/{locale}.json"
 		]
 	}
 }

@@ -412,18 +412,36 @@ describe('the app sources', () => {
 		expect(offenders).toEqual([]);
 	});
 
-	it('static/privacy.html is plain HTML the policy allows: no script, <style>, handler or style attribute', () => {
-		const html = read('static/privacy.html');
-		// analyzeHtml expects the SPA shell, so only its generic findings are used
-		const { problems, styleAttrs } = analyzeHtml(html);
-		expect(problems.filter((p) => !p.startsWith('expected exactly one SvelteKit'))).toEqual([]);
-		expect(styleAttrs).toEqual([]);
-		expect(html).not.toMatch(/<script\b/i);
-		// the page loads nothing from other sites (links to them are fine, embedded resources are not)
-		expect(html).not.toMatch(
-			/<(?:img|link|script|iframe|source|object|embed)\b[^>]*\s(?:src|href)\s*=\s*["']?(?:https?:)?\/\//i
-		);
-	});
+	it.each(['privacy', 'terms', 'delete-account'])(
+		'static/%s.html is served before the SPA fallback, revalidated, with the security headers',
+		(page) => {
+			const nginx = read('nginx.conf');
+			const block = nginx.match(
+				new RegExp(String.raw`location ~ \^/[^\n]*${page}[^\n]*\{[^}]*\}`)
+			)?.[0];
+			expect(block, `no nginx location for /${page}`).toBeDefined();
+			expect(block).toContain('Cache-Control "no-cache" always');
+			expect(block).toContain('security-headers.conf');
+			expect(block).toContain(`try_files /${page}.html =404`);
+			expect(nginx.indexOf(block!)).toBeLessThan(nginx.indexOf('try_files $uri /index.html'));
+		}
+	);
+
+	it.each(['privacy', 'terms', 'delete-account'])(
+		'static/%s.html is plain HTML the policy allows: no script, <style>, handler or style attribute',
+		(page) => {
+			const html = read(`static/${page}.html`);
+			// analyzeHtml expects the SPA shell, so only its generic findings are used
+			const { problems, styleAttrs } = analyzeHtml(html);
+			expect(problems.filter((p) => !p.startsWith('expected exactly one SvelteKit'))).toEqual([]);
+			expect(styleAttrs).toEqual([]);
+			expect(html).not.toMatch(/<script\b/i);
+			// the page loads nothing from other sites (links to them are fine, embedded resources are not)
+			expect(html).not.toMatch(
+				/<(?:img|link|script|iframe|source|object|embed)\b[^>]*\s(?:src|href)\s*=\s*["']?(?:https?:)?\/\//i
+			);
+		}
+	);
 
 	describe.runIf(existsSync(join(root, 'build', 'index.html')))('the built output', () => {
 		it('contains only inline code the policy knows about', () => {

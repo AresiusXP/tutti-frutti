@@ -1,5 +1,6 @@
 /*
- * Styles of the privacy policy page (static/privacy.html). The page is plain HTML on purpose:
+ * Styles of the privacy policy page (static/privacy.html), shared by its sibling legal pages
+ * (static/terms.html, static/delete-account.html). The pages are plain HTML on purpose:
  * no script, no inline style (the CSP allows neither), readable without JavaScript by people and
  * by crawlers. The palette is the app's (src/app.css).
  *
@@ -164,11 +165,13 @@ h3 {
 
 p,
 ul,
+ol,
 dl {
 	margin: 0.5rem 0;
 }
 
-ul {
+ul,
+ol {
 	padding-left: 1.25rem;
 }
 

@@ -244,7 +244,12 @@ async function fakeAccount(player: Player, account: Account): Promise<void> {
 		route.fulfill({ json: body });
 	await player.page.route(
 		'**/api/session',
-		json({ guest: true, googleEnabled: true, loggedIn: account.loggedIn })
+		json({
+			guest: true,
+			googleEnabled: true,
+			loggedIn: account.loggedIn,
+			terms: { requiredVersion: '2026-10', acceptedVersion: '2026-10', acceptanceRequired: false }
+		})
 	);
 	if (!account.loggedIn) return;
 	await player.page.route(

@@ -25,6 +25,7 @@ import (
 	"github.com/AresiusXP/tutti-frutti/server/internal/httpapi"
 	"github.com/AresiusXP/tutti-frutti/server/internal/protocol"
 	"github.com/AresiusXP/tutti-frutti/server/internal/room"
+	"github.com/AresiusXP/tutti-frutti/server/internal/safety"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 	"github.com/AresiusXP/tutti-frutti/server/internal/ws"
 )
@@ -63,6 +64,11 @@ type stackOpts struct {
 	limits httpapi.Limits
 	// idp enables Google login against this fake identity provider.
 	idp *authtest.IdP
+	// terms wires the terms gate and the report endpoint like cmd/server does
+	// (the other tests run without them: every guest may join).
+	terms bool
+	// api tweaks the httpapi.Options before the REST server is built.
+	api func(*httpapi.Options)
 }
 
 type stack struct {
@@ -143,6 +149,11 @@ func newStack(t *testing.T, o stackOpts) *stack {
 	if backend != nil {
 		cfg.Recorder = backend
 	}
+	var gate *safety.Terms
+	if o.terms && backend != nil {
+		gate = safety.NewTerms(backend, clk.Now)
+		cfg.Terms = gate
+	}
 	if o.hub != nil {
 		o.hub(&cfg)
 	}
@@ -198,6 +209,13 @@ func newStack(t *testing.T, o stackOpts) *stack {
 	}
 	if backend != nil {
 		httpOpts.Accounts = backend
+	}
+	if gate != nil {
+		httpOpts.Terms = gate
+		httpOpts.Safety = backend
+	}
+	if o.api != nil {
+		o.api(&httpOpts)
 	}
 	api := httpapi.New(httpOpts)
 	deps := ws.Deps{

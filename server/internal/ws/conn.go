@@ -43,7 +43,9 @@ type conn struct {
 	ws       *websocket.Conn
 	playerID string
 	// userID is the account the upgrade request was signed in with ("" for a
-	// guest). It is only written before run starts.
+	// guest). It is only written before run starts. It is what the connection
+	// arrived with, not an authority: the room keeps its own copy per session and
+	// clears it when the account is deleted (room.Hub.ForgetAccount).
 	userID string
 	ip     string
 	log    *slog.Logger

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
+	"github.com/AresiusXP/tutti-frutti/server/internal/safety"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 )
 
@@ -50,6 +51,22 @@ type Persisted struct {
 	// outbox; it is absent in older ones (a final-phase snapshot with a game id
 	// and no outbox marker records its game again, see restoreStats).
 	Outbox int `json:"outbox,omitempty"`
+	// InstanceID is the room instance id and MatchID the id of the match in
+	// progress (protocol.State carries both). They survive restarts and the
+	// rematch keeps InstanceID and renews MatchID. Snapshots written before the
+	// safety layer have neither: the restore mints new ones.
+	InstanceID string `json:"instanceId,omitempty"`
+	MatchID    string `json:"matchId,omitempty"`
+	// LabelAuthors records who submitted each custom category label (by label
+	// text), captured when the host's settings were accepted. A label that was
+	// merely kept or reordered keeps its first author; a label without an entry
+	// (a legacy snapshot) has an unknown author. Reports need it, nothing else.
+	LabelAuthors map[string]safety.Author `json:"labelAuthors,omitempty"`
+	// Accounts links player ids to the accounts they last joined with. Unlike
+	// Users (statistics, private rooms only, frozen once a player took part)
+	// it exists for every room and follows the latest join: it only tells a
+	// report who the account behind a seat is.
+	Accounts map[string]string `json:"accounts,omitempty"`
 
 	// droppedPending counts the pending records decodePersisted discarded
 	// (unreadable, duplicated or beyond the bound).
@@ -121,7 +138,44 @@ func decodePersisted(snap store.Snapshot) (Persisted, *game.Game, error) {
 	}
 	p.Users, p.GameID = cleanLinks(&g, p.Users, p.GameID)
 	p.Pending, p.droppedPending = cleanPending(p.Pending)
+	cleanProvenance(&g, &p)
 	return p, &g, nil
+}
+
+// cleanProvenance keeps the report-only records a snapshot may be trusted for:
+// well-formed instance ids, authors of the custom labels that exist and account
+// links of the seats that exist. An invalid instance id becomes empty (the
+// restore mints a new one).
+func cleanProvenance(g *game.Game, p *Persisted) {
+	if !store.ValidID(p.InstanceID) {
+		p.InstanceID = ""
+	}
+	if !store.ValidID(p.MatchID) {
+		p.MatchID = ""
+	}
+	var authors map[string]safety.Author
+	for _, ref := range g.Settings.Categories {
+		a, ok := p.LabelAuthors[ref.Custom]
+		if ref.Custom == "" || !ok || !safety.ValidToken(a.Guest) || (a.User != "" && !store.ValidID(a.User)) {
+			continue
+		}
+		if authors == nil {
+			authors = map[string]safety.Author{}
+		}
+		authors[ref.Custom] = a
+	}
+	p.LabelAuthors = authors
+	var accounts map[string]string
+	for id, user := range p.Accounts {
+		if g.IsAutomated(id) || !store.ValidID(user) || !slices.ContainsFunc(g.Players, func(pl game.Player) bool { return pl.ID == id }) {
+			continue
+		}
+		if accounts == nil {
+			accounts = map[string]string{}
+		}
+		accounts[id] = user
+	}
+	p.Accounts = accounts
 }
 
 // cleanPending keeps the outbox records the store could accept, without

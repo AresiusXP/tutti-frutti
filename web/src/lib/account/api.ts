@@ -5,6 +5,7 @@
  * `ApiError` (status 0 = no response); responses are validated, never trusted.
  */
 import { ApiError } from '$lib/api';
+import { parseTerms } from '$lib/safety/api';
 import type { Me, SavedProfile, SessionInfo, Stats } from './types';
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -18,6 +19,9 @@ export interface AccountApi {
 	deleteMe(): Promise<void>;
 	logout(): Promise<void>;
 }
+
+/** What a session without a `terms` object means: no acceptance is asked for. */
+const NO_TERMS = { requiredVersion: '', acceptedVersion: null, acceptanceRequired: false } as const;
 
 const STATUS_CODES: Record<number, string> = {
 	401: 'unauthorized',
@@ -86,11 +90,13 @@ export function createAccountApi(
 			const res = await request('/api/session');
 			const data = await body(res);
 			if (!isRecord(data)) throw new ApiError(res.status, 'unknown');
-			// A server without accounts (Phase 3) only sends `guest`: both flags are then false.
+			// A server without accounts (Phase 3) only sends `guest`: both flags are then false. A server
+			// without the safety layer sends no `terms`: nothing to accept.
 			return {
 				guest: data.guest !== false,
 				googleEnabled: data.googleEnabled === true,
-				loggedIn: data.loggedIn === true
+				loggedIn: data.loggedIn === true,
+				terms: parseTerms(data.terms) ?? NO_TERMS
 			};
 		},
 

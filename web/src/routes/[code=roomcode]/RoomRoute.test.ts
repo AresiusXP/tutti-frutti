@@ -9,6 +9,8 @@ import { clearRoomMark, hasRoomMark, markRoom } from '$lib/game/roomMark';
 import type { ClosedReason } from '$lib/game/session';
 import { i18n } from '$lib/i18n.svelte';
 import { profile } from '$lib/profile.svelte';
+import { terms } from '$lib/safety/terms.svelte';
+import { TERMS_OK } from '$lib/safety/safety.testkit';
 import { toasts } from '$lib/toast.svelte';
 import RoomRoute from './RoomRoute.svelte';
 
@@ -49,6 +51,7 @@ describe('room route', () => {
 		profile.setNickname('Ana');
 		clearRoomMark('KT7P');
 		toasts.items = [];
+		terms.apply(TERMS_OK);
 		vi.mocked(goto).mockClear();
 	});
 

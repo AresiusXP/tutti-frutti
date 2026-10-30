@@ -159,6 +159,98 @@ describe('derived state', () => {
 	});
 });
 
+describe('content safety', () => {
+	it('exposes the room instance id of the latest state (null before and without the field)', async () => {
+		const h = harness();
+		expect(h.session.roomInstanceId).toBeNull();
+		await h.join(lobbyView());
+		expect(h.session.roomInstanceId).toBeNull();
+		h.sock().receive('state', {
+			code: 'KT7P',
+			serverTime: Date.now(),
+			view: lobbyView(),
+			roomInstanceId: '0b7f6c0e-5a54-4d57-9d35-1c1a1c6f6a01',
+			matchInstanceId: '7c2f1a9e-3a7c-4f0b-8f6c-2d9b2a2d5b02'
+		});
+		expect(h.session.roomInstanceId).toBe('0b7f6c0e-5a54-4d57-9d35-1c1a1c6f6a01');
+		h.sock().receive('state', {
+			code: 'KT7P',
+			serverTime: Date.now(),
+			view: lobbyView(),
+			roomInstanceId: ''
+		});
+		expect(h.session.roomInstanceId).toBeNull();
+	});
+
+	it('terms_required answered to the join is a final join_rejected (the room route shows the terms and joins again)', async () => {
+		const h = harness();
+		await h.settle();
+		h.sock().open();
+		h.sock().receive('error', { code: 'terms_required', ref: 'join' });
+		expect(h.session.status).toBe('closed');
+		expect([h.session.closedReason, h.session.joinError]).toEqual([
+			'join_rejected',
+			'terms_required'
+		]);
+		await h.advance(60_000);
+		expect(h.sockets).toHaveLength(1);
+	});
+
+	it('terms_required on a RECONNECT (a new version was deployed) is the same', async () => {
+		const h = await connected();
+		h.sock().serverClose(1012);
+		await h.advance(5000);
+		h.sock().open();
+		h.sock().receive('error', { code: 'terms_required', ref: 'join' });
+		expect([h.session.closedReason, h.session.joinError]).toEqual([
+			'join_rejected',
+			'terms_required'
+		]);
+	});
+
+	it('join_unavailable (a block or a restriction) closes as join_rejected, whatever the transport said', async () => {
+		const h = harness();
+		await h.settle();
+		h.sock().open();
+		h.sock().receive('error', { code: 'join_unavailable', ref: 'join' });
+		expect([h.session.closedReason, h.session.joinError]).toEqual([
+			'join_rejected',
+			'join_unavailable'
+		]);
+	});
+
+	it('join_unavailable from the preflight is final too, with no socket and no retry loop', async () => {
+		const h = harness({ room: [json({ error: 'join_unavailable' }, 403)] });
+		await h.settle();
+		expect([h.session.closedReason, h.session.joinError]).toEqual([
+			'join_rejected',
+			'join_unavailable'
+		]);
+		expect(h.sockets).toHaveLength(0);
+		await h.advance(60_000);
+		expect(h.roomCalls()).toBe(1);
+	});
+
+	it('leaveLocally() closes as left WITHOUT sending a leave (the server already removed the seat)', async () => {
+		const h = await connected();
+		const socket = h.sock();
+		h.session.leaveLocally();
+		expect(h.session.status).toBe('closed');
+		expect(h.session.closedReason).toBe('left');
+		expect(socket.types).not.toContain('leave');
+		await h.advance(60_000);
+		expect(h.sockets).toHaveLength(1);
+	});
+
+	it('leaveLocally() on a closed session changes nothing', async () => {
+		const h = await connected();
+		h.sock().serverClose(4002);
+		expect(h.session.closedReason).toBe('kicked');
+		h.session.leaveLocally();
+		expect(h.session.closedReason).toBe('kicked');
+	});
+});
+
 describe('AI judge', () => {
 	it('takes visibility only from state and defaults old fixtures to private', async () => {
 		const h = harness();

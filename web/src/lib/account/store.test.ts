@@ -9,6 +9,8 @@ import {
 	SESSION_GUEST,
 	SESSION_IN,
 	STATS,
+	TERMS_ACCEPTED,
+	TERMS_PENDING,
 	deferred,
 	empty,
 	json,
@@ -657,5 +659,118 @@ describe('loadStats', () => {
 		slow.resolve(json({ ...STATS, gamesPlayed: 1 }));
 		await first;
 		expect(r.store.stats?.gamesPlayed).toBe(99);
+	});
+});
+
+describe('terms', () => {
+	const PENDING = { ...SESSION_IN, terms: TERMS_PENDING };
+
+	it('the session feeds the shared terms state, for guests and for signed-in users', async () => {
+		const guest = rig();
+		guest.server.on('GET /api/session', json({ ...SESSION_GUEST, terms: TERMS_PENDING }));
+		await guest.store.init();
+		expect([
+			guest.terms.status,
+			guest.terms.acceptanceRequired,
+			guest.terms.requiredVersion
+		]).toEqual(['ready', true, '2026-10']);
+		const accepted = signedIn();
+		await accepted.store.init();
+		expect(accepted.terms.acceptanceRequired).toBe(false);
+		expect(accepted.terms.acceptedVersion).toBe('2026-10');
+	});
+
+	it('uploads wait for the acceptance: nothing is sent, no failure counted, nobody is nagged', async () => {
+		const r = signedIn();
+		r.server.on('GET /api/session', json(PENDING));
+		await r.store.init();
+		await tick();
+		await edit(r, 'Nuevo');
+		await vi.advanceTimersByTimeAsync(10_000);
+		r.win.fire('pagehide');
+		await vi.advanceTimersByTimeAsync(10_000);
+		expect(r.server.callsTo(PUT)).toHaveLength(0);
+		expect(r.notify).not.toHaveBeenCalled();
+		expect(await r.store.saveProfile()).toEqual({ ok: false, code: 'terms_required' });
+	});
+
+	it('resumes once the terms are accepted: the pending change is uploaded, once', async () => {
+		const r = signedIn();
+		r.server.on('GET /api/session', json(PENDING));
+		await r.store.init();
+		await tick();
+		await edit(r, 'Nuevo');
+		await vi.advanceTimersByTimeAsync(5000);
+		expect(r.server.callsTo(PUT)).toHaveLength(0);
+		r.terms.apply(TERMS_ACCEPTED);
+		await tick();
+		await vi.advanceTimersByTimeAsync(0);
+		const puts = r.server.callsTo(PUT);
+		expect(puts).toHaveLength(1);
+		expect(puts[0].body).toEqual({
+			nickname: 'Nuevo',
+			avatar: { emoji: '🍓', color: 'strawberry' }
+		});
+		await vi.advanceTimersByTimeAsync(10_000);
+		expect(r.server.callsTo(PUT)).toHaveLength(1);
+	});
+
+	it('first login with the terms pending: the local nickname is uploaded after the acceptance', async () => {
+		const r = signedIn(ME_FIRST, { nickname: 'Beto', avatar: { emoji: '🍉', color: 'lime' } });
+		r.server.on('GET /api/session', json(PENDING));
+		await r.store.init();
+		await tick();
+		await vi.advanceTimersByTimeAsync(5000);
+		expect(r.server.callsTo(PUT)).toHaveLength(0);
+		r.terms.apply(TERMS_ACCEPTED);
+		await tick();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(r.server.callsTo(PUT)).toHaveLength(1);
+		expect(r.server.callsTo(PUT)[0].body).toMatchObject({ nickname: 'Beto' });
+	});
+
+	it('403 terms_required from the server (a stale idea): pauses, never loops, and resumes after the acceptance', async () => {
+		const r = await (async () => {
+			const rg = signedIn();
+			await rg.store.init();
+			await tick();
+			return rg;
+		})();
+		r.server.on(PUT, json({ error: 'terms_required' }, 403));
+		await edit(r, 'Uno');
+		await vi.advanceTimersByTimeAsync(PROFILE_SAVE_DEBOUNCE_MS);
+		expect(r.server.callsTo(PUT)).toHaveLength(1);
+		expect(r.terms.acceptanceRequired).toBe(true);
+		// no retry timer, no toast, even after many "failures" worth of time
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(r.server.callsTo(PUT)).toHaveLength(1);
+		for (let i = 0; i < SAVE_FAILURES_BEFORE_TOAST + 1; i++) {
+			await edit(r, `Uno ${i}`);
+			await vi.advanceTimersByTimeAsync(PROFILE_SAVE_DEBOUNCE_MS);
+		}
+		expect(r.server.callsTo(PUT)).toHaveLength(1);
+		expect(r.notify).not.toHaveBeenCalled();
+		r.server.on(PUT, empty());
+		r.terms.apply(TERMS_ACCEPTED);
+		await tick();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(r.server.callsTo(PUT)).toHaveLength(2);
+		expect(r.server.callsTo(PUT)[1].body).toMatchObject({
+			nickname: `Uno ${SAVE_FAILURES_BEFORE_TOAST}`
+		});
+	});
+
+	it('logging out and deleting the account never wait for the terms', async () => {
+		const r = signedIn();
+		r.server.on('GET /api/session', json(PENDING));
+		await r.store.init();
+		await tick();
+		await edit(r, 'Pendiente');
+		expect(await r.store.logout()).toEqual({ ok: true });
+		expect(r.server.callsTo('POST /api/auth/logout')).toHaveLength(1);
+		const d = signedIn();
+		d.server.on('GET /api/session', json(PENDING));
+		await d.store.init();
+		expect(await d.store.deleteAccount()).toEqual({ ok: true });
 	});
 });

@@ -27,6 +27,7 @@ const info = (over: Partial<RoomInfo> = {}): RoomInfo => ({
 	lang: 'es',
 	joinable: true,
 	visibility: 'private',
+	roomInstanceId: '01020304-0506-4708-890a-0b0c0d0e0f10',
 	...over
 });
 
@@ -89,6 +90,15 @@ describe('JoinGate', () => {
 			expect(headingOnes(document.body), title).toEqual([title]);
 			unmount();
 		}
+	});
+
+	it('a safety refusal at the preflight (join_unavailable) is the generic sentence, with no retry and no reason', async () => {
+		i18n.set('en');
+		gate(() => Promise.reject(new ApiError(403, 'join_unavailable')));
+		expect(await screen.findByText("You can't join this game right now.")).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /try again|join/i })).toBeNull();
+		expect(screen.getByRole('link', { name: 'Go home' }).getAttribute('href')).toBe('/');
+		expect(headingOnes(document.body)).toHaveLength(1);
 	});
 
 	it('Join is disabled while checking and while there is no nickname', async () => {

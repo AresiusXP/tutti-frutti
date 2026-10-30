@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/AresiusXP/tutti-frutti/server/internal/api"
+	"github.com/AresiusXP/tutti-frutti/server/internal/auth"
 	"github.com/AresiusXP/tutti-frutti/server/internal/catalog"
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
 	"github.com/AresiusXP/tutti-frutti/server/internal/ratelimit"
@@ -57,11 +58,27 @@ func (s *Server) limitKey(r *http.Request) string {
 }
 
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
-	s.guests.Ensure(w, r)
+	guestID, fresh := s.guestOf(w, r)
 	info := api.SessionInfo{Guest: true, GoogleEnabled: s.google != nil}
 	if s.sessions != nil {
-		_, info.LoggedIn = s.sessions.Identify(r)
+		// loggedIn is a valid cookie whose account still exists; the cookie of a
+		// deleted account is expired here too.
+		var status auth.SessionStatus
+		_, status = s.sessions.Lookup(r)
+		info.LoggedIn = status == auth.SessionActive
+		if status == auth.SessionGone {
+			s.sessions.Clear(w)
+		}
 	}
+	terms, err := s.termsStatus(r.Context(), guestID, fresh)
+	if err != nil {
+		// Unknown acceptance is never reported as "not accepted": the client
+		// retries (it never gives up on a 503).
+		s.log.Warn("the terms gate could not tell; session answered 503", "err", err)
+		retryable(w)
+		return
+	}
+	info.Terms = terms
 	writeJSON(w, http.StatusOK, info)
 }
 
@@ -104,9 +121,17 @@ func (s *Server) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	playerID := s.guests.Ensure(w, r)
+	playerID, fresh := s.guestOf(w, r)
+	if !s.requireTerms(w, r, playerID, fresh) {
+		return
+	}
+	userID := ""
+	if s.sessions != nil {
+		userID, _ = s.sessions.Identify(r)
+	}
 	code, err := s.rooms.Create(r.Context(), room.CreateRequest{
 		PlayerID:   playerID,
+		UserID:     userID,
 		Name:       req.Name,
 		Avatar:     req.Avatar,
 		Lang:       req.Lang,
@@ -135,7 +160,13 @@ func (s *Server) handlePublicRooms(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "server_busy")
 		return
 	}
-	rooms := s.rooms.(publicRoomLister).PublicRooms(lang)
+	var rooms []api.PublicRoom
+	if l, ok := s.rooms.(callerLister); ok {
+		// The caller's own blocks decide what it sees; anonymous callers see all.
+		rooms = l.PublicRoomsFor(lang, s.callerOf(r))
+	} else {
+		rooms = s.rooms.(publicRoomLister).PublicRooms(lang)
+	}
 	if rooms == nil {
 		rooms = []api.PublicRoom{}
 	}
@@ -143,6 +174,11 @@ func (s *Server) handlePublicRooms(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) writeCreateError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, room.ErrRestricted) {
+		// Generic on purpose, like the refusal of a join: it never says why.
+		writeError(w, http.StatusForbidden, api.ErrCodeJoinUnavailable)
+		return
+	}
 	if errors.Is(err, room.ErrTooManyRooms) || errors.Is(err, room.ErrShuttingDown) {
 		writeError(w, http.StatusServiceUnavailable, "server_busy")
 		return
@@ -162,7 +198,15 @@ func (s *Server) handleRoomInfo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "room_not_found")
 		return
 	}
-	info, found := s.rooms.Info(code)
+	var (
+		info  room.Info
+		found bool
+	)
+	if c, ok := s.rooms.(callerInfo); ok {
+		info, found = c.InfoFor(code, s.callerOf(r))
+	} else {
+		info, found = s.rooms.Info(code)
+	}
 	if !found {
 		// While the server drains (deploy / node reboot) rooms vanish from
 		// memory but are restored from their snapshot by the next pod, so

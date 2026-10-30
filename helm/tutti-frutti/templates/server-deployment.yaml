@@ -107,6 +107,13 @@ spec:
                   optional: true
             - name: JUDGE_DAILY_NEURONS
               value: {{ .Values.server.judge.dailyNeurons | quote }}
+            # The operator's control socket (docs/MODERATION.md): a Unix socket in
+            # the writable emptyDir below, so it works with a read-only root
+            # filesystem. It is not a port: no Service or Ingress can reach it.
+            {{- with .Values.server.moderation.socket }}
+            - name: MODERATION_SOCKET
+              value: {{ . | quote }}
+            {{- end }}
             {{- with .Values.server.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -139,6 +146,16 @@ spec:
             {{- toYaml .Values.server.resources | nindent 12 }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          {{- if .Values.server.moderation.socket }}
+          volumeMounts:
+            - name: moderation
+              mountPath: {{ dir .Values.server.moderation.socket }}
+      volumes:
+        - name: moderation
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
+          {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

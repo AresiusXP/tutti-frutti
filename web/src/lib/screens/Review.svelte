@@ -224,6 +224,8 @@
 							{b}
 							answerA={round.answers[proposal.playerA]?.[category] ?? ''}
 							answerB={round.answers[proposal.playerB]?.[category] ?? ''}
+							round={round.number}
+							{category}
 							tally={mergeTally(proposal, round.reviewVoters, meId)}
 							canVote={voter}
 							onvote={(yes) => session.voteMerge(proposal.id, yes)}
@@ -299,6 +301,8 @@
 						<AnswerCard
 							{player}
 							isMe={id === meId}
+							round={round.number}
+							{category}
 							answer={round.answers[id]?.[category] ?? ''}
 							cell={round.result?.players[id]?.cells[category]}
 							letter={round.letter}

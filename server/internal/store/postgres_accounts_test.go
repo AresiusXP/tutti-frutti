@@ -16,7 +16,7 @@ import (
 func newTestAccounts(t *testing.T, dsn string) *Postgres {
 	t.Helper()
 	p := openTestPostgres(t, dsn)
-	adminExec(t, dsn, `TRUNCATE room_snapshots, users CASCADE`)
+	adminExec(t, dsn, `TRUNCATE room_snapshots, users, reports, terms_acceptances, blocks, restrictions, moderation_actions CASCADE`)
 	return p
 }
 

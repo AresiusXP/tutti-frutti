@@ -2,8 +2,9 @@
 // server restart, and the accounts of signed-in users with their lifetime
 // statistics. The snapshot payload is opaque to the store: the room layer owns
 // the JSON schema. Implementations: Memory (tests, local dev without a
-// database) and Postgres; both implement [Backend], that is [Store] (snapshots)
-// and [Accounts] (users, profile, game results).
+// database) and Postgres; both implement [Backend], that is [Store] (snapshots),
+// [Accounts] (users, profile, game results) and [Safety] (terms acceptances and
+// content reports).
 //
 // # Implementations
 //
@@ -39,6 +40,30 @@
 // CASCADE). Both implementations validate their arguments identically
 // ([ErrInvalidAccount], [ErrInvalidGame]) and report a missing user as
 // [ErrUserNotFound]. User and game ids are lower-case UUIDs ([NewID], [ValidID]).
+//
+// # Safety
+//
+// [Safety] keeps the guests' acceptances of the terms (idempotent per (guest,
+// version): the first record wins) and the content reports (idempotent per
+// (reporter, idempotency key): a retry returns the original id). Neither table has
+// a foreign key to rooms or accounts, so a report survives the deletion of both;
+// [Safety.PurgeReports] deletes the reports whose purge time (created + 90 days, or
+// resolved + 30 days) has come. Both implementations validate identically
+// ([ErrInvalidTerms], [ErrInvalidReport]) and refuse evidence that jsonb cannot
+// store (a NUL escape) before the database does. An acceptance older than
+// safety.AcceptanceTTL no longer counts and is replaced by a new one;
+// [Safety.PurgeTerms] deletes the old ones.
+//
+// # Moderation
+//
+// [Moderation] keeps the blocks (idempotent per (blocker, blocked), at most 100 per
+// blocker, [ErrBlockLimit]), the moderation restrictions and the audit log of the
+// operator's actions, again without foreign keys. Creating or lifting a
+// restriction and resolving a report write their audit record in the same
+// transaction; [Moderation.PurgeModeration] deletes the restrictions that ended more
+// than 90 days ago and the audit records older than a year. The callers update
+// safety.Policy only after a write returned nil. [FullBackend] is what cmd/server
+// needs: every contract above.
 //
 // # Testing
 //

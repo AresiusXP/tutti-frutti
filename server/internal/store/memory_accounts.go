@@ -7,6 +7,8 @@ import (
 	"github.com/AresiusXP/tutti-frutti/server/internal/api"
 )
 
+var _ GameSkipper = (*Memory)(nil)
+
 // memUser is a user and everything that hangs off it (what the database
 // deletes by cascade).
 type memUser struct {
@@ -95,17 +97,25 @@ func (m *Memory) DeleteUser(ctx context.Context, id string) error {
 
 // RecordGame implements Accounts.
 func (m *Memory) RecordGame(ctx context.Context, rec GameRecord) error {
+	_, err := m.RecordGameSkips(ctx, rec)
+	return err
+}
+
+// RecordGameSkips implements GameSkipper.
+func (m *Memory) RecordGameSkips(ctx context.Context, rec GameRecord) (int, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return 0, err
 	}
 	if err := validateGame(rec); err != nil {
-		return err
+		return 0, err
 	}
 	m.accMu.Lock()
 	defer m.accMu.Unlock()
+	skipped := 0
 	for _, r := range firstPerUser(rec.Results) {
 		u, ok := m.users[r.UserID]
 		if !ok {
+			skipped++
 			continue
 		}
 		if _, done := u.games[rec.ID]; done {
@@ -114,7 +124,7 @@ func (m *Memory) RecordGame(ctx context.Context, rec GameRecord) error {
 		u.games[rec.ID] = struct{}{}
 		u.stats = addResult(u.stats, r)
 	}
-	return nil
+	return skipped, nil
 }
 
 // UserStats implements Accounts.

@@ -146,3 +146,8 @@ func StartsWithLetter(answer, letter string, lang Lang) bool {
 	l := Normalize(letter, lang)
 	return l != "" && strings.HasPrefix(Normalize(answer, lang), l)
 }
+
+// CleanText is cleanText for the room and REST layers: the same cleaner as
+// nicknames and custom labels (invisible format and control characters removed,
+// emoji joiners kept, whitespace trimmed and collapsed). It never truncates.
+func CleanText(s string) string { return cleanText(s) }

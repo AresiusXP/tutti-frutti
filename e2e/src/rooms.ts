@@ -4,6 +4,7 @@ import { ORIGIN } from './env';
 import { expect, type App } from './fixtures';
 import type { Locale } from './messages';
 import type { Player } from './player';
+import { acceptTerms } from './terms';
 
 /** REST creation alone does not publish a room: joinRoomSocket claims the host seat. */
 export async function createRoomAPI(
@@ -12,6 +13,8 @@ export async function createRoomAPI(
 	visibility?: 'private' | 'public'
 ): Promise<string> {
 	await app.beforeRoomCreation();
+	// Creating a room needs the terms (403 terms_required otherwise): a no-op for a player that has them.
+	await acceptTerms(host.context.request, host.locale);
 	const response = await host.context.request.post('/api/rooms', {
 		headers: { Origin: ORIGIN },
 		data: {
@@ -26,7 +29,7 @@ export async function createRoomAPI(
 }
 
 export async function joinRoomSocket(app: App, player: Player, code: string): Promise<Bot> {
-	await player.context.request.get('/api/session');
+	await acceptTerms(player.context.request, player.locale);
 	const cookie = (await player.context.cookies()).find((item) => item.name === 'tf_guest');
 	if (!cookie) throw new Error('missing guest cookie');
 	const client = await Bot.join(code, player.name, `${cookie.name}=${cookie.value}`);

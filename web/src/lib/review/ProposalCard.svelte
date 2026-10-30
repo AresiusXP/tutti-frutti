@@ -2,6 +2,7 @@
 	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { Player, ProposalView } from '$lib/protocol';
+	import SafetyButton from '$lib/safety/SafetyButton.svelte';
 	import { avatarOf } from './players';
 	import type { MergeTally } from './votes';
 
@@ -11,12 +12,16 @@
 		b: Player;
 		answerA: string;
 		answerB: string;
+		/** Round number (1-based) and category index: what a report of one of the answers names. */
+		round: number;
+		category: number;
 		tally: MergeTally;
 		/** The viewer may vote (participant). */
 		canVote: boolean;
 		onvote?: (yes: boolean) => void;
 	}
-	let { proposal, a, b, answerA, answerB, tally, canVote, onvote }: Props = $props();
+	let { proposal, a, b, answerA, answerB, round, category, tally, canVote, onvote }: Props =
+		$props();
 </script>
 
 <li
@@ -36,6 +41,18 @@
 		<p class="min-w-0 flex-1 text-base leading-tight font-bold [overflow-wrap:anywhere]">
 			{m.review_proposal_title({ a: a.name, b: b.name })}
 		</p>
+		{#each [{ player: a, text: answerA }, { player: b, text: answerB }] as entry (entry.player.id)}
+			{#if entry.text.trim() !== ''}
+				<SafetyButton
+					request={{
+						start: 'person',
+						person: { id: entry.player.id, name: entry.player.name },
+						answer: { round, category, text: entry.text }
+					}}
+					label={m.report_proposal_aria({ name: entry.player.name })}
+				/>
+			{/if}
+		{/each}
 	</div>
 	<p class="mt-1 text-lg font-bold [overflow-wrap:anywhere] break-words">
 		{m.review_proposal_answers({ a: answerA, b: answerB })}

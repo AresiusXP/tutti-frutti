@@ -20,6 +20,7 @@ import (
 	"github.com/AresiusXP/tutti-frutti/server/internal/api"
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
 	"github.com/AresiusXP/tutti-frutti/server/internal/judge"
+	"github.com/AresiusXP/tutti-frutti/server/internal/safety"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 )
 
@@ -88,6 +89,11 @@ type Config struct {
 	// to an account (see UserLinked). Nil disables statistics: no link is kept
 	// and nothing is recorded.
 	Recorder Recorder
+	// Accounts is where a restore checks that the accounts named by a snapshot
+	// still exist (see forgetDeletedAccounts). Nil: the Recorder is used when it
+	// also keeps accounts (cmd/server passes the store as both), else snapshots
+	// are trusted as they are.
+	Accounts AccountDirectory
 	// Judge is the AI judge of the review; nil turns the feature off (the
 	// host is not offered the button and ask_judge is refused).
 	Judge Judge
@@ -105,6 +111,25 @@ type Config struct {
 	// BotRand returns a value in [0,n). Calls are serialized by the hub, so an
 	// injected deterministic source need not be safe for concurrent use.
 	BotRand func(n int) int
+	// Terms gates "join": a guest that has not accepted the current terms is
+	// refused with terms_required, and a gate that cannot tell refuses with
+	// server_busy (fail closed). Nil disables the gate (tests, tools).
+	Terms TermsGate
+	// IDSource is the randomness of room and match instance ids (default
+	// crypto/rand). Calls are serialized by the hub.
+	IDSource io.Reader
+	// Policy is the index of blocks and moderation restrictions the rooms
+	// enforce (see policy.go). Load it before Start; nil enforces nothing.
+	Policy *safety.Policy
+}
+
+// TermsGate answers whether a guest accepted the current terms. It does I/O,
+// so the room consults it on the transport's goroutine (Session.Handle of a
+// "join" frame), never inside an actor. *safety.Terms implements it.
+type TermsGate interface {
+	// Accepted reports whether the guest accepted the current terms. An error
+	// means the answer is unknown.
+	Accepted(ctx context.Context, guestID string) (bool, error)
 }
 
 // Judge answers whether the answers of a category are valid examples of it.
@@ -127,6 +152,9 @@ type CreateRequest struct {
 	Lang game.Lang
 	// Visibility is immutable: empty means private; private/public are valid.
 	Visibility string
+	// UserID is the account the request is signed in with, "" for a guest; it
+	// is only used to refuse a restricted account (ErrRestricted).
+	UserID string
 }
 
 // Info is the public summary of a room (GET /api/rooms/{code}).
@@ -166,7 +194,9 @@ type Session interface {
 	// Handle delivers one client frame: t is the envelope type and d its
 	// payload. The room enforces that "join" comes first (error not_joined
 	// otherwise) and answers errors with protocol "error" frames. It never
-	// blocks on the room; frames after the room closed are dropped.
+	// blocks on the room; frames after the room closed are dropped. A "join"
+	// frame first asks the terms gate (Config.Terms), which may touch the
+	// database for a few milliseconds (3 s at most); no other frame does I/O.
 	Handle(t string, d json.RawMessage)
 	// Disconnect reports that the socket is gone (idempotent). The room marks
 	// the seat disconnected and keeps it.

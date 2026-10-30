@@ -1,7 +1,7 @@
 import { m } from '$lib/paraglide/messages';
 
 /**
- * Every code the UI can be told about: engine `Code*`, protocol `Err*`, the
+ * Every code the UI can be told about: engine `Code*`, protocol `Err*` and REST `ErrCode*`, the
  * client's own `not_connected`, and the REST client's `network` /
  * `forbidden_origin` / `invalid_lang`. Anything else shows `err_unknown`.
  */
@@ -52,7 +52,17 @@ const MESSAGES: Record<string, () => string> = {
 	not_connected: () => m.err_not_connected(),
 	network: () => m.err_network(),
 	forbidden_origin: () => m.err_forbidden_origin(),
-	invalid_lang: () => m.err_invalid_lang()
+	invalid_lang: () => m.err_invalid_lang(),
+	// content safety (docs/DESIGN.md, "Content safety"); join_unavailable is deliberately generic
+	terms_required: () => m.err_terms_required(),
+	terms_version_mismatch: () => m.err_terms_version_mismatch(),
+	age_confirmation_required: () => m.err_age_confirmation_required(),
+	invalid_locale: () => m.err_invalid_locale(),
+	invalid_report: () => m.err_invalid_report(),
+	not_in_room: () => m.err_not_in_room(),
+	invalid_block: () => m.err_invalid_block(),
+	block_limit: () => m.err_block_limit(),
+	join_unavailable: () => m.err_join_unavailable()
 };
 
 /** The translated, user-facing sentence for an error code (current UI locale). */

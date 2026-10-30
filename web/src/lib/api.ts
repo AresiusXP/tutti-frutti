@@ -67,7 +67,8 @@ const STATUS_CODES: Record<number, string> = {
 	504: 'server_busy'
 };
 
-async function failure(res: Response): Promise<ApiError> {
+/** Builds the typed error of a non-2xx answer (shared with `$lib/safety/api`). */
+export async function failure(res: Response): Promise<ApiError> {
 	let code = '';
 	try {
 		const body: unknown = await res.json();

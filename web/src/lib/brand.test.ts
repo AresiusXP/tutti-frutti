@@ -16,7 +16,11 @@ const ALLOWED_LITERALS: Record<string, string> = {
 		'static HTML shell (<title>, application/og meta) is served before any JS runs and cannot import BRAND',
 	'static/logo.svg': 'logo source artwork (aria-label); the PNG icons are rendered from it',
 	'static/privacy.html':
-		'static legal page (no script, so it cannot import BRAND); a test checks it is written exactly "Tutti Frutti"'
+		'static legal page (no script, so it cannot import BRAND); a test checks it is written exactly "Tutti Frutti"',
+	'static/terms.html':
+		'static legal page (no script, so it cannot import BRAND); legal.test.ts checks it is written exactly "Tutti Frutti"',
+	'static/delete-account.html':
+		'static legal page (no script, so it cannot import BRAND); legal.test.ts checks it is written exactly "Tutti Frutti"'
 };
 
 const SCANNED_DIRS = ['src', 'static'];

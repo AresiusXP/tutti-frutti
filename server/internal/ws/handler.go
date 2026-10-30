@@ -88,9 +88,14 @@ type Deps struct {
 	// Guests identifies the player from the guest cookie. Required.
 	Guests *auth.Guests
 	// Sessions, when set, reads the account cookie of the upgrade request: a
-	// valid session links the player to that user (statistics, see
-	// room.UserLinked). An invalid or missing session just means a guest: it
-	// is never an error.
+	// valid session whose account still exists links the player to that user
+	// (statistics and the AI judge, see room.UserLinked; the existence check is
+	// auth.WithAccounts, cached for 30 s and dropped at once by a deletion
+	// through this process). An invalid or missing session, a deleted account
+	// and a store that cannot tell all just mean a guest: never an error. The
+	// link is only what the connection arrived with: the room layer takes it
+	// back when the account is deleted while the socket is open
+	// (room.AccountForgetter).
 	Sessions *auth.Sessions
 	// AllowedOrigins is PUBLIC_URL's origin merged with ALLOWED_ORIGINS
 	// (config.Config.Origins). See the package documentation.
@@ -273,6 +278,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The account of the connection, if any: a session cookie only counts while
+	// its account exists (a copy of a deleted account's cookie is a guest), and
+	// the store is asked before the handshake, not on a hijacked connection.
+	userID := ""
+	if h.sessions != nil {
+		userID, _ = h.sessions.Identify(r)
+	}
+
 	// The Origin was verified above (the library's own check only knows host
 	// patterns, not schemes), so its check is skipped. Compression stays off:
 	// frames are tiny and it costs memory per connection.
@@ -287,9 +300,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ws.SetReadLimit(protocol.MaxMessageBytes)
 
 	c := newConn(h, ws, id, ip)
-	if h.sessions != nil {
-		c.userID, _ = h.sessions.Identify(r)
-	}
+	c.userID = userID
 	shuttingDown, forced := h.register(c)
 	defer h.unregister(c)
 	if shuttingDown {

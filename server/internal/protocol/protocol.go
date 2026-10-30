@@ -37,7 +37,13 @@ import (
 // never offer the setting, so it must reload.
 // Version 4 adds public casual rooms and authoritative review electorates.
 // Older clients compute voting thresholds from all seats and must reload.
-const Version = 4
+//
+// Version 5 adds the content-safety layer: "join" is refused with
+// ErrTermsRequired until the guest accepted the terms (POST /api/terms/accept),
+// State carries RoomInstanceID and MatchInstanceID, and the public directory no
+// longer lists custom category labels. A version 4 client has no terms screen
+// and would only see an unexplained refusal, so it must reload instead.
+const Version = 5
 
 // Frame types that are not game commands.
 const (
@@ -99,6 +105,13 @@ type State struct {
 	CanJudge bool `json:"canJudge"`
 	// Visibility is private or public. Public games are casual (no lifetime stats).
 	Visibility string `json:"visibility"`
+	// RoomInstanceID identifies this room (not its code, which is reused): it is
+	// created with the room, survives restarts and rematches and is what a
+	// report names. It is NOT a credential: it authorizes nothing.
+	RoomInstanceID string `json:"roomInstanceId"`
+	// MatchInstanceID identifies the match in progress: it is new for every
+	// game (the room creates one, and every rematch renews it).
+	MatchInstanceID string `json:"matchInstanceId"`
 }
 
 // Pong is the payload of TypePong.
@@ -143,6 +156,11 @@ const (
 	// ErrLoginRequired: ask_judge from a guest; the AI judge is for signed-in
 	// hosts (it keeps the shared allowance from being burnt anonymously).
 	ErrLoginRequired = "login_required"
+	// ErrTermsRequired: "join" from a guest that has not accepted the current
+	// terms (see api.ErrCodeTermsRequired for the REST twin). The connection
+	// stays open: the client shows the terms, accepts them over REST and joins
+	// again.
+	ErrTermsRequired = "terms_required"
 )
 
 // WebSocket close codes. Clients reconnect with exponential backoff after

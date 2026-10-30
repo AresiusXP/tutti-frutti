@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const testToken = "tok-secret-123"
@@ -353,4 +355,54 @@ func TestReserveCoversTheWorstCall(t *testing.T) {
 	if worst > reserveNeurons {
 		t.Errorf("the worst call costs %.1f Neurons but only %.1f are reserved", worst, reserveNeurons)
 	}
+}
+
+type countingJudge struct{ calls atomic.Int32 }
+
+func (c *countingJudge) Judge(context.Context, Request) ([]Result, error) {
+	c.calls.Add(1)
+	return []Result{{Known: true, Valid: true}}, nil
+}
+
+func TestSwitchTurnsTheJudgeOffWithoutCallingTheProvider(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	inner := &countingJudge{}
+	s := NewSwitch(inner, reg)
+	if !s.Enabled() {
+		t.Fatal("a new switch must be on")
+	}
+	if _, err := s.Judge(context.Background(), Request{}); err != nil || inner.calls.Load() != 1 {
+		t.Fatalf("on: err %v, calls %d", err, inner.calls.Load())
+	}
+	gauge := func() float64 {
+		mfs, _ := reg.Gather()
+		for _, mf := range mfs {
+			if mf.GetName() == "tuttifrutti_judge_enabled" {
+				return mf.GetMetric()[0].GetGauge().GetValue()
+			}
+		}
+		t.Fatal("tuttifrutti_judge_enabled is not registered")
+		return -1
+	}
+	if gauge() != 1 {
+		t.Errorf("gauge = %v, want 1", gauge())
+	}
+
+	s.SetEnabled(false)
+	_, err := s.Judge(context.Background(), Request{})
+	if !errors.Is(err, ErrDisabled) || !errors.Is(err, ErrBusy) {
+		t.Errorf("off: err = %v, want ErrDisabled, which is also ErrBusy (the room shows the soft failure)", err)
+	}
+	if inner.calls.Load() != 1 {
+		t.Error("a switched-off judge still called the provider")
+	}
+	if s.Enabled() || gauge() != 0 {
+		t.Errorf("enabled = %v, gauge = %v after switching off", s.Enabled(), gauge())
+	}
+
+	s.SetEnabled(true)
+	if _, err := s.Judge(context.Background(), Request{}); err != nil || inner.calls.Load() != 2 || gauge() != 1 {
+		t.Errorf("on again: err %v, calls %d, gauge %v", err, inner.calls.Load(), gauge())
+	}
+	NewSwitch(inner, nil) // no registry: no metric, no panic
 }

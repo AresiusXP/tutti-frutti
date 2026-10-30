@@ -67,6 +67,11 @@ type Config struct {
 	// JudgeDailyNeurons is the Workers AI budget per UTC day the judge keeps to
 	// (JUDGE_DAILY_NEURONS, default 9000, 1..10000: the Free plan allows 10000).
 	JudgeDailyNeurons int
+	// ModerationSocket is the path of the operator's control socket
+	// (MODERATION_SOCKET, docs/MODERATION.md); empty disables the tool. It must
+	// be an absolute path in a directory the server may write (the chart mounts
+	// an emptyDir at /run/tutti).
+	ModerationSocket string
 }
 
 // googleCallbackPath is the path of the OAuth redirect URI under PUBLIC_URL
@@ -145,6 +150,11 @@ func Load(getenv func(string) string) (Config, error) {
 			return Config{}, fmt.Errorf("config: invalid JUDGE_DAILY_NEURONS %q (want 1..%d)", raw, maxJudgeDailyNeurons)
 		}
 		cfg.JudgeDailyNeurons = n
+	}
+
+	cfg.ModerationSocket = strings.TrimSpace(getenv("MODERATION_SOCKET"))
+	if cfg.ModerationSocket != "" && !strings.HasPrefix(cfg.ModerationSocket, "/") {
+		return Config{}, fmt.Errorf("config: MODERATION_SOCKET must be an absolute path")
 	}
 
 	origins, err := parseOrigins(getenv("ALLOWED_ORIGINS"))

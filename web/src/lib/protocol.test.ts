@@ -65,6 +65,8 @@ const lobbyState = {
 	serverTime: 1_760_790_000_000,
 	canJudge: false,
 	visibility: 'private',
+	roomInstanceId: '0b7f6c0e-5a54-4d57-9d35-1c1a1c6f6a01',
+	matchInstanceId: '7c2f1a9e-3a7c-4f0b-8f6c-2d9b2a2d5b02',
 	view: {
 		phase: 'lobby',
 		youId: 'guest-ana',
@@ -118,8 +120,8 @@ const lobbyState = {
 } satisfies State;
 
 describe('protocol constants', () => {
-	it('is protocol version 4 (public rooms and authoritative review electorate)', () => {
-		expect(proto.Version).toBe(4);
+	it('is protocol version 5 (content safety: terms gate, instance ids, no custom labels in the directory)', () => {
+		expect(proto.Version).toBe(5);
 	});
 
 	it('has the AI judge constants', () => {

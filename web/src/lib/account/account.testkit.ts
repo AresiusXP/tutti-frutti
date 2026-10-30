@@ -1,6 +1,7 @@
 /** Test doubles for the account feature: a routable fake `fetch`, event targets and a memory profile. */
 import { vi } from 'vitest';
 import { type StorageLike, ProfileStore } from '$lib/profile.svelte';
+import { TermsStore } from '$lib/safety/terms.svelte';
 import { AccountStore, type AccountDeps } from './store.svelte';
 
 export const json = (body: unknown, status = 200, headers: Record<string, string> = {}): Response =>
@@ -112,8 +113,28 @@ export function memoryProfile(
 	return new ProfileStore(storage);
 }
 
-export const SESSION_GUEST = { guest: true, googleEnabled: true, loggedIn: false };
-export const SESSION_IN = { guest: true, googleEnabled: true, loggedIn: true };
+export const TERMS_ACCEPTED = {
+	requiredVersion: '2026-10',
+	acceptedVersion: '2026-10',
+	acceptanceRequired: false
+};
+export const TERMS_PENDING = {
+	requiredVersion: '2026-10',
+	acceptedVersion: null,
+	acceptanceRequired: true
+};
+export const SESSION_GUEST = {
+	guest: true,
+	googleEnabled: true,
+	loggedIn: false,
+	terms: TERMS_ACCEPTED
+};
+export const SESSION_IN = {
+	guest: true,
+	googleEnabled: true,
+	loggedIn: true,
+	terms: TERMS_ACCEPTED
+};
 export const ME = {
 	id: 'u1',
 	name: 'Ana García',
@@ -131,6 +152,7 @@ export const STATS = {
 export interface Rig {
 	server: FakeServer;
 	profile: ProfileStore;
+	terms: TermsStore;
 	store: AccountStore;
 	win: FakeTarget;
 	doc: FakeTarget;
@@ -144,6 +166,7 @@ export function rig(
 ): Rig {
 	const server = new FakeServer();
 	const profile = memoryProfile(opts.nickname, opts.avatar);
+	const terms = new TermsStore();
 	const win = new FakeTarget();
 	const doc = new FakeTarget();
 	const notify = vi.fn<(text: string) => void>();
@@ -151,11 +174,12 @@ export function rig(
 	const store = new AccountStore({
 		fetch: server.fetch,
 		profile,
+		terms,
 		win: win as unknown as AccountDeps['win'],
 		doc: doc as unknown as AccountDeps['doc'],
 		notify,
 		navigate,
 		...deps
 	});
-	return { server, profile, store, win, doc, notify, navigate };
+	return { server, profile, terms, store, win, doc, notify, navigate };
 }

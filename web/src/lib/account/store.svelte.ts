@@ -16,13 +16,17 @@
  *    Google display name becomes the nickname and is uploaded;
  *  - afterwards every nickname/avatar change is saved with a trailing debounce,
  *    flushed when the tab is hidden / the page is left. Failures are silent
- *    (the next change retries) except one calm toast after repeated failures.
+ *    (the next change retries) except one calm toast after repeated failures;
+ *  - uploads wait for the terms: while the server wants the acceptance (`terms.blocksUploads`, or it
+ *    answered 403 `terms_required`) nothing is sent, nothing counts as a failure and nobody is
+ *    nagged; the sync resumes by itself once the terms are accepted (never a retry loop).
  */
 import { untrack } from 'svelte';
 import { ApiError } from '$lib/api';
 import { isAvatar } from '$lib/avatar';
 import { m } from '$lib/paraglide/messages';
 import { type ProfileStore, profile as sharedProfile } from '$lib/profile.svelte';
+import { type TermsStore, terms as sharedTerms } from '$lib/safety/terms.svelte';
 import { toasts } from '$lib/toast.svelte';
 import { type AccountApi, createAccountApi } from './api';
 import { loginPath } from './returnTo';
@@ -47,6 +51,8 @@ export interface AccountDeps {
 	fetch?: (input: string, init?: RequestInit) => Promise<Response>;
 	api?: AccountApi;
 	profile?: ProfileStore;
+	/** Terms acceptance (`GET /api/session` feeds it; uploads wait for it). */
+	terms?: Pick<TermsStore, 'apply' | 'require' | 'blocksUploads'>;
 	setTimeout?: (fn: () => void, ms: number) => Timer;
 	clearTimeout?: (timer: Timer) => void;
 	/** Full-page navigation (login); defaults to `location.assign`. */
@@ -79,6 +85,7 @@ export class AccountStore {
 
 	#api: AccountApi;
 	#profile: ProfileStore;
+	#terms: NonNullable<AccountDeps['terms']>;
 	#setTimeout: NonNullable<AccountDeps['setTimeout']>;
 	#clearTimeout: NonNullable<AccountDeps['clearTimeout']>;
 	#navigate: (url: string) => void;
@@ -105,6 +112,7 @@ export class AccountStore {
 	constructor(deps: AccountDeps = {}) {
 		this.#api = deps.api ?? createAccountApi(deps.fetch);
 		this.#profile = deps.profile ?? sharedProfile;
+		this.#terms = deps.terms ?? sharedTerms;
 		this.#setTimeout = deps.setTimeout ?? ((fn, ms) => globalThis.setTimeout(fn, ms));
 		this.#clearTimeout = deps.clearTimeout ?? ((timer) => globalThis.clearTimeout(timer));
 		this.#navigate = deps.navigate ?? ((url) => location.assign(url));
@@ -133,6 +141,7 @@ export class AccountStore {
 	async #load(): Promise<void> {
 		try {
 			const session = await this.#api.session();
+			this.#terms.apply(session.terms);
 			this.googleEnabled = session.googleEnabled;
 			this.loggedIn = session.loggedIn;
 			if (!session.loggedIn) this.#reset();
@@ -268,6 +277,8 @@ export class AccountStore {
 		const { nickname, avatar } = this.#profile;
 		const key = this.#key();
 		if (!nickname || key === this.#synced) return Promise.resolve(OK);
+		// The server would refuse it (403): wait for the acceptance, `#watch` resumes the sync.
+		if (this.#terms.blocksUploads) return Promise.resolve(failure('terms_required'));
 		if (this.#inflight) {
 			this.#again = true;
 			return this.#inflight;
@@ -284,6 +295,10 @@ export class AccountStore {
 				if (e instanceof ApiError && e.status === 401) {
 					this.#reset();
 					return failure('unauthorized');
+				}
+				if (e instanceof ApiError && e.code === 'terms_required') {
+					this.#terms.require(); // this client's idea was stale: pause until the terms are accepted
+					return failure('terms_required');
 				}
 				this.#failures++;
 				if (this.#failures >= SAVE_FAILURES_BEFORE_TOAST && !this.#warned) {
@@ -323,10 +338,20 @@ export class AccountStore {
 	#watch() {
 		if (this.#stopWatch) return;
 		const profile = this.#profile;
+		const terms = this.#terms;
+		let wasBlocked = terms.blocksUploads;
 		this.#stopWatch = $effect.root(() => {
 			$effect(() => {
 				const key = snapshotKey(profile.nickname, profile.avatar);
 				untrack(() => this.#onLocalChange(key));
+			});
+			// Back from "the terms are pending": upload what changed meanwhile, once.
+			$effect(() => {
+				const blocked = terms.blocksUploads;
+				untrack(() => {
+					if (wasBlocked && !blocked) void this.saveProfile();
+					wasBlocked = blocked;
+				});
 			});
 		});
 		const flush = () => void this.saveProfile({ keepalive: true });

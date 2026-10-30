@@ -24,6 +24,7 @@ import (
 	"github.com/AresiusXP/tutti-frutti/server/internal/auth"
 	"github.com/AresiusXP/tutti-frutti/server/internal/ratelimit"
 	"github.com/AresiusXP/tutti-frutti/server/internal/room"
+	"github.com/AresiusXP/tutti-frutti/server/internal/safety"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 )
 
@@ -72,6 +73,24 @@ type Options struct {
 	// Google runs the Google login; nil answers 404 auth_disabled on the login
 	// endpoints and googleEnabled=false on GET /api/session.
 	Google *auth.Google
+	// Terms is the terms gate: it enables POST /api/terms/accept, reports the
+	// acceptance in GET /api/session and makes POST /api/rooms and PUT
+	// /api/me/profile answer 403 terms_required until the guest accepted. Nil
+	// turns the gate off (acceptanceRequired is then always false).
+	Terms *safety.Terms
+	// Safety stores the reports and enables POST /api/reports (which also needs
+	// Rooms and Guests). Nil: the endpoint is not registered.
+	Safety store.Safety
+	// Moderation stores the blocks and enables POST/GET/DELETE /api/blocks (which
+	// also need Guests and a Rooms that can Sweep, see room.Hub.Sweep). Nil: the
+	// endpoints are not registered.
+	Moderation store.Moderation
+	// Policy is the in-memory index of blocks and restrictions the rooms
+	// enforce; the block endpoints update it after the database write. It must
+	// be the one the room hub was configured with.
+	Policy *safety.Policy
+	// Reports is told about every stored report (the open-reports gauges).
+	Reports ReportObserver
 	// AllowedOrigins are the origins that may call unsafe methods under /api
 	// (PUBLIC_URL's origin already merged with ALLOWED_ORIGINS by the caller;
 	// see config.Config.Origins). Only enforced when Rooms or Guests is set.
@@ -155,6 +174,10 @@ type Server struct {
 	sessions    *auth.Sessions
 	accounts    store.Accounts
 	google      *auth.Google
+	terms       *safety.Terms
+	safety      store.Safety
+	reports     *prometheus.CounterVec
+	now         func() time.Time
 	logins      *prometheus.CounterVec
 	origins     []string
 	trustXFF    bool
@@ -163,6 +186,19 @@ type Server struct {
 	lookupLimit *ratelimit.Keyed
 	browseLimit *ratelimit.Keyed
 	authLimit   *ratelimit.Keyed
+
+	termsLimit    *ratelimit.Keyed
+	reportIPLimit *ratelimit.Keyed
+	reportBurst   *ratelimit.Keyed
+	reportDaily   *ratelimit.Keyed
+
+	moderation   store.Moderation
+	policy       *safety.Policy
+	reportsSeen  ReportObserver
+	blockWrites  *ratelimit.Keyed // per guest: block and unblock
+	blockIPLimit *ratelimit.Keyed // per IP: block and unblock
+	blockReads   *ratelimit.Keyed // per IP: the block list
+	blockLocks   keyedMutex       // per blocker: row + policy + sweep of a block or an unblock
 }
 
 // New builds a Server. It starts ready; call SetReady(false) when shutting
@@ -182,6 +218,10 @@ func New(opts Options) *Server {
 		sessions:    opts.Sessions,
 		accounts:    opts.Accounts,
 		google:      opts.Google,
+		terms:       opts.Terms,
+		safety:      opts.Safety,
+		reports:     newReportMetric(),
+		now:         opts.Now,
 		logins:      newLoginMetric(),
 		origins:     opts.AllowedOrigins,
 		trustXFF:    opts.TrustForwardedFor,
@@ -190,6 +230,27 @@ func New(opts Options) *Server {
 		lookupLimit: ratelimit.NewKeyed(lim.LookupRate, lim.LookupBurst, limiterIdleTTL, opts.Now),
 		browseLimit: ratelimit.NewKeyed(lim.BrowseRate, lim.BrowseBurst, limiterIdleTTL, opts.Now),
 		authLimit:   ratelimit.NewKeyed(lim.AuthRate, lim.AuthBurst, limiterIdleTTL, opts.Now),
+
+		termsLimit:    ratelimit.NewKeyed(termsRate, termsBurst, limiterIdleTTL, opts.Now),
+		reportIPLimit: ratelimit.NewKeyed(reportIPRate, reportIPBurst, limiterIdleTTL, opts.Now),
+		reportBurst:   ratelimit.NewKeyed(rate.Limit(reportBurstPerMinute/60.0), reportBurstPerMinute, limiterIdleTTL, opts.Now),
+		reportDaily:   ratelimit.NewKeyed(rate.Limit(reportsPerDay/86400.0), reportsPerDay, limiterIdleTTL, opts.Now),
+
+		moderation:   opts.Moderation,
+		policy:       opts.Policy,
+		reportsSeen:  opts.Reports,
+		blockWrites:  ratelimit.NewKeyed(rate.Limit(blocksPerHour/3600.0), blocksPerHour, limiterIdleTTL, opts.Now),
+		blockIPLimit: ratelimit.NewKeyed(blockIPRate, blockIPBurst, limiterIdleTTL, opts.Now),
+		blockReads:   ratelimit.NewKeyed(blockReadRate, blockReadBurst, limiterIdleTTL, opts.Now),
+	}
+	if s.now == nil {
+		s.now = time.Now
+	}
+	if s.sessions != nil && s.accounts != nil {
+		// A session is only an identity while its account exists: wire the
+		// check here, so that a server that forgot to cannot honour the copy of a
+		// deleted account's cookie (no-op when the Sessions already have one).
+		s.sessions.UseAccounts(s.accounts)
 	}
 	if s.registry == nil {
 		s.registry = prometheus.NewRegistry()
@@ -211,6 +272,7 @@ func New(opts Options) *Server {
 		s.requests,
 		s.duration,
 		s.logins,
+		s.reports,
 	)
 
 	s.mux.HandleFunc("GET /healthz", s.handleHealthz)
@@ -219,6 +281,7 @@ func New(opts Options) *Server {
 	s.mux.HandleFunc("GET /api/version", s.handleVersion)
 	s.registerREST()
 	s.registerAccounts()
+	s.registerSafety()
 	s.mux.HandleFunc("/api/", handleAPINotFound)
 	return s
 }

@@ -105,11 +105,23 @@ type Accounts interface {
 	UserStats(ctx context.Context, id string) (api.Stats, error)
 }
 
+// GameSkipper is implemented by both backends: RecordGameSkips is RecordGame
+// that also says how many users of the record were not credited because their
+// account no longer exists (deleted before or while the record was written: the
+// user's row is the foreign key of every statistic, so the result is skipped, never
+// retried and never creates the rows again). The statistics recorder uses it
+// when it is there, to count them.
+type GameSkipper interface {
+	RecordGameSkips(ctx context.Context, rec GameRecord) (skipped int, err error)
+}
+
 // Backend is everything cmd/server needs from one concrete store: the room
-// snapshots and the accounts. *Memory and *Postgres implement it.
+// snapshots, the accounts and the content-safety records. *Memory and
+// *Postgres implement it.
 type Backend interface {
 	Store
 	Accounts
+	Safety
 }
 
 // NewID returns a new random identifier: a version 4 UUID, the form of every

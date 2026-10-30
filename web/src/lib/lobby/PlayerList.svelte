@@ -3,6 +3,7 @@
 	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { Player } from '$lib/protocol';
+	import SafetyButton from '$lib/safety/SafetyButton.svelte';
 	import { diffPlayers } from './announce';
 	import { uiAvatar } from './avatar';
 
@@ -111,6 +112,10 @@
 							class="size-3 shrink-0 rounded-full bg-tangerine ring-2 ring-night"
 						></span>
 					{/if}
+					<SafetyButton
+						request={{ start: 'person', person: { id: player.id, name: player.name } }}
+						label={m.report_player_aria({ name: player.name })}
+					/>
 					{#if canKick && !isYou}
 						<button
 							type="button"

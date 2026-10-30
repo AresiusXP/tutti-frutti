@@ -26,6 +26,8 @@ for (const locale of ['es', 'en', 'nl'] as const) {
 				players: 1,
 				maxPlayers: 10,
 				categoryLabels: socket.state?.view.categoryLabels,
+				// the directory counts custom categories instead of listing them (protocol 5)
+				customCategories: 0,
 				rounds: 5,
 				timeLimitSeconds: 90
 			});

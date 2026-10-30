@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -18,7 +19,9 @@ import (
 	"github.com/AresiusXP/tutti-frutti/server/internal/config"
 	"github.com/AresiusXP/tutti-frutti/server/internal/httpapi"
 	"github.com/AresiusXP/tutti-frutti/server/internal/judge"
+	"github.com/AresiusXP/tutti-frutti/server/internal/moderation"
 	"github.com/AresiusXP/tutti-frutti/server/internal/room"
+	"github.com/AresiusXP/tutti-frutti/server/internal/safety"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 	"github.com/AresiusXP/tutti-frutti/server/internal/ws"
 )
@@ -74,7 +77,7 @@ func run() error {
 	defer cancelStart()
 
 	var (
-		st          store.Backend
+		st          store.FullBackend
 		readyChecks []func(context.Context) error
 	)
 	if cfg.DatabaseURL != "" {
@@ -90,9 +93,28 @@ func run() error {
 	}
 	defer st.Close()
 
+	// The terms gate (docs/DESIGN.md, "Safety"): one object for the room's join
+	// check and the REST endpoints, so a guest that accepted is remembered by
+	// both for the life of the process.
+	terms := safety.NewTerms(st, nil)
+
+	// The moderation policy (blocks and restrictions) is loaded BEFORE the hub
+	// starts or accepts a join: a hub that served a join first could admit a pair
+	// the store says must not share a room (docs/DESIGN.md, "Safety"). A store that
+	// cannot answer stops the start; an empty policy would silently turn every
+	// block and restriction off.
+	policy := safety.NewPolicy(nil)
+	nBlocks, nRestrictions, err := moderation.LoadPolicy(startCtx, st, policy, time.Now())
+	if err != nil {
+		return fmt.Errorf("moderation policy: %w", err)
+	}
+	logger.Info("moderation policy loaded", "blocks", nBlocks, "restrictions", nRestrictions)
+	gauges := moderation.NewReportGauges(reg, nil)
+
 	// The AI judge is optional: without the Cloudflare settings the host is
 	// never offered it. A nil *judge.Cloudflare must not reach the interface.
 	roomCfg := room.Config{
+		Terms:             terms,
 		Store:             st,
 		Logger:            logger,
 		Registerer:        reg,
@@ -104,7 +126,9 @@ func run() error {
 		BotFirstDelayMax:  cfg.BotFirstDelayMax,
 		BotSecondDelayMin: cfg.BotSecondDelayMin,
 		BotSecondDelayMax: cfg.BotSecondDelayMax,
+		Policy:            policy,
 	}
+	var judgeSwitch *judge.Switch
 	if cfg.JudgeEnabled() {
 		j, err := judge.New(judge.Config{
 			AccountID:    cfg.CloudflareAccountID,
@@ -116,7 +140,10 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("ai judge: %w", err)
 		}
-		roomCfg.Judge = j
+		// The operator's kill switch sits in front of the provider (see
+		// docs/MODERATION.md); it is a Judge like any other.
+		judgeSwitch = judge.NewSwitch(j, reg)
+		roomCfg.Judge = judgeSwitch
 	}
 	hub := room.NewHub(roomCfg)
 	// hub.Start ties its janitor to the context it receives, so that context
@@ -133,6 +160,39 @@ func run() error {
 		return fmt.Errorf("restore rooms: %w", err)
 	}
 	logger.Info("rooms restored", "count", restored)
+
+	// The operator's side of the safety layer (docs/MODERATION.md): the daily
+	// retention purge and the control socket. Both stop with the process, before
+	// the store is closed.
+	var background sync.WaitGroup
+	bgCtx, stopBackground := context.WithCancel(ctx)
+	defer func() {
+		stopBackground()
+		background.Wait()
+	}()
+	background.Go(func() {
+		(&moderation.Maintenance{Safety: st, Mod: st, Gauges: gauges, Log: logger}).Run(bgCtx)
+	})
+	if cfg.ModerationSocket != "" {
+		deps := moderation.Deps{
+			Reports: st, Mod: st, Policy: policy, Rooms: hub, Gauges: gauges, Log: logger, Version: version,
+		}
+		if judgeSwitch != nil { // a nil *judge.Switch must not reach the interface
+			deps.Judge = judgeSwitch
+		}
+		// A control socket that cannot be created is logged loudly and does not
+		// stop the game: the owner's daily `moderate status` fails and says so.
+		if l, err := moderation.Listen(cfg.ModerationSocket); err != nil {
+			logger.Error("the moderation control socket could not be created: the operator tool is unavailable", "err", err)
+		} else {
+			logger.Info("moderation control socket listening", "path", cfg.ModerationSocket)
+			background.Go(func() {
+				if err := moderation.NewServer(deps).Serve(bgCtx, l); err != nil {
+					logger.Error("the moderation control server stopped", "err", err)
+				}
+			})
+		}
+	}
 
 	// One secret for every signed cookie; an empty SESSION_SECRET becomes one
 	// random secret (with a warning) shared by all of them.
@@ -163,6 +223,11 @@ func run() error {
 		Sessions:          sessions,
 		Accounts:          st,
 		Google:            google,
+		Terms:             terms,
+		Safety:            st,
+		Moderation:        st,
+		Policy:            policy,
+		Reports:           gauges,
 		AllowedOrigins:    origins,
 		TrustForwardedFor: cfg.TrustForwardedFor,
 		ReadyChecks:       readyChecks,
@@ -189,7 +254,8 @@ func run() error {
 	errCh := make(chan error, 1)
 	go func() {
 		logger.Info("server listening", "addr", srv.Addr, "version", version,
-			"database", cfg.DatabaseURL != "", "google", google != nil, "judge", cfg.JudgeEnabled(), "origins", origins)
+			"database", cfg.DatabaseURL != "", "google", google != nil, "judge", cfg.JudgeEnabled(), "origins", origins,
+			"terms", terms.Version())
 		errCh <- srv.ListenAndServe()
 	}()
 

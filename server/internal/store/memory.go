@@ -20,6 +20,9 @@ type Memory struct {
 	accMu    sync.Mutex
 	users    map[string]*memUser // by user id
 	userSubs map[string]string   // Google subject -> user id
+
+	safeMu sync.Mutex
+	safe   memSafety
 }
 
 var (

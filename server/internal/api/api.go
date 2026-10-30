@@ -17,6 +17,8 @@ type SessionInfo struct {
 	// session cookie. It is not a database lookup: GET /api/me tells whether
 	// the user still exists.
 	LoggedIn bool `json:"loggedIn"`
+	// Terms tells whether this guest has accepted the current terms.
+	Terms TermsStatus `json:"terms"`
 }
 
 // Profile is the nickname and avatar a user saved; it prefills the join form.

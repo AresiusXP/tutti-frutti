@@ -24,6 +24,10 @@ export interface SessionInfo {
    * the user still exists.
    */
   loggedIn: boolean;
+  /**
+   * Terms tells whether this guest has accepted the current terms.
+   */
+  terms: TermsStatus;
 }
 /**
  * Profile is the nickname and avatar a user saved; it prefills the join form.
@@ -100,6 +104,10 @@ export interface CreateRoomResponse {
 }
 /**
  * RoomInfo is the code-based preflight, not a discovery eligibility promise.
+ * RoomInstanceID identifies the room (not its reusable code), so a client that
+ * remembers a room can tell it from an unrelated one that got the same code
+ * ("resume recent game"). It is not a credential: knowing it authorizes nothing,
+ * and the join still needs the code and the guest cookie.
  */
 export interface RoomInfo {
   code: string;
@@ -109,9 +117,15 @@ export interface RoomInfo {
   lang: Lang;
   joinable: boolean;
   visibility: string;
+  roomInstanceId: string;
 }
 /**
- * PublicRoom contains only the metadata needed to choose a waiting lobby.
+ * PublicRoom contains only the metadata needed to choose a waiting lobby. The
+ * directory is open to everybody, so it never carries text a player typed:
+ * CategoryLabels holds the built-in categories only (in the lobby language, in
+ * selection order) and CustomCategories counts the custom ones, which the
+ * client shows as a localized "Custom category". The real labels are only
+ * visible inside the room.
  */
 export interface PublicRoom {
   code: string;
@@ -119,9 +133,252 @@ export interface PublicRoom {
   players: number /* int */;
   maxPlayers: number /* int */;
   categoryLabels: string[];
+  customCategories: number /* int */;
   rounds: number /* int */;
   timeLimitSeconds: number /* int */;
 }
 export interface PublicRoomsResponse {
   rooms: PublicRoom[];
 }
+
+//////////
+// source: safety.go
+
+/**
+ * TermsStatus is what the client needs to decide whether to show the terms
+ * gate: the version the server requires, the one this guest accepted (null
+ * when none) and whether the guest still has to accept. It is part of
+ * GET /api/session and the answer of POST /api/terms/accept.
+ */
+export interface TermsStatus {
+  /**
+   * RequiredVersion is the current version of the terms (a deploy changes it).
+   */
+  requiredVersion: string;
+  /**
+   * AcceptedVersion is the version this guest accepted, or null.
+   */
+  acceptedVersion: string | null;
+  /**
+   * AcceptanceRequired is true until the guest accepted RequiredVersion.
+   * Creating or joining a room and uploading a profile answer 403
+   * terms_required while it is true; reporting, blocking, leaving, signing
+   * out and deleting the account never need the acceptance.
+   */
+  acceptanceRequired: boolean;
+}
+/**
+ * AcceptTermsRequest is the body of POST /api/terms/accept. The guest is the
+ * one of the tf_guest cookie; the time is the server's. No birth date is
+ * collected: only the confirmation of being 13 or older.
+ */
+export interface AcceptTermsRequest {
+  /**
+   * Version must equal TermsStatus.RequiredVersion.
+   */
+  version: string;
+  /**
+   * Locale is the screen language the terms were shown in: es, en or nl.
+   */
+  locale: string;
+  /**
+   * Age13Confirmed must be true.
+   */
+  age13Confirmed: boolean;
+}
+/**
+ * ReportKindPlayer reports a player's nickname or avatar.
+ */
+export const ReportKindPlayer = "player";
+/**
+ * ReportKindCustomLabel reports a custom category label.
+ */
+export const ReportKindCustomLabel = "custom_label";
+/**
+ * ReportKindAnswer reports a player's answer.
+ */
+export const ReportKindAnswer = "answer";
+/**
+ * ReportKindAIVerdict reports an AI judge verdict or its reason.
+ */
+export const ReportKindAIVerdict = "ai_verdict";
+/**
+ * Reasons of a report (ReportRequest.Reason).
+ */
+export const ReportReasonHarassment = "harassment";
+/**
+ * Reasons of a report (ReportRequest.Reason).
+ */
+export const ReportReasonHate = "hate";
+/**
+ * Reasons of a report (ReportRequest.Reason).
+ */
+export const ReportReasonSexual = "sexual";
+/**
+ * Reasons of a report (ReportRequest.Reason).
+ */
+export const ReportReasonViolence = "violence";
+/**
+ * Reasons of a report (ReportRequest.Reason).
+ */
+export const ReportReasonSelfHarm = "self_harm";
+/**
+ * Reasons of a report (ReportRequest.Reason).
+ */
+export const ReportReasonSpam = "spam";
+/**
+ * Reasons of a report (ReportRequest.Reason).
+ */
+export const ReportReasonImpersonation = "impersonation";
+/**
+ * Reasons of a report (ReportRequest.Reason).
+ */
+export const ReportReasonOther = "other";
+/**
+ * ErrCodeTermsRequired (403): the guest has not accepted the current terms.
+ * The same code is sent as a WebSocket error frame when "join" is refused.
+ */
+export const ErrCodeTermsRequired = "terms_required";
+/**
+ * ErrCodeTermsVersionMismatch (409): the client accepted another version.
+ */
+export const ErrCodeTermsVersionMismatch = "terms_version_mismatch";
+/**
+ * ErrCodeAgeConfirmationRequired (400): age13Confirmed is not true.
+ */
+export const ErrCodeAgeConfirmationRequired = "age_confirmation_required";
+/**
+ * ErrCodeInvalidLocale (400): the locale is not es, en or nl.
+ */
+export const ErrCodeInvalidLocale = "invalid_locale";
+/**
+ * ErrCodeInvalidReport (400): the report is malformed (unknown kind or
+ * reason, missing reference fields, bad idempotency key, comment too long).
+ */
+export const ErrCodeInvalidReport = "invalid_report";
+/**
+ * ErrCodeNotInRoom (403): the room exists but the reporter is not, and was
+ * not, one of its players.
+ */
+export const ErrCodeNotInRoom = "not_in_room";
+/**
+ * ReportRef says which content a report is about, in the vocabulary of the room.
+ * The fields a kind needs: player -> playerId; custom_label -> category + label
+ * (the label the reporter saw); answer -> round + category + playerId (the
+ * author); ai_verdict -> round + category + playerId (whose answer was judged).
+ * The server resolves it against the room; nothing in it is trusted as a target.
+ */
+export interface ReportRef {
+  playerId?: string;
+  category?: number /* int */;
+  label?: string;
+  round?: number /* int */;
+}
+/**
+ * ReportRequest is the body of POST /api/reports.
+ */
+export interface ReportRequest {
+  kind: string;
+  /**
+   * RoomInstanceID is the State.roomInstanceId the reporter saw. Optional;
+   * when it differs from the room that now has Code, the room is treated as
+   * gone.
+   */
+  roomInstanceId?: string;
+  /**
+   * Code is the room code, used to find the room while it still exists.
+   */
+  code?: string;
+  ref: ReportRef;
+  /**
+   * Reason is one of the ReportReason* codes.
+   */
+  reason: string;
+  /**
+   * Comment is optional free text, at most 280 characters.
+   */
+  comment?: string;
+  /**
+   * IdempotencyKey (8 to 64 characters of letters, digits, '-', '_') makes a
+   * retry return the original report id.
+   */
+  idempotencyKey: string;
+  /**
+   * ObservedText is the text the client saw, at most 200 characters. It is
+   * only stored (as uncorroborated client evidence) when the room instance is
+   * gone or the content changed.
+   */
+  observedText?: string;
+}
+/**
+ * ReportResponse is the body of the 201 answer of POST /api/reports: the report
+ * exists durably.
+ */
+export interface ReportResponse {
+  id: string;
+}
+/**
+ * BlockRequest is the body of POST /api/blocks ("Block and leave"). The blocker
+ * is the guest of the tf_guest cookie; the target is a player id seen in a
+ * room (a player id is the guest id of that player). Blocking never needs the
+ * terms acceptance, and nothing is said to the blocked player.
+ */
+export interface BlockRequest {
+  /**
+   * PlayerID is the player to block (not the caller, not a bot).
+   */
+  playerId: string;
+  /**
+   * Name is how the blocker saw that player (nickname), at most 40
+   * characters, only used to label the blocker's own block list.
+   */
+  name?: string;
+}
+/**
+ * BlockedPlayer is one entry of the blocker's own block list.
+ */
+export interface BlockedPlayer {
+  playerId: string;
+  /**
+   * Name is the nickname the blocker saw when blocking.
+   */
+  name: string;
+  /**
+   * BlockedAt is when the block was made, in Unix milliseconds.
+   */
+  blockedAt: number /* int64 */;
+}
+/**
+ * BlockResponse is the body of the 200 answer of POST /api/blocks. It is only
+ * sent after the block is stored and enforced in every live room.
+ */
+export interface BlockResponse {
+  block: BlockedPlayer;
+  /**
+   * LeftRooms are the codes of the live rooms the blocker was removed from
+   * because the blocked player was in them (empty when none).
+   */
+  leftRooms: string[];
+}
+/**
+ * BlocksResponse is the body of GET /api/blocks: the caller's own blocks,
+ * newest first.
+ */
+export interface BlocksResponse {
+  blocks: BlockedPlayer[];
+}
+/**
+ * ErrCodeInvalidBlock (400): the target is the caller, missing or malformed.
+ */
+export const ErrCodeInvalidBlock = "invalid_block";
+/**
+ * ErrCodeBlockLimit (409): the guest already has the maximum number of blocks.
+ */
+export const ErrCodeBlockLimit = "block_limit";
+/**
+ * ErrCodeJoinUnavailable (403 on REST, an error frame on the socket): the
+ * room cannot be created or joined by this guest for a safety reason (a
+ * block between the guest and a player of the room, or a moderation
+ * restriction). It is deliberately generic: it never says who or why.
+ */
+export const ErrCodeJoinUnavailable = "join_unavailable";

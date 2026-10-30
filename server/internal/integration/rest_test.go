@@ -122,7 +122,7 @@ func TestRoomInfoEndpoint(t *testing.T) {
 		keys = append(keys, k)
 	}
 	slices.Sort(keys)
-	if r.status != 200 || !slices.Equal(keys, []string{"code", "joinable", "lang", "maxPlayers", "phase", "players", "visibility"}) {
+	if r.status != 200 || !slices.Equal(keys, []string{"code", "joinable", "lang", "maxPlayers", "phase", "players", "roomInstanceId", "visibility"}) {
 		t.Fatalf("info = %d %s", r.status, r.body)
 	}
 	if got := r.header.Get("Cache-Control"); got != "no-store" {

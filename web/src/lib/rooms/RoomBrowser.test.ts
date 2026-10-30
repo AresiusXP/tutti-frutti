@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
 import { ApiError, api } from '$lib/api';
 import { clearRoomMark, hasRoomMark } from '$lib/game/roomMark';
 import { i18n } from '$lib/i18n.svelte';
 import { profile } from '$lib/profile.svelte';
+import { terms } from '$lib/safety/terms.svelte';
+import { TERMS_DUE, TERMS_OK } from '$lib/safety/safety.testkit';
 import { toasts } from '$lib/toast.svelte';
 import RoomBrowser from './RoomBrowser.svelte';
 
@@ -20,6 +22,7 @@ const room = {
 	players: 3,
 	maxPlayers: 10,
 	categoryLabels: ['Name', 'Animal'],
+	customCategories: 0,
 	rounds: 5,
 	timeLimitSeconds: 60
 };
@@ -27,6 +30,7 @@ beforeEach(() => {
 	i18n.set('en');
 	profile.setNickname('Ana');
 	clearRoomMark('KT7P');
+	terms.apply(TERMS_OK);
 	toasts.items = [];
 	vi.mocked(goto).mockClear();
 	vi.mocked(api.listRooms)
@@ -34,7 +38,13 @@ beforeEach(() => {
 		.mockResolvedValue({ rooms: [room] });
 	vi.mocked(api.getRoom)
 		.mockReset()
-		.mockResolvedValue({ ...room, phase: 'lobby', visibility: 'public', joinable: true });
+		.mockResolvedValue({
+			...room,
+			phase: 'lobby',
+			visibility: 'public',
+			joinable: true,
+			roomInstanceId: '01020304-0506-4708-890a-0b0c0d0e0f10'
+		});
 	Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
 });
 
@@ -70,6 +80,59 @@ describe('public room browser', () => {
 		);
 		expect(hasRoomMark('KT7P')).toBe(true);
 	});
+	it('asks for the terms before joining, and joins only once they are accepted', async () => {
+		terms.apply(TERMS_DUE);
+		render(RoomBrowser);
+		await fireEvent.click(await screen.findByRole('button', { name: 'Join KT7P' }));
+		await waitFor(() => expect(terms.open).toBe(true));
+		expect(goto).not.toHaveBeenCalled();
+		expect(hasRoomMark('KT7P')).toBe(false);
+		terms.apply(TERMS_OK);
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/KT7P'));
+		expect(hasRoomMark('KT7P')).toBe(true);
+	});
+	it('a declined gate joins nothing and frees the buttons', async () => {
+		terms.apply(TERMS_DUE);
+		render(RoomBrowser);
+		await fireEvent.click(await screen.findByRole('button', { name: 'Join KT7P' }));
+		await waitFor(() => expect(terms.open).toBe(true));
+		terms.dismiss();
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Join KT7P' }).hasAttribute('disabled')).toBe(false)
+		);
+		expect(goto).not.toHaveBeenCalled();
+	});
+	it('never shows player-written text: built-in labels, and a localized count for custom categories', async () => {
+		vi.mocked(api.listRooms).mockResolvedValue({
+			rooms: [
+				{ ...room, code: 'AAAA', customCategories: 1 },
+				{ ...room, code: 'BBBB', categoryLabels: [], customCategories: 3 },
+				{ ...room, code: 'CCCC', customCategories: 0 }
+			]
+		});
+		render(RoomBrowser);
+		await screen.findByRole('button', { name: 'Join AAAA' });
+		const chips = screen
+			.getAllByTestId('custom-categories')
+			.map((c) => c.textContent?.replace(/\s+/g, ' ').trim());
+		expect(chips).toEqual(['✏️ 1 custom category', '✏️ 3 custom categories']);
+		// a room with only custom categories has no empty label line, and a room without custom ones no chip
+		const items = screen.getAllByRole('listitem');
+		expect(within(items[1]).queryByText('Name · Animal')).toBeNull();
+		expect(within(items[2]).queryByTestId('custom-categories')).toBeNull();
+		const chipTexts = () =>
+			screen
+				.getAllByTestId('custom-categories')
+				.map((c) => c.textContent?.replace(/\s+/g, ' ').trim());
+		i18n.set('nl');
+		await waitFor(() =>
+			expect(chipTexts()).toEqual(['✏️ 1 eigen categorie', '✏️ 3 eigen categorieën'])
+		);
+		i18n.set('es');
+		await waitFor(() =>
+			expect(chipTexts()).toEqual(['✏️ 1 categoría propia', '✏️ 3 categorías propias'])
+		);
+	});
 	it('sends a visitor without a nickname through the existing gate', async () => {
 		profile.setNickname('');
 		render(RoomBrowser);
@@ -82,6 +145,7 @@ describe('public room browser', () => {
 			...room,
 			phase: 'lobby',
 			visibility: 'public',
+			roomInstanceId: '01020304-0506-4708-890a-0b0c0d0e0f10',
 			players: 10,
 			joinable: false
 		});

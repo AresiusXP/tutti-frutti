@@ -15,6 +15,7 @@ import (
 	"github.com/AresiusXP/tutti-frutti/server/internal/auth"
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
 	"github.com/AresiusXP/tutti-frutti/server/internal/ratelimit"
+	"github.com/AresiusXP/tutti-frutti/server/internal/room"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 )
 
@@ -72,13 +73,22 @@ func (s *Server) unauthorized(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusUnauthorized, "unauthorized")
 }
 
-// authenticate returns the user id of the session cookie, or answers 401.
+// authenticate returns the user id of the session cookie, or answers 401. A
+// valid cookie whose account was deleted (a copy that outlived it) is a lost
+// session like any other: 401, and the browser is told to drop it. A store that
+// cannot tell is a 500 and the cookie stays (the account may well exist).
 func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (string, bool) {
-	id, ok := s.sessions.Identify(r)
-	if !ok {
+	id, status := s.sessions.Lookup(r)
+	switch status {
+	case auth.SessionActive:
+		return id, true
+	case auth.SessionUnknown:
+		s.log.Error("account request failed", "what", "look up the session's account")
+		writeError(w, http.StatusInternalServerError, "internal")
+	default:
 		s.unauthorized(w, r)
 	}
-	return id, ok
+	return "", false
 }
 
 // accountError answers a failed store call: a user that no longer exists is
@@ -110,6 +120,11 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSaveProfile(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.authenticate(w, r)
 	if !ok {
+		return
+	}
+	// A saved nickname is shown to other players: the guest on this device has
+	// to have accepted the terms (unknown fails closed).
+	if !s.requireTermsOfRequest(w, r) {
 		return
 	}
 	if !isJSON(r) {
@@ -192,8 +207,38 @@ func (s *Server) handleDeleteMe(w http.ResponseWriter, r *http.Request) {
 		s.accountError(w, r, "delete user", err)
 		return
 	}
+	s.forgetAccount(r.Context(), id)
 	s.sessions.Clear(w)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// forgetAccount is what happens after the store deleted an account, before the
+// response (see docs/DESIGN.md, "Deleting an account while a game is on"):
+//
+//  1. the sessions forget it, so a copy of its cookie stops identifying anybody
+//     at once (REST, the WebSocket upgrade, reports) instead of when a cache
+//     expires;
+//  2. every room drops its links to it and the sockets that were opened as that
+//     user lose the account (no AI judge, no statistics), keeping the guest seat.
+//
+// The order matters: the store first (so nothing can resolve the account
+// again), then the sessions (so no new connection can pick it up), then the
+// rooms. A room failing to answer in time does not undo the deletion, and it
+// does not leave a window either: the rooms were handed the order before this
+// returns, every frame they receive afterwards queues behind it, and a
+// connection made after the sessions forgot is a guest.
+func (s *Server) forgetAccount(parent context.Context, id string) {
+	s.sessions.Forget(id)
+	f, ok := s.rooms.(room.AccountForgetter)
+	if !ok {
+		return
+	}
+	// The account is gone already: finish even if the client hung up meanwhile.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), accountTimeout)
+	defer cancel()
+	if err := f.ForgetAccount(ctx, id); err != nil {
+		s.log.Error("the rooms could not confirm they forgot a deleted account; they will drop it when they get to it", "err", err)
+	}
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, _ *http.Request) {

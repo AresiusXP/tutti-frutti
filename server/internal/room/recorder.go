@@ -274,6 +274,16 @@ func (q *recorder) attempt(ctx context.Context, rec store.GameRecord) (err error
 			err = fmt.Errorf("room: statistics store panicked: %v", p)
 		}
 	}()
+	if sk, ok := q.rec.(store.GameSkipper); ok {
+		skipped, err := sk.RecordGameSkips(ctx, rec)
+		if err == nil && skipped > 0 {
+			// A deleted account's share of the game: not an error and nothing to
+			// retry; the others' results were recorded.
+			q.m.statsSkipped.WithLabelValues(skipStore).Add(float64(skipped))
+			q.log.Info("game statistics: skipped users whose account was deleted", "game", rec.ID, "users", skipped)
+		}
+		return err
+	}
 	return q.rec.RecordGame(ctx, rec)
 }
 

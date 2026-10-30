@@ -1,7 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '$lib/api';
 import { createAccountApi } from './api';
-import { ME, ME_FIRST, STATS, FakeServer, empty, json } from './account.testkit';
+import {
+	ME,
+	ME_FIRST,
+	STATS,
+	TERMS_ACCEPTED,
+	TERMS_PENDING,
+	FakeServer,
+	empty,
+	json
+} from './account.testkit';
 
 function setup() {
 	const server = new FakeServer();
@@ -76,14 +85,48 @@ describe('request shapes', () => {
 });
 
 describe('responses', () => {
-	it('session: flags are strict booleans; a Phase 3 server (only `guest`) means no Google, not logged in', async () => {
+	it('session: flags are strict booleans; a Phase 3 server (only `guest`) means no Google, not logged in, no terms', async () => {
 		const { server, api } = setup();
+		const none = { requiredVersion: '', acceptedVersion: null, acceptanceRequired: false };
 		server.on('GET /api/session', json({ guest: true }));
-		expect(await api.session()).toEqual({ guest: true, googleEnabled: false, loggedIn: false });
+		expect(await api.session()).toEqual({
+			guest: true,
+			googleEnabled: false,
+			loggedIn: false,
+			terms: none
+		});
 		server.on('GET /api/session', json({ guest: true, googleEnabled: 'yes', loggedIn: 1 }));
-		expect(await api.session()).toEqual({ guest: true, googleEnabled: false, loggedIn: false });
-		server.on('GET /api/session', json({ guest: true, googleEnabled: true, loggedIn: true }));
-		expect(await api.session()).toEqual({ guest: true, googleEnabled: true, loggedIn: true });
+		expect(await api.session()).toEqual({
+			guest: true,
+			googleEnabled: false,
+			loggedIn: false,
+			terms: none
+		});
+		server.on(
+			'GET /api/session',
+			json({ guest: true, googleEnabled: true, loggedIn: true, terms: TERMS_ACCEPTED })
+		);
+		expect(await api.session()).toEqual({
+			guest: true,
+			googleEnabled: true,
+			loggedIn: true,
+			terms: TERMS_ACCEPTED
+		});
+	});
+
+	it('session: carries the terms status of the guest and ignores a malformed one', async () => {
+		const { server, api } = setup();
+		server.on('GET /api/session', json({ guest: true, terms: TERMS_PENDING }));
+		expect((await api.session()).terms).toEqual(TERMS_PENDING);
+		for (const bad of [
+			null,
+			'x',
+			{ requiredVersion: 1 },
+			{ ...TERMS_PENDING, acceptedVersion: 3 }
+		]) {
+			server.on('GET /api/session', json({ guest: true, terms: bad }));
+			expect((await api.session()).terms.acceptanceRequired, JSON.stringify(bad)).toBe(false);
+		}
 	});
 
 	it('me: with and without a saved profile', async () => {

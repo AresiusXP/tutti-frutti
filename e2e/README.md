@@ -21,11 +21,12 @@ e2e/
     no-spanish.ts        "nothing Spanish on this screen" check for the en and nl screens
     network.ts           drop / restore a player's connection
     compose.ts           restart the server container
-    bots.ts              browserless players over WebSocket, generated protocol version (currently 4), snapshots and heartbeat
+    bots.ts              browserless players over WebSocket, generated protocol version (currently 5), snapshots and heartbeat
     rooms.ts             paced REST creation, cookie-preserving host sockets and public directory requests
     a11y.ts              axe helper: serious/critical + two moderate rules fail, exactly one `h1` per screen, an (empty) allow-list for known findings
     rules.ts             alphabets, hard letters, default categories (es, en, nl), the Basta words, the 15 s vote as DESIGN.md states them
     layout.ts            `expectUnobscured`: a control is wholly on screen and nothing lies over it (phone-size checks)
+    terms.ts             accepts the terms for a player / bot (GET /api/session, POST /api/terms/accept, same cookie jar)
     random.ts            seeded PRNG (E2E_SEED)
   scripts/run-local.sh   `npm run test:stack`
   tests/                 the specs (below)
@@ -137,6 +138,13 @@ Traces are kept for failures (`trace: 'retain-on-failure'`); there is no video.
 discovery, axe and exactly one heading, no horizontal overflow, no Spanish on EN/NL screens,
 48 px unobscured controls, public-create preselection, and Home without vertical scrolling.
 It fetches real directory data and projects it onto the fixture's code for deterministic isolation.
+
+**Terms and safety.** The server answers `terms_required` to a guest that has not accepted the terms, so every
+player of `app.player(...)`, `createRoomAPI`, `joinRoomSocket` and every `Bot` accepts them first (`src/terms.ts`);
+`app.player(name, { acceptTerms: false })` is a first visit. `19-terms-gate.spec.ts` covers the gate (create, join by
+code and by invite link, Not now, persistence, a client that wrongly believes it accepted, on REST and on the
+WebSocket), `20-reports.spec.ts` reports (an answer and a nickname answered `201`, a failed send kept as a draft and
+retried with the same idempotency key, `429`) and `21-blocks.spec.ts` "Block and leave" and the block list.
 
 Run against the already-built stack with bots enabled and default production timings:
 

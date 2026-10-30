@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import SafetyButton from '$lib/safety/SafetyButton.svelte';
 	import { MAX_ANSWER_LEN, type FieldStatus } from './answer';
 
 	interface Props {
@@ -11,6 +12,8 @@
 		disabled?: boolean;
 		/** The last field shows "done" on the keyboard instead of "next". */
 		last?: boolean;
+		/** Category index when the label is a custom one (somebody else typed it): the header offers to report it. */
+		customIndex?: number;
 		input?: HTMLInputElement | null;
 		oninput: (text: string) => void;
 		onblur: () => void;
@@ -24,6 +27,7 @@
 		letter,
 		disabled = false,
 		last = false,
+		customIndex,
 		input = $bindable(),
 		oninput,
 		onblur,
@@ -38,8 +42,16 @@
 </script>
 
 <div class="flex scroll-mt-44 scroll-mb-[calc(var(--footer-h,8rem)+1rem)] flex-col gap-1">
-	<div class="flex flex-wrap items-baseline justify-between gap-x-3 px-1">
-		<label for={id} class="text-base font-extrabold text-cream">{label}</label>
+	<div class="flex flex-wrap items-center justify-between gap-x-3 px-1">
+		<div class="flex min-w-0 items-center gap-1">
+			<label for={id} class="text-base font-extrabold text-cream">{label}</label>
+			{#if customIndex !== undefined}
+				<SafetyButton
+					request={{ start: 'label', category: customIndex, label }}
+					label={m.report_label_aria({ label })}
+				/>
+			{/if}
+		</div>
 		{#if status === 'wrong_letter'}
 			<span id="{id}-status" class="text-sm font-bold text-strawberry">
 				<span aria-hidden="true">⚠</span>

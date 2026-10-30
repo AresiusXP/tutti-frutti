@@ -13,6 +13,7 @@ import (
 
 	"github.com/AresiusXP/tutti-frutti/server/internal/game"
 	"github.com/AresiusXP/tutti-frutti/server/internal/protocol"
+	"github.com/AresiusXP/tutti-frutti/server/internal/safety"
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 )
 
@@ -111,6 +112,7 @@ type session struct {
 	joined   bool      // the first "join" was accepted
 	detached bool      // no longer part of the room (left, kicked, replaced, closed...)
 	dead     bool      // its Send failed; it is being closed and receives nothing more
+	termsOK  bool      // the terms gate let its "join" through (checked again at every join)
 }
 
 // refusedSession is what Connect returns for a client the room turned away
@@ -126,7 +128,14 @@ var _ Session = (*session)(nil)
 // Handle implements Session.
 func (s *session) Handle(t string, d json.RawMessage) {
 	d = slices.Clone(d) // the caller may reuse its buffer
-	switch s.r.mb.push(task{run: func(r *room) { r.onFrame(s, t, d) }}, maxPendingFrames) {
+	// The terms gate may do I/O: it runs here, on the transport's goroutine,
+	// and the actor only sees its verdict. Every join (a reconnect included)
+	// asks again; a guest that accepted in the meantime gets through.
+	terms := termsAccepted
+	if t == game.CmdJoin {
+		terms = s.r.h.termsState(s.id)
+	}
+	switch s.r.mb.push(task{run: func(r *room) { r.onFrame(s, t, d, terms) }}, maxPendingFrames) {
 	case pushFull:
 		s.c.Close(protocol.ClosePolicy, "too many pending frames")
 	case pushClosed:
@@ -167,6 +176,14 @@ type room struct {
 	botPhase              game.Phase
 	botRound              *game.Round
 	botPlans              []botPlan
+	// instanceID and matchID are the ids of the room and of the match in
+	// progress (see protocol.State); labelAuthors says who submitted each custom
+	// label and accounts which account sits behind a seat: provenance that only
+	// reports use (see report.go).
+	instanceID   string
+	matchID      string
+	labelAuthors map[string]safety.Author
+	accounts     map[string]string
 	// users links player ids to the accounts they joined with (guests have no
 	// entry); gameID identifies the game in progress ("" in the lobby); pending
 	// is the outbox of finished games whose statistics the store has not
@@ -298,13 +315,14 @@ var errRefused = errors.New("room: connection refused")
 func (r *room) summary() Info {
 	seated := r.seated()
 	return Info{
-		Code:       r.code,
-		Phase:      r.g.Phase,
-		Players:    seated,
-		MaxPlayers: game.MaxPlayers,
-		Lang:       r.g.Settings.Lang,
-		Joinable:   !r.stopping && (seated < game.MaxPlayers || r.g.Phase == game.PhaseLobby && r.humanSeated() < game.MaxPlayers) && r.g.Phase != game.PhaseFinal,
-		Visibility: r.visibility,
+		Code:           r.code,
+		Phase:          r.g.Phase,
+		Players:        seated,
+		MaxPlayers:     game.MaxPlayers,
+		Lang:           r.g.Settings.Lang,
+		Joinable:       !r.stopping && (seated < game.MaxPlayers || r.g.Phase == game.PhaseLobby && r.humanSeated() < game.MaxPlayers) && r.g.Phase != game.PhaseFinal,
+		Visibility:     r.visibility,
+		RoomInstanceID: r.instanceID,
 	}
 }
 
@@ -328,12 +346,16 @@ func (r *room) onInit() {
 	r.persist(now)
 	r.publishPublic()
 	r.rearm()
+	// A restored room may hold a pair the policy no longer allows (a block or a
+	// restriction made just before the restart).
+	r.enforcePolicy()
 }
 
 func (r *room) onConnect(s *session) error {
 	if r.stopping || r.closed {
 		return ErrShuttingDown
 	}
+	r.dropForgottenAccount(s)
 	if r.unjoined() >= maxUnjoinedSessions {
 		r.refuse(s.c)
 		return errRefused
@@ -391,14 +413,14 @@ func (r *room) onDisconnect(s *session) {
 	r.commit(now, prev, events, false)
 }
 
-func (r *room) onFrame(s *session, t string, d json.RawMessage) {
+func (r *room) onFrame(s *session, t string, d json.RawMessage, terms termsState) {
 	if s.detached || r.stopping || r.closed {
 		return
 	}
 	now := r.clock.Now()
 	switch {
 	case t == game.CmdJoin:
-		r.onJoin(now, s, d)
+		r.onJoin(now, s, d, terms)
 	case !s.joined:
 		r.reject(s, t, protocol.ErrNotJoined)
 	default:
@@ -406,14 +428,30 @@ func (r *room) onFrame(s *session, t string, d json.RawMessage) {
 	}
 }
 
-func (r *room) onJoin(now time.Time, s *session, d json.RawMessage) {
+func (r *room) onJoin(now time.Time, s *session, d json.RawMessage, terms termsState) {
 	if s.joined {
 		r.reject(s, game.CmdJoin, protocol.ErrAlreadyJoined)
+		return
+	}
+	switch terms {
+	case termsRequired:
+		r.reject(s, game.CmdJoin, protocol.ErrTermsRequired)
+		return
+	case termsUnknown:
+		r.reject(s, game.CmdJoin, protocol.ErrServerBusy)
 		return
 	}
 	var req protocol.JoinRequest
 	if err := json.Unmarshal(d, &req); err != nil || !strings.EqualFold(strings.TrimSpace(req.Code), r.code) {
 		r.reject(s, game.CmdJoin, protocol.ErrBadMessage)
+		return
+	}
+
+	// Before the engine runs, so before any automated seat is replaced: a
+	// restricted guest, or one that shares a block with a human seated here
+	// (a reconnect included), takes nothing and displaces nobody.
+	if r.refusesJoin(s.id, s.userID) {
+		r.rejectJoinUnavailable(s)
 		return
 	}
 
@@ -437,8 +475,10 @@ func (r *room) onJoin(now time.Time, s *session, d json.RawMessage) {
 		old.c.Close(protocol.CloseReplaced, "replaced by another connection")
 	}
 	s.joined = true
+	s.termsOK = true
 	r.players[s.id] = s
 	r.linkUser(s)
+	r.linkAccount(s)
 	r.claimed = true
 	r.lastActive = now
 	r.h.m.command(game.CmdJoin, resultOK)
@@ -464,6 +504,24 @@ func (r *room) onCommand(now time.Time, s *session, t string, d json.RawMessage)
 			return
 		}
 	}
+	// The commands that put player-written text into the room need the terms:
+	// the join already demanded them (a seat is only taken by a guest that
+	// accepted), this is the second line should a session ever be joined
+	// another way.
+	var prevCustoms map[string]bool
+	switch cmd.(type) {
+	case game.SetAnswer:
+		if r.h.cfg.Terms != nil && !s.termsOK {
+			r.reject(s, t, protocol.ErrTermsRequired)
+			return
+		}
+	case game.UpdateSettings:
+		if r.h.cfg.Terms != nil && !s.termsOK {
+			r.reject(s, t, protocol.ErrTermsRequired)
+			return
+		}
+		prevCustoms = customLabelSet(r.g.Settings)
+	}
 	prev := r.g.Phase
 	kickedBot := false
 	if c, ok := cmd.(game.Kick); ok {
@@ -475,6 +533,9 @@ func (r *room) onCommand(now time.Time, s *session, t string, d json.RawMessage)
 		return
 	}
 	r.h.m.command(t, resultOK)
+	if prevCustoms != nil {
+		r.recordLabelAuthors(prevCustoms, s)
+	}
 	if kickedBot {
 		r.botSuppressed = true
 	}
@@ -604,6 +665,7 @@ func (r *room) commit(now time.Time, prev game.Phase, events []game.Event, lobby
 	events = append(events, more...)
 	lobbyChange = lobbyChange || botsChanged
 	r.countEvents(events)
+	r.trackInstances(events)
 	r.trackStats(now, events)
 	r.broadcast(now, events)
 	if r.humanSeated() == 0 {
@@ -678,6 +740,9 @@ func (r *room) broadcast(now time.Time, events []game.Event) {
 			View:       r.g.View(s.id),
 			CanJudge:   r.canJudge(s),
 			Visibility: r.visibility,
+
+			RoomInstanceID:  r.instanceID,
+			MatchInstanceID: r.matchID,
 		}))
 	}
 }
@@ -1002,6 +1067,10 @@ func (r *room) encode(now time.Time) ([]byte, error) {
 		Outbox:        outboxVersion,
 		Visibility:    r.visibility,
 		BotSuppressed: r.botSuppressed,
+		InstanceID:    r.instanceID,
+		MatchID:       r.matchID,
+		LabelAuthors:  r.labelAuthors,
+		Accounts:      r.accounts,
 	}, r.g)
 }
 

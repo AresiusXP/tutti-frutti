@@ -27,6 +27,7 @@
 		timerTone
 	} from '$lib/play/time';
 	import { createWakeLock } from '$lib/play/wakelock';
+	import SafetyButton from '$lib/safety/SafetyButton.svelte';
 	import { toasts } from '$lib/toast.svelte';
 
 	let { session }: { session: RoomSession } = $props();
@@ -490,6 +491,7 @@
 						{letter}
 						disabled={locked}
 						last={i === labels.length - 1}
+						customIndex={view.settings.categories[i]?.custom ? i : undefined}
 						bind:input={inputs[i]}
 						oninput={(text) => drafts.input(i, text)}
 						onblur={() => drafts.flush(i)}
@@ -506,6 +508,14 @@
 			</p>
 			{#if info}{@render onlooker()}{/if}
 		{/if}
+		<div class="flex justify-center">
+			<SafetyButton
+				request={{ start: 'players' }}
+				label={m.report_players_aria()}
+				text
+				class="mb-1"
+			/>
+		</div>
 	</Screen>
 
 	<p role="alert" aria-live="assertive" aria-atomic="true" class="sr-only">{announcement}</p>

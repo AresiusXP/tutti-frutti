@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/AresiusXP/tutti-frutti/server/internal/store"
@@ -90,12 +91,16 @@ func verifyMAC(key []byte, msg, mac string) bool {
 	return err == nil && hmac.Equal(got, signMAC(key, msg))
 }
 
-// Sessions issues and verifies the account cookie. It is stateless: a session
-// is the user id and an expiry, signed. It is safe for concurrent use.
+// Sessions issues and verifies the account cookie. A session is the user id and
+// an expiry, signed: the cookie itself is stateless and cannot be revoked. What
+// makes a deleted account's copied cookie useless is the account check (see
+// WithAccounts and Lookup), which asks the store, through a short cache, whether
+// the account still exists. It is safe for concurrent use.
 type Sessions struct {
-	key    []byte
-	secure bool
-	now    func() time.Time
+	key      []byte
+	secure   bool
+	now      func() time.Time
+	accounts atomic.Pointer[accountCache] // nil: no account check
 }
 
 // SessionOption customises NewSessions.
@@ -121,14 +126,12 @@ func NewSessions(secret []byte, secure bool, opts ...SessionOption) *Sessions {
 }
 
 // Identify returns the user id carried by a valid, unexpired session cookie of
-// r. A missing, garbled, oversized, forged or expired cookie is not ok.
+// r whose account exists (when an account check is configured, see Lookup). A
+// missing, garbled, oversized, forged or expired cookie, a deleted account and
+// an account the store could not look up are not ok.
 func (s *Sessions) Identify(r *http.Request) (string, bool) {
-	for _, c := range r.CookiesNamed(SessionCookie) {
-		if id, ok := s.verify(c.Value); ok {
-			return id, true
-		}
-	}
-	return "", false
+	id, status := s.Lookup(r)
+	return id, status == SessionActive
 }
 
 func (s *Sessions) verify(value string) (string, bool) {

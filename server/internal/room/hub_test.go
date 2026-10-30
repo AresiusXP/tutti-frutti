@@ -331,7 +331,8 @@ func TestInfo(t *testing.T) {
 	}
 
 	got, ok := e.hub.Info(code)
-	want := Info{Code: code, Phase: game.PhaseLobby, Players: 1, MaxPlayers: game.MaxPlayers, Lang: game.LangEN, Joinable: true, Visibility: visibilityPrivate}
+	// The instance id has its own tests (safety_test.go): here it just has to be there and be stable.
+	want := Info{Code: code, Phase: game.PhaseLobby, Players: 1, MaxPlayers: game.MaxPlayers, Lang: game.LangEN, Joinable: true, Visibility: visibilityPrivate, RoomInstanceID: got.RoomInstanceID}
 	if !ok || got != want {
 		t.Errorf("Info = %+v, %v; want %+v", got, ok, want)
 	}

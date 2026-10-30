@@ -13,7 +13,10 @@ import (
 	"github.com/AresiusXP/tutti-frutti/server/internal/api"
 )
 
-var _ Backend = (*Postgres)(nil)
+var (
+	_ Backend     = (*Postgres)(nil)
+	_ GameSkipper = (*Postgres)(nil)
+)
 
 const (
 	upsertUserSQL = `INSERT INTO users (id, google_sub, name, created_at, last_login_at)
@@ -130,15 +133,30 @@ func (p *Postgres) DeleteUser(ctx context.Context, id string) error {
 	return nil
 }
 
-// RecordGame implements Accounts. The whole game is one transaction; the
+// RecordGame implements Accounts.
+func (p *Postgres) RecordGame(ctx context.Context, rec GameRecord) error {
+	_, err := p.RecordGameSkips(ctx, rec)
+	return err
+}
+
+// RecordGameSkips implements GameSkipper. The whole game is one transaction; the
 // users are processed in id order so that concurrent games with players in
 // common take their locks in the same order.
-func (p *Postgres) RecordGame(ctx context.Context, rec GameRecord) error {
+//
+// A user whose account is gone is skipped, never an error: the share lock on
+// the user's key (lockUserSQL) either finds the row, and then holds off a
+// concurrent DELETE until the transaction ended, or finds nothing. So the
+// foreign keys of user_games and user_stats cannot be violated by a deletion that
+// races with a record, and a record naming a deleted user does not fail, retry or
+// re-create anything. (Should one ever be violated anyway, the whole transaction
+// is rolled back and the next attempt finds the user gone and skips it: a
+// bounded retry, not a loop.)
+func (p *Postgres) RecordGameSkips(ctx context.Context, rec GameRecord) (int, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return 0, err
 	}
 	if err := validateGame(rec); err != nil {
-		return err
+		return 0, err
 	}
 	results := firstPerUser(rec.Results)
 	slices.SortStableFunc(results, func(a, b UserResult) int { return strings.Compare(a.UserID, b.UserID) })
@@ -148,12 +166,15 @@ func (p *Postgres) RecordGame(ctx context.Context, rec GameRecord) error {
 	}
 	at = normalizeTime(at)
 
+	skipped := 0
 	err := pgx.BeginFunc(ctx, p.pool, func(tx pgx.Tx) error {
+		skipped = 0 // BeginFunc does not retry, but a transaction body must not depend on that
 		for _, r := range results {
 			var one int
 			switch err := tx.QueryRow(ctx, lockUserSQL, r.UserID).Scan(&one); {
 			case errors.Is(err, pgx.ErrNoRows):
-				continue // the user is gone
+				skipped++ // the user is gone
+				continue
 			case err != nil:
 				return err
 			}
@@ -175,9 +196,9 @@ func (p *Postgres) RecordGame(ctx context.Context, rec GameRecord) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("%srecord game %s: %w", opErrPrefix, rec.ID, err)
+		return 0, fmt.Errorf("%srecord game %s: %w", opErrPrefix, rec.ID, err)
 	}
-	return nil
+	return skipped, nil
 }
 
 // UserStats implements Accounts.

@@ -10,6 +10,7 @@ const room = {
 	players: 3,
 	maxPlayers: 10,
 	categoryLabels: ['Name'],
+	customCategories: 0,
 	rounds: 5,
 	timeLimitSeconds: 60
 };

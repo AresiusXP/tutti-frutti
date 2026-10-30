@@ -146,5 +146,62 @@ describe('service worker policy', () => {
 			expect(urls.filter((u) => /^privacy/.test(u))).toEqual([]);
 			expect(sw).toMatch(/denylist:\[[^\]]*\/\^\\\/privacy\(\?:\\\/\|\\\.html\)\?\$\//);
 		});
+
+		it('leaves the static terms and account-deletion pages to the network too', () => {
+			const urls = [...sw.matchAll(/\{url:"([^"]+)"/g)].map((m) => m[1]);
+			expect(urls.filter((u) => /^(?:terms|delete-account)/.test(u))).toEqual([]);
+			expect(sw).toMatch(
+				/denylist:\[[^\]]*\/\^\\\/\(\?:terms\|delete-account\)\(\?:\\\/\|\\\.html\)\?\$\//
+			);
+		});
+	});
+});
+
+describe('Digital Asset Links (Android Trusted Web Activity)', () => {
+	const file = 'static/.well-known/assetlinks.json';
+	const PACKAGE = 'xyz.aresius.tuttifrutti';
+	const FINGERPRINT = /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/;
+	interface Statement {
+		relation: string[];
+		target: {
+			namespace: string;
+			package_name: string;
+			sha256_cert_fingerprints: string[];
+		};
+	}
+	const statements = JSON.parse(read(file)) as Statement[];
+
+	it('is valid JSON: an array', () => {
+		expect(Array.isArray(statements)).toBe(true);
+	});
+
+	it('every statement hands every URL of the site to our app and only to it', () => {
+		for (const statement of statements) {
+			expect(statement.relation).toEqual(['delegate_permission/common.handle_all_urls']);
+			expect(statement.target.namespace).toBe('android_app');
+			expect(statement.target.package_name).toBe(PACKAGE);
+			expect(statement.target.sha256_cert_fingerprints.length).toBeGreaterThan(0);
+			for (const fingerprint of statement.target.sha256_cert_fingerprints) {
+				expect(fingerprint).toMatch(FINGERPRINT);
+			}
+		}
+	});
+
+	// The real statement needs the SHA-256 of the Play *app-signing* key, which exists only after
+	// the app is created in the Play Console. Until then the file is the empty array, on purpose.
+	// Once it is filled in, the PENDING test is skipped and the PUBLISHED one runs instead.
+	it.runIf(statements.length === 0)(
+		'PENDING: still the empty placeholder, the Play app-signing fingerprint is not known yet',
+		() => {
+			expect(read(file).trim()).toBe('[]');
+		}
+	);
+
+	it.runIf(statements.length > 0)('PUBLISHED: one statement for the app', () => {
+		expect(statements).toHaveLength(1);
+	});
+
+	it.runIf(existsSync(join(root, 'build', 'index.html')))('is copied into build/ as it is', () => {
+		expect(read('build/.well-known/assetlinks.json')).toBe(read(file));
 	});
 });

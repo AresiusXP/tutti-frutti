@@ -7,11 +7,12 @@
 	import GoogleButton from '$lib/account/GoogleButton.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import LanguageSwitch from '$lib/components/LanguageSwitch.svelte';
-	import PrivacyLink from '$lib/components/PrivacyLink.svelte';
+	import LegalLinks from '$lib/components/LegalLinks.svelte';
 	import Screen from '$lib/components/Screen.svelte';
 	import { BRAND } from '$lib/brand';
 	import { i18n } from '$lib/i18n.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import BlockedButton from '$lib/safety/BlockedButton.svelte';
 	import { toasts } from '$lib/toast.svelte';
 	import DeleteDialog from './DeleteDialog.svelte';
 	import StatTile from './StatTile.svelte';
@@ -217,9 +218,14 @@
 				>
 					{m.stats_delete()}
 				</button>
-				<PrivacyLink />
 			</section>
 		{/if}
+
+		<!-- Legal pages (the deletion page is the public resource Google Play asks for) and the block list: no account needed. -->
+		<div class="flex flex-wrap items-center justify-center gap-x-2">
+			<LegalLinks pages={['privacy', 'terms', 'delete-account']} />
+			<BlockedButton />
+		</div>
 
 		{#snippet footer()}
 			<a href={resolve('/')} class={homeLink}>
