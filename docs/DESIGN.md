@@ -71,7 +71,9 @@ to end the round. Hosted on the homelab at **https://tuttifrutti.aresius.xyz**.
   checked. Details in section 9b.
 * **Client version check**: client sends protocol version on connect. On
   mismatch the app shows "Nueva versión disponible → Recargar" / "New version
-  available → Reload".
+  available → Reload". Reload goes through the shared update flow (service
+  worker takes over, then one reload; see "Updates, Back and the Android app"),
+  never through a plain `location.reload()`.
 
 ### Postgres
 
@@ -886,7 +888,7 @@ last `view` kept) → `connected` …, or `closed` with a reason: `room_gone`, `
   a join that held for 3 s; `Retry-After` is honoured up to 10 s.
 * **Final outcomes:** preflight 404 or close `4004` / `room_not_found` / `room_closed` → `room_gone`;
   `4001` / `replaced` → `replaced` (the UI can take the seat back with a new session); `4002` /
-  `kicked` → `kicked`; `4003` / `unsupported_version` → reload the app; `4005` / `leave()` → `left`;
+  `kicked` → `kicked`; `4003` / `unsupported_version` → the "new version" screen (update flow, below); `4005` / `leave()` → `left`;
   a refused join (anything but `server_busy`, `rate_limited`, `internal`) → `join_rejected`.
   Every other close code (1006, 1001, 1012, 1008, 1009, 1000, unknown) reconnects.
 * **Liveness:** `ping` every 20 s; no frame for 45 s drops the socket; `online` and a tab becoming
@@ -1248,6 +1250,75 @@ unreachable + `navigator.onLine=false`): `/`, `/KT7P` and `/stats` load from the
 goes away when the browser is back online, `fetch('/api/session')` and a navigation to `/api/auth/google/login` fail
 as network errors instead of being answered by the worker.
 
+**Updates, Back and the Android app.** The Android app (package `xyz.aresius.tuttifrutti`, `docs/ANDROID.md`) is a Trusted
+Web Activity that just opens the live site, so a web release reaches Android users through the same service worker.
+Three things make that dependable:
+
+* *One update path* (`web/src/lib/pwa/update.svelte.ts`, no dependency beyond the PWA plugin). It is the only code that
+  registers the worker (`registerSW`, started by `UpdatePrompt`), the only one that reloads for an update, and exposes
+  reactive `update.needRefresh / checking / applying / error` (`error`: `offline`, `failed` or `not_ready`). Two actions use
+  it: the banner and the `unsupported_version` screen. The bug it fixes: the screen used `location.reload()`, which while
+  the new worker still WAITS is answered by the old worker with the old shell, so the player came back to the same
+  incompatible screen forever. `applyUpdate()` now (1) finds the registration; (2) takes the waiting worker, giving one that
+  is still installing up to 15 s to finish; (3) with none, runs a fresh check and, if there still is none, sets
+  `not_ready` ("The new version is not ready yet. Try again in a moment.") instead of reloading; (4) otherwise tells it to
+  skip waiting, waits for `controllerchange` (or its `activated`), at most 10 s, and reloads. A browser without workers, or
+  a page no worker controls and nothing waits for, just reloads (the network answers with the newest shell).
+  *Loop guard*: the reload stamps `sessionStorage['tf.update.reloadedAt']`; a page that reloaded for an update less than 30 s
+  ago reports `not_ready` instead of reloading again. A reload keeps the URL, and the per-tab room marker
+  `tf.room.<CODE>` is not touched by it (nor cleared for `unsupported_version`), so the player lands back in the same room.
+  The version screen looks for the new version when it appears and whenever the tab becomes visible or the device goes
+  online (the web image can roll out after the server); a check offline reports `offline` without fetching, and every
+  problem is a recoverable sentence in a polite `role="status"` line next to the 56 px button (`messages/pwa/`).
+  *Checks*: hourly while open, plus when the page returns to the foreground or the device goes online, throttled to once
+  per 15 minutes (the browser also checks on every navigation and the Android app's Chrome engine on every launch).
+* *No surprise reload mid-game.* The plugin's `controlling` listener (`vite-plugin-pwa` `register.js`) reloads EVERY open tab
+  that saw the update as soon as the new worker takes control (`controllerchange` reaches every tab the old worker
+  controlled, with or without `clientsClaim`), i.e. a tab in the middle of a round would be reloaded because another tab
+  accepted the update (verified in Chromium with two tabs). `registerSW` is therefore given `onNeedReload`, which replaces
+  that unconditional reload: the tab reloads by itself only when it is not holding a round (`RoomRoute` registers
+  `holdReload()`: phase `playing` or `grace` of a live session). A held tab keeps its banner, now only needing a reload;
+  the player's own tap reloads it (a reload mid-round restores the same round). Known limitation: until then the page runs
+  old code against the new worker, whose precache no longer holds the old chunks; a lazily loaded chunk requested in that
+  window gets a 404, and SvelteKit's navigation error path then compares `_app/version.json` and does a full page load, which
+  the new worker answers with the new shell (read in `@sveltejs/kit` `client.js`; not exercised in a browser).
+* *Android Back and modal sheets* (`web/src/lib/lobby/Sheet.svelte`, `sheetBack.ts`). A sheet that opens pushes one history
+  entry with SvelteKit's shallow routing (`pushState('', { tfSheet: depth })`, same URL; `App.PageState.tfSheet`); Back, which is also the
+  Android system Back, pops it and the sheet closes (it never leaves the room and no `leave` is sent). A sheet closed by its
+  button, Escape or the backdrop pops its own entry with `history.back()` only when it is still the newest one, so the history
+  does not grow; a real navigation closes the sheets without popping. Stacked sheets close one per Back (the state is a
+  depth). Without a router (unit tests) it degrades to the old behaviour. Android dismisses the on-screen keyboard with the
+  first Back press, before the page sees it, so with the keyboard up closing a sheet takes two. Known edges: reloading with a sheet
+  open leaves one inert entry (one extra Back does nothing visible); closing a sheet and opening another in the same
+  tick could pop the wrong entry (no screen does this).
+
+*Digital Asset Links* (`web/static/.well-known/assetlinks.json`). The file is `[]` for now, on purpose: the real statement needs
+the SHA-256 of the Play **app-signing** key, which exists only after the app is created in the Play Console, and the owner is the
+only one who can read it there. The final shape is
+`[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"xyz.aresius.tuttifrutti","sha256_cert_fingerprints":["AA:BB:…"]}}]`
+(32 uppercase hex pairs; add the upload-key fingerprint only if a build signed with it must verify too). Until it is filled in the app runs
+in a Custom Tab with the browser bar. nginx serves it with `location = /.well-known/assetlinks.json`: `application/json`, `Cache-Control:
+no-cache`, the security headers, `try_files $uri =404` (a missing file is a real 404, never `index.html`) and no redirect; any other path
+under `/.well-known/` is a plain 404. The worker never answers it: `/.well-known/` is in `navigateFallbackDenylist` and in
+`globIgnores`. `SvelteKit`'s static adapter and the Docker `COPY` keep the dot-directory (checked in `build/` and in the image).
+`src/lib/pwa.test.ts` validates the JSON (each statement: `handle_all_urls`, `android_app`, the package, well-formed fingerprints;
+the empty array is an explicit PENDING state) and `security.test.ts` the nginx locations.
+
+*Rolling web deploys.* `helm/tutti-frutti/templates/web-deployment.yaml` is `RollingUpdate` (`maxSurge: 1`, `maxUnavailable: 0`; the HPA allows
+1 to 6 replicas): for a short while old and new replicas answer the same Service. What can fail in the overlap: (a) a client that got
+`index.html` from the new replica and requests a content-hashed chunk (`/_app/immutable/...`) from an old one gets a 404
+(`try_files $uri =404`), and the same for an old client against a new replica; (b) the same for a new worker's precache
+download, whose install then fails as a whole (the old worker stays in charge, nothing breaks; the next check retries).
+404s are **not** cached: `Cache-Control` on `/_app/immutable/` has no `always`, so a miss is never stored as `immutable`
+for a year (and the worker's precache never stores a failed response). Clients with a worker (every returning visitor)
+are mostly immune: the shell and chunks come from their precache. First visits and cleared storage get a blank page until a
+reload, which succeeds once the old replica is gone (seconds, N steps for N replicas). The update flow absorbs the rest:
+a failed install ends as "not ready, try again" on the version screen and is retried on the next check; the player never
+needs to clear storage. No chart change is made: closing the window completely would mean keeping the previous version's
+`_app/immutable/` files in the new image (or sticky routing), which is not worth it at one to a few replicas.
+Recommendation: leave as is; if blank pages after a deploy are ever reported, copy the previous release's immutable
+chunks into the next image.
+
 **Full-game verification.** `docker compose -p tf-c` with the released server `0.3.0` and the web image built from
 this tree: a 3-player game in Chromium (Home, language switch, invite gate, lobby with copy-fallback, QR sheet and
 category picker, letter, playing with Wake Lock, offline/online, review, summary, final, rematch, leave) in Spanish
@@ -1328,6 +1399,34 @@ the production server-controlled seats; both use the generated protocol version.
 (17) public browsing and creation at 360×740 in es/en/nl: empty and populated
 directory, axe/one heading, no horizontal overflow or Spanish on en/nl screens,
 48 px unobscured controls, public-create preselection, and Home's vertical fit.
+(18) Android Back and updates (`18-android-back-and-update.spec.ts`, `18-update-deploy.restart.spec.ts`): Back closes the QR
+and the leave sheet while the room stays and no `leave` is sent, closing them with the buttons leaves no dead history entry (a
+further Back goes to Home), `assetlinks.json` is JSON, `no-cache`, no redirect and other `/.well-known/` paths are a real 404; on the "new
+version" screen (a protocol mismatch played with `routeWebSocket`) Reload with nothing newer says "not ready" without
+reloading, and offline says so and recovers. The restart project also stages a real deploy (it appends a line to the web
+container's `sw.js`, reverting it afterwards): the screen finds the new worker by itself, Reload takes it over and the
+player is back in the same room, a second tab in the lobby follows, a second tab in the middle of a round is not reloaded.
+Playwright does not see a service worker's own update fetch, so `route` cannot fake a new version: the restart spec needs the compose stack.
+
+(19) the terms gate (`19-terms-gate.spec.ts`): first visits are stopped before create, join by code and by invite link, nothing is
+created or joined while the gate is open, "Not now" joins nothing, the accepted version / language / age confirmation are what the
+server gets, the acceptance survives reloads and the next game, and a client that wrongly believes it accepted (the session faked) is
+brought to the gate by the server's `terms_required`, on REST and on the WebSocket. (20) reports (`20-reports.spec.ts`): two players
+report an answer (round, category, author, `observedText`) and a nickname, each answered `201`, a flag only on the other player; a cut
+request (`route.abort`) keeps the draft and the retry sends the same idempotency key; a `429` is explained and nothing is claimed.
+(21) blocks (`21-blocks.spec.ts`): the confirmation text, `POST /api/blocks` answered with this room in `leftRooms`, Home with a toast and
+no `leave` sent, the blocked list, the pair refused a new room with the generic "you can't join that room right now" (the room check
+already says `joinable: false`), and *Unblock* letting them in again.
+(22) resume recent game (`22-resume-recent-room.spec.ts`): "browser process death" is a new context with the old cookies and
+localStorage (`storageState`, `relaunchBrowser`) and a fresh sessionStorage: Home offers the card (48 px, code only), the tap lands
+in the same seat in the lobby and in a running round, leaving forgets it, a room that is gone, a code of another instance, an
+expired or corrupt entry never show the card, and Home still fits 360×740 with the card and Google sign-in on, in es/en/nl.
+(23) the Android context (`23-android-context.spec.ts`): the referrer `android-app://xyz.aresius.tuttifrutti` is defined by an
+init script on the first document of a tab; Home and Final then have no support link, sentence or empty card, Privacy stays, the
+marker survives a static page, Back and a reload, belongs to the tab (another tab of the browser keeps the links), is not set by
+the website, another app or a look-alike package, and nothing about it reaches the server.
+Every other spec plays with the terms accepted: `src/terms.ts` (`GET /api/session`, then `POST /api/terms/accept` with the same cookie jar)
+is called by `app.player` (opt out with `acceptTerms: false`), by `createRoomAPI` / `joinRoomSocket` and by the WebSocket bots.
 
 **Rules of the suite.** (A spec of its own checks that the guard, the no-Spanish check (English and Dutch) and the accessibility check really fail when they should; the main assertions were also mutation-checked against deliberately broken servers and messages.) Labels come from the app's real `web/messages/**` (never retyped, so they cannot drift); the
 exact Basta words and the game rules (alphabets, hard letters, points) are written out in the tests, so drift from this

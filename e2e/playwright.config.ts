@@ -7,6 +7,10 @@ import { BASE_URL, WORKERS } from './src/env';
  *  - `slow`: the specs that must wait for the server's own clock (the 60 s round time limit).
  *  - `restart`: restarts the server container, which every other test would notice, so it runs alone,
  *    after the two above (project dependencies). Skipped unless E2E_COMPOSE_PROJECT is set.
+ *  - `deploy`: replaces the worker script inside the web container (`*-update-deploy.restart.spec.ts`).
+ *    It must not overlap the server restart above (the 502s of a restarting server would reach its
+ *    browsers), and files of one project run in parallel workers, so it is a project of its own that
+ *    runs after `restart`. Another spec that changes a container gets its own project in the same chain.
  * `npx playwright test` runs all; `--project=chromium` is the quick loop.
  */
 const phone = {
@@ -52,7 +56,14 @@ export default defineConfig({
 		{
 			name: 'restart',
 			testMatch: /\.restart\.spec\.ts$/,
+			testIgnore: /-update-deploy\.restart\.spec\.ts$/,
 			dependencies: ['chromium', 'slow'],
+			timeout: 180_000
+		},
+		{
+			name: 'deploy',
+			testMatch: /-update-deploy\.restart\.spec\.ts$/,
+			dependencies: ['restart'],
 			timeout: 180_000
 		}
 	]

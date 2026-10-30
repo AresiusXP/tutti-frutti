@@ -6,7 +6,7 @@ import { m } from './paraglide/messages';
 type Catalog = Record<string, string>;
 
 /** Message areas: the shared catalog plus one folder per feature (each owned by one part of the app). */
-const AREAS = ['', 'net/', 'lobby/', 'play/', 'review/', 'account/', 'support/'];
+const AREAS = ['', 'net/', 'lobby/', 'play/', 'review/', 'account/', 'support/', 'pwa/'];
 
 function readArea(area: string, locale: string): Catalog {
 	const raw = JSON.parse(

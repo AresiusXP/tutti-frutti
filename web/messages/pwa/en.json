@@ -1,0 +1,6 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"update_offline": "You are offline. Connect to the internet to get the new version.",
+	"update_not_ready": "The new version is not ready yet. Try again in a moment.",
+	"update_failed": "Could not check for the new version. Try again."
+}

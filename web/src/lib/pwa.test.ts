@@ -100,6 +100,13 @@ describe('service worker policy', () => {
 		expect(config).toMatch(/cleanupOutdatedCaches:\s*true/);
 	});
 
+	it('never answers /.well-known/ (Digital Asset Links) with the app shell, and never precaches it', () => {
+		expect(config).toMatch(
+			/navigateFallbackDenylist:\s*\[[^\]]*\/\^\\\/\\\.well-known\(\?:\\\/\|\$\)\//
+		);
+		expect(config).toMatch(/globIgnores:\s*\[[^\]]*'\*\*\/\.well-known\/\*\*'/);
+	});
+
 	it('never intercepts the backend namespace', () => {
 		expect(config).toMatch(
 			/navigateFallbackDenylist:\s*\[\s*\/\^\\\/\(\?:api\|ws\|healthz\|readyz\|metrics\)/
@@ -126,6 +133,12 @@ describe('service worker policy', () => {
 			).toEqual([]);
 			expect(sw).toMatch(/denylist:\[\/\^\\\/\(\?:api\|ws\|healthz\|readyz\|metrics\)/);
 			expect(sw).toContain('NetworkOnly');
+		});
+
+		it('leaves /.well-known/ to the network: not precached, not an SPA fallback', () => {
+			const urls = [...sw.matchAll(/\{url:"([^"]+)"/g)].map((m) => m[1]);
+			expect(urls.filter((u) => /well-known|assetlinks/.test(u))).toEqual([]);
+			expect(sw).toMatch(/denylist:\[[^\]]*\/\^\\\/\\\.well-known\(\?:\\\/\|\$\)\//);
 		});
 
 		it('leaves the static privacy policy to the network: not precached, not an SPA fallback', () => {

@@ -12,7 +12,8 @@
 			"./messages/review/{locale}.json",
 			"./messages/account/{locale}.json",
 			"./messages/support/{locale}.json",
-			"./messages/rooms/{locale}.json"
+			"./messages/rooms/{locale}.json",
+			"./messages/pwa/{locale}.json"
 		]
 	}
 }

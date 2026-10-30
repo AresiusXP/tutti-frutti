@@ -85,6 +85,10 @@ name, works the same way: `EDGE_PORT=18400 POSTGRES_PORT=15400 docker compose -p
 - **`restart`** — `*.restart.spec.ts`: restarts the server container (`docker compose -p $E2E_COMPOSE_PROJECT restart
 server`). Every other test would notice, so it runs **alone, after the other two** (project dependencies; if
   one of them fails it does not run — fix that first, or `--project=restart --no-deps`).
+- **`deploy`** — `*-update-deploy.restart.spec.ts`: swaps the service worker script inside the web container (`18-update-deploy`).
+  It is a project of its own that runs **after `restart`**: specs of one project run in parallel workers, and the 502s of
+  a restarting server would reach the browsers of a deploy test (and the guard fails on them). Every spec that changes a
+  container gets its own project in this chain. Run it alone with `--project=deploy --no-deps`.
 
 Traces are kept for failures (`trace: 'retain-on-failure'`); there is no video.
 

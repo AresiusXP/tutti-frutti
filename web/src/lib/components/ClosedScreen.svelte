@@ -1,21 +1,25 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import Button from '$lib/components/Button.svelte';
 	import Screen from '$lib/components/Screen.svelte';
 	import { errorMessage } from '$lib/errors';
 	import type { ClosedReason } from '$lib/game/session';
 	import { m } from '$lib/paraglide/messages';
+	import { updateErrorText } from '$lib/pwa/errors';
+	import { applyUpdate, checkForUpdate, update } from '$lib/pwa/update.svelte';
 
 	/**
 	 * A session that ended for good. Every reason explains what happened and
 	 * always offers the way Home; `replaced` and `join_rejected` also offer a
-	 * second try (`onretry`), `unsupported_version` a reload.
+	 * second try (`onretry`), `unsupported_version` the update (`onreload`:
+	 * the new version takes over, then the page reloads; see `$lib/pwa/update.svelte`).
 	 */
 	let {
 		reason,
 		joinError = null,
 		onretry,
-		onreload = () => location.reload()
+		onreload = () => void applyUpdate()
 	}: {
 		reason: ClosedReason;
 		/** The error code of a refused join (`join_rejected`). */
@@ -54,19 +58,45 @@
 		return null;
 	});
 
+	// The incompatibility is fixed by the new version: look for it as soon as the screen shows, and
+	// again when the tab is visible or the device is back online (the web image may roll out later).
+	$effect(() => {
+		if (reason === 'unsupported_version') untrack(() => void checkForUpdate());
+	});
+
+	function lookAgain() {
+		if (reason === 'unsupported_version' && document.visibilityState !== 'hidden') {
+			void checkForUpdate();
+		}
+	}
+
 	const link =
 		'flex h-14 w-full items-center justify-center rounded-2xl px-6 text-xl font-black shadow-pop transition active:translate-y-1 active:shadow-none';
 </script>
+
+<svelte:window ononline={lookAgain} />
+<svelte:document onvisibilitychange={lookAgain} />
 
 <Screen label={content.title}>
 	<div class="flex flex-1 flex-col items-center justify-center gap-4 text-center">
 		<span class="animate-bounce-in text-7xl" aria-hidden="true">{content.icon}</span>
 		<h1 class="text-3xl leading-tight font-black">{content.title}</h1>
 		<p class="max-w-xs text-lg text-cream-muted">{content.text}</p>
+		{#if reason === 'unsupported_version'}
+			<p role="status" aria-live="polite" class="min-h-6 max-w-xs font-bold text-banana">
+				{update.error ? updateErrorText(update.error) : ''}
+			</p>
+		{/if}
 	</div>
 	{#snippet footer()}
 		{#if action}
-			<Button tone="banana" onclick={action.run}>{action.label}</Button>
+			<Button
+				tone="banana"
+				disabled={reason === 'unsupported_version' && update.applying}
+				onclick={action.run}
+			>
+				{action.label}
+			</Button>
 		{/if}
 		<a
 			href={resolve('/')}

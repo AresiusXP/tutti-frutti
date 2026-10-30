@@ -178,6 +178,40 @@ describe('nginx.conf', () => {
 		}
 	});
 
+	describe('Digital Asset Links (/.well-known/assetlinks.json)', () => {
+		const index = (needle: string) => locations.findIndex(([name]) => name.includes(needle));
+		const block = (needle: string) => locations[index(needle)]?.[1] ?? '';
+
+		it('is served as JSON, always revalidated, with the headers, and a missing file is a real 404', () => {
+			expect(locations[index('= /.well-known/assetlinks.json')]?.[0]).toBe(
+				'= /.well-known/assetlinks.json'
+			);
+			const body = block('= /.well-known/assetlinks.json');
+			expect(body).toMatch(/default_type application\/json;/);
+			expect(body).toMatch(/add_header Cache-Control "no-cache" always;/);
+			expect(body).toContain(SNIPPET);
+			expect(body).toMatch(/try_files \$uri =404;/);
+			expect(body, 'no redirect, no fallback').not.toMatch(/\b(?:return|rewrite)\b|index\.html/);
+		});
+
+		it('any other /.well-known/ path is a plain 404, never the app shell', () => {
+			const body = block('^~ /.well-known/');
+			expect(body).toMatch(/return 404\b/);
+			expect(body).toContain(SNIPPET);
+			expect(body).not.toContain('index.html');
+		});
+
+		it('both come before the SPA fallback', () => {
+			const fallback = locations.findIndex(([name]) => name === '/');
+			expect(locations[fallback]?.[0]).toBe('/');
+			expect(index('= /.well-known/assetlinks.json')).toBeGreaterThanOrEqual(0);
+			expect(index('= /.well-known/assetlinks.json')).toBeLessThan(fallback);
+			expect(index('^~ /.well-known/')).toBeGreaterThanOrEqual(0);
+			expect(index('^~ /.well-known/')).toBeLessThan(fallback);
+			expect(fallback, 'the fallback stays the last location').toBe(locations.length - 1);
+		});
+	});
+
 	it('loads the generated hashes before the maps that use them', () => {
 		expect(nginx).toContain('include /etc/nginx/snippets/csp-hashes.conf;');
 		expect(nginx.indexOf('csp-hashes.conf')).toBeLessThan(nginx.indexOf('server {'));

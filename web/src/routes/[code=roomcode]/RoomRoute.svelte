@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ClosedScreen from '$lib/components/ClosedScreen.svelte';
@@ -9,8 +9,10 @@
 	import { errorMessage } from '$lib/errors';
 	import { WsRoomSession } from '$lib/game/client.svelte';
 	import { clearRoomMark, hasRoomMark, markRoom } from '$lib/game/roomMark';
+	import { historySettled } from '$lib/lobby/historyPop';
 	import type { RoomSession } from '$lib/game/session';
 	import { profile } from '$lib/profile.svelte';
+	import { holdReload } from '$lib/pwa/update.svelte';
 	import RoomScreen from '$lib/screens/RoomScreen.svelte';
 	import { toasts } from '$lib/toast.svelte';
 
@@ -48,6 +50,14 @@
 
 	onDestroy(() => session?.destroy());
 
+	// An update accepted in ANOTHER tab must not reload this one while a round is being played.
+	onMount(() =>
+		holdReload(() => {
+			const phase = session?.status === 'closed' ? null : session?.view?.phase;
+			return phase === 'playing' || phase === 'grace';
+		})
+	);
+
 	// A translated toast for every NEW error (not for the ones that end the session: the closed screen says it).
 	let seen: { session: RoomSession | null; seq: number } = { session: null, seq: 0 };
 	$effect(() => {
@@ -65,7 +75,9 @@
 		if (session?.status !== 'closed') return;
 		const reason = session.closedReason;
 		if (reason !== 'replaced' && reason !== 'unsupported_version') clearRoomMark(code);
-		if (reason === 'left') void goto(resolve('/'));
+		// A sheet that was open (the leave confirmation) pops its history entry as it goes away; a goto() that
+		// started before that pop arrived would be cancelled by it, so Home waits for it.
+		if (reason === 'left') void historySettled().then(() => goto(resolve('/')));
 	});
 </script>
 

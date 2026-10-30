@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { onMount, type Snippet } from 'svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { claimBack, type BackClaim } from './sheetBack';
+	import { enterStack, isTopSheet, leaveStack } from './sheetStack';
 
 	/**
 	 * Modal bottom sheet: `role="dialog"` + `aria-modal`, focus trapped inside,
@@ -8,6 +10,8 @@
 	 * opened it, and the page behind does not scroll. `role="alertdialog"` is for
 	 * short confirmations: `initialFocus` (a selector inside the panel) picks the
 	 * safe button to start on and `describedby` points at the text it explains.
+	 * The browser / Android Back button closes it too (one history entry while it is open,
+	 * see `sheetBack.ts`); it never leaves the room.
 	 */
 	interface Props {
 		title: string;
@@ -35,6 +39,8 @@
 
 	const titleId = `sheet-title-${Math.random().toString(36).slice(2, 8)}`;
 	let panel = $state<HTMLElement>();
+	let back = $state.raw<BackClaim | null>(null);
+	let stackToken: symbol | undefined;
 
 	const FOCUSABLE =
 		'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -44,6 +50,8 @@
 	}
 
 	function onkeydown(event: KeyboardEvent) {
+		// a sheet opened on top of this one owns the keyboard (see sheetStack.ts)
+		if (!isTopSheet(stackToken)) return;
 		if (event.key === 'Escape') {
 			event.preventDefault();
 			onclose();
@@ -71,7 +79,14 @@
 		}
 	}
 
+	// Back (or any navigation) removed our history entry: close, as the close button would.
+	$effect(() => {
+		if (back?.gone) untrack(onclose);
+	});
+
 	onMount(() => {
+		stackToken = enterStack();
+		back = claimBack();
 		const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		const overflow = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
@@ -81,6 +96,8 @@
 			panel
 		)?.focus();
 		return () => {
+			if (stackToken) leaveStack(stackToken);
+			back?.release();
 			document.body.style.overflow = overflow;
 			if (opener?.isConnected) opener.focus();
 		};

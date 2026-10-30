@@ -13,6 +13,37 @@ export async function restartServer(): Promise<void> {
 	});
 }
 
+const WORKER = '/usr/share/nginx/html/sw.js';
+const WORKER_BACKUP = '/tmp/sw.js.e2e-original';
+
+/** A command inside the web container, as root (the image's files belong to root). */
+async function inWeb(script: string): Promise<void> {
+	if (!COMPOSE_PROJECT) throw new Error('E2E_COMPOSE_PROJECT is not set');
+	await run(
+		'docker',
+		['compose', '-p', COMPOSE_PROJECT, 'exec', '-T', '-u', '0', 'web', 'sh', '-c', script],
+		{
+			timeout: 60_000
+		}
+	);
+}
+
+/**
+ * A web deploy, minus the image: the served `sw.js` gets one more line, so the browser sees a new worker
+ * version (same precache, same shell). `revertWorker()` puts the original back.
+ */
+export async function deployNewWorker(): Promise<void> {
+	await inWeb(
+		`cp ${WORKER} ${WORKER_BACKUP} && printf '\\n// e2e: a newer version\\n' >> ${WORKER}`
+	);
+}
+
+export async function revertWorker(): Promise<void> {
+	await inWeb(
+		`[ ! -f ${WORKER_BACKUP} ] || (cp ${WORKER_BACKUP} ${WORKER} && rm ${WORKER_BACKUP})`
+	);
+}
+
 /** Polls until the API answers through the edge again. */
 export async function waitForApi(timeoutMs = 60_000): Promise<void> {
 	const deadline = Date.now() + timeoutMs;

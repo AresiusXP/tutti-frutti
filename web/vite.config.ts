@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
@@ -42,14 +43,18 @@ export default defineConfig({
 								'workbox-*.js',
 								// the privacy policy is a static page outside the app, always fetched fresh
 								'**/privacy.html',
-								'**/privacy.css'
+								'**/privacy.css',
+								// Digital Asset Links of the Android app: fetched by Google, not part of the app
+								'**/.well-known/**'
 							],
 							// Backend routes are served by the Go server: never answer them
 							// with index.html nor from a cache.
 							navigateFallbackDenylist: [
 								/^\/(?:api|ws|healthz|readyz|metrics)(?:\/|$)/,
 								// a real page of its own, not an SPA route: let the network answer it
-								/^\/privacy(?:\/|\.html)?$/
+								/^\/privacy(?:\/|\.html)?$/,
+								// Digital Asset Links (/.well-known/assetlinks.json): a file, never the app shell
+								/^\/\.well-known(?:\/|$)/
 							],
 							runtimeCaching: [
 								{
@@ -68,6 +73,12 @@ export default defineConfig({
 	preview: { proxy },
 	test: {
 		include: ['src/**/*.{test,spec}.ts'],
-		environment: 'node'
+		environment: 'node',
+		// the PWA plugin (and with it `virtual:pwa-register`) is not loaded under Vitest
+		alias: {
+			'virtual:pwa-register': fileURLToPath(
+				new URL('./src/lib/pwa/register.stub.ts', import.meta.url)
+			)
+		}
 	}
 });

@@ -366,10 +366,12 @@ characters, `ß`-style Unicode expansions) is ignored and the already typed valu
 
 ## PWA
 
-`@vite-pwa/sveltekit`, `registerType: 'prompt'`, Workbox `generateSW`. `UpdatePrompt.svelte`
-registers the service worker through `virtual:pwa-register` and shows the localized
-"Nueva versión disponible → Recargar" banner: a new version waits until the player clicks (no
-`clientsClaim`, no automatic `skipWaiting`, so a game is never reloaded by itself).
+`@vite-pwa/sveltekit`, `registerType: 'prompt'`, Workbox `generateSW`. `src/lib/pwa/update.svelte.ts`
+registers the service worker (through `virtual:pwa-register`) and is the only code that applies an update and
+reloads; `UpdatePrompt.svelte` and the "new version" closed screen both use it. The localized
+"Nueva versión disponible → Recargar" banner shows when a new version waits: it waits until the player clicks (no
+`clientsClaim`, no automatic `skipWaiting`, so a game is never reloaded by itself; a tab in the middle of a
+round is not reloaded either when another tab accepts the update). See docs/DESIGN.md, "Updates, Back and the Android app".
 The service worker never answers or caches `/api/*`, `/ws`, `/healthz`, `/readyz`, `/metrics`
 (navigation fallback denylist + `NetworkOnly`). It is disabled in `npm run dev`.
 
