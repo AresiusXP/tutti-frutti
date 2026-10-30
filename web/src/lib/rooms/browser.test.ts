@@ -43,6 +43,19 @@ function setup(listRooms = vi.fn<Api['listRooms']>().mockResolvedValue({ rooms: 
 }
 
 describe('room discovery lifecycle', () => {
+	it('follows the paused flag of the server: set while public games are off, cleared when they are back', async () => {
+		const listRooms = vi
+			.fn<Api['listRooms']>()
+			.mockResolvedValueOnce({ rooms: [], paused: true })
+			.mockResolvedValue({ rooms: [room] });
+		const { browser } = setup(listRooms);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(browser.paused).toBe(true);
+		expect(browser.rooms).toEqual([]);
+		await vi.advanceTimersByTimeAsync(15_000);
+		expect(browser.paused).toBe(false);
+		expect(browser.rooms).toEqual([room]);
+	});
 	it('polls every 15 seconds only while visible, refreshes on return and cleans up', async () => {
 		const { browser, listRooms } = setup();
 		await vi.advanceTimersByTimeAsync(0);

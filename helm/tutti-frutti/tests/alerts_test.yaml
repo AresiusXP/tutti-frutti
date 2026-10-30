@@ -710,3 +710,146 @@ tests:
       - eval_time: 25m
         alertname: TuttiFruttiStatsDropped
         exp_alerts: []
+
+  # ------------------------------------------------------------- Moderation
+  # tuttifrutti_report_oldest_open_age_seconds grows by 60 per minute while a
+  # report stays open (the age is computed at every scrape). Fires above 20 hours
+  # (72000 s) for 15 minutes.
+  - name: ReportWaiting fires once the oldest open report is older than 20 hours for 15 minutes
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_report_oldest_open_age_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '71000+60x40'
+    alert_rule_test:
+      - eval_time: 16m   # 71960 s: younger than 20 hours
+        alertname: TuttiFruttiReportWaiting
+        exp_alerts: []
+      - eval_time: 30m   # past 20 hours, still inside the 15 minute for
+        alertname: TuttiFruttiReportWaiting
+        exp_alerts: []
+      - eval_time: 33m
+        alertname: TuttiFruttiReportWaiting
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+
+  - name: ReportWaiting resolves when the report is resolved and ignores young reports
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_report_oldest_open_age_seconds{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080"}'
+        values: '80000+60x20 0x10 3600+60x20'
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: TuttiFruttiReportWaiting
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+      - eval_time: 25m   # resolved: no report open
+        alertname: TuttiFruttiReportWaiting
+        exp_alerts: []
+      - eval_time: 50m   # a new report, an hour old
+        alertname: TuttiFruttiReportWaiting
+        exp_alerts: []
+
+  # tuttifrutti_reports_total{kind,reason} exists at 0 for every pair from the first
+  # scrape. Urgent reasons: violence, self_harm, sexual, child_safety. Fires at once,
+  # resolves 10 minutes after the last such report.
+  - name: UrgentReport fires at once for a self-harm report and resolves 10 minutes later
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080", kind="answer", reason="self_harm"}'
+        values: '0x5 1x30'
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080", kind="answer", reason="spam"}'
+        values: '0x35'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: TuttiFruttiUrgentReport
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: TuttiFruttiUrgentReport
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kind: answer
+              reason: self_harm
+      - eval_time: 20m
+        alertname: TuttiFruttiUrgentReport
+        exp_alerts: []
+
+  - name: UrgentReport fires for violence and sexual reports, one alert per kind and reason
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080", kind="player", reason="violence"}'
+        values: '0x5 1x20'
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080", kind="custom_label", reason="sexual"}'
+        values: '0x5 2x20'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: TuttiFruttiUrgentReport
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kind: player
+              reason: violence
+          - exp_labels:
+              severity: critical
+              kind: custom_label
+              reason: sexual
+
+  - name: UrgentReport fires at once for a child at risk (grooming, sexual content involving a minor)
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080", kind="player", reason="child_safety"}'
+        values: '0x5 1x30'
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080", kind="answer", reason="child_safety"}'
+        values: '0x35'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: TuttiFruttiUrgentReport
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: TuttiFruttiUrgentReport
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kind: player
+              reason: child_safety
+      - eval_time: 20m
+        alertname: TuttiFruttiUrgentReport
+        exp_alerts: []
+
+  - name: UrgentReport ignores the other reasons
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080", kind="answer", reason="harassment"}'
+        values: '0+1x20'
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080", kind="player", reason="hate"}'
+        values: '0 1 2x18'
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080", kind="player", reason="impersonation"}'
+        values: '0 1 2x18'
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080", kind="ai_verdict", reason="other"}'
+        values: '0 1 2x18'
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-abc-1", instance="10.1.0.5:8080", kind="answer", reason="violence"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: TuttiFruttiUrgentReport
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: TuttiFruttiUrgentReport
+        exp_alerts: []
+
+  - name: UrgentReport stays quiet across a deploy (the counter of the new pod starts at 0)
+    interval: 1m
+    input_series:
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-old-1", instance="10.1.0.5:8080", kind="answer", reason="violence"}'
+        values: '3x10 _x20'
+      - series: 'tuttifrutti_reports_total{namespace="tutti-frutti", job="tutti-frutti-server", pod="tutti-frutti-server-new-1", instance="10.1.0.9:8080", kind="answer", reason="violence"}'
+        values: '_x11 0x19'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: TuttiFruttiUrgentReport
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: TuttiFruttiUrgentReport
+        exp_alerts: []

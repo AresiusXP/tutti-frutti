@@ -45,8 +45,28 @@ func TestLoadPublicBots(t *testing.T) {
 	}
 }
 
+func TestLoadPublicRooms(t *testing.T) {
+	for _, tt := range []struct {
+		value string
+		want  bool
+	}{{"", true}, {" true ", true}, {"1", true}, {"false", false}, {" 0 ", false}, {"FALSE", false}} {
+		cfg, err := Load(env(map[string]string{"PUBLIC_ROOMS_ENABLED": tt.value}))
+		if err != nil {
+			t.Fatalf("PUBLIC_ROOMS_ENABLED=%q: %v", tt.value, err)
+		}
+		if cfg.PublicRoomsEnabled != tt.want {
+			t.Errorf("PUBLIC_ROOMS_ENABLED=%q: enabled = %v, want %v", tt.value, cfg.PublicRoomsEnabled, tt.want)
+		}
+		// The bots have their own switch: turning public games off leaves it alone.
+		if !cfg.BotsEnabled {
+			t.Errorf("PUBLIC_ROOMS_ENABLED=%q changed BotsEnabled", tt.value)
+		}
+	}
+}
+
 func TestLoadPublicBotsInvalid(t *testing.T) {
 	for key, values := range map[string][]string{
+		"PUBLIC_ROOMS_ENABLED":           {"yes", "off", "maybe"},
 		"PUBLIC_BOTS_ENABLED":            {"yes", "maybe"},
 		"PUBLIC_BOTS_MAX":                {"0", "-1", "3", "1.5", "lots"},
 		"PUBLIC_BOTS_FIRST_MIN_SECONDS":  {"0", "-1", "301", "1.5", "20s", "lots", "999999999999999999999"},

@@ -68,6 +68,9 @@ type Hub struct {
 	conns     atomic.Int64
 	botRandMu sync.Mutex
 	idMu      sync.Mutex // serializes Config.IDSource
+	// publicOff is the operator's switch of public games (public.go): written
+	// under mu, read lock-free by the actors.
+	publicOff atomic.Bool
 	// forgotten remembers the accounts this process deleted (see account.go).
 	forgotten forgottenAccounts
 
@@ -180,6 +183,8 @@ func NewHub(cfg Config) *Hub {
 	if cfg.Recorder != nil {
 		h.recorder = newRecorder(h, cfg.Recorder)
 	}
+	h.publicOff.Store(cfg.PublicDisabled)
+	h.m.publicEnabled.Set(boolGauge(!cfg.PublicDisabled))
 	return h
 }
 
@@ -367,6 +372,11 @@ func (h *Hub) Create(ctx context.Context, req CreateRequest) (string, error) {
 	if h.cfg.Policy.Restricted(req.PlayerID) || h.cfg.Policy.RestrictedUser(req.UserID) {
 		return "", ErrRestricted
 	}
+	// Under h.mu too, where SetPublicEnabled writes the switch.
+	visibility, _ := normalizeVisibility(req.Visibility)
+	if visibility == visibilityPublic && h.publicOff.Load() {
+		return "", ErrPublicUnavailable
+	}
 	if len(h.rooms) >= h.cfg.MaxRooms {
 		return "", ErrTooManyRooms
 	}
@@ -375,7 +385,7 @@ func (h *Hub) Create(ctx context.Context, req CreateRequest) (string, error) {
 		return "", err
 	}
 	r := h.newRoom(code, g, now, false)
-	r.visibility, _ = normalizeVisibility(req.Visibility)
+	r.visibility = visibility
 	r.instanceID, r.matchID = h.newInstanceID(), h.newInstanceID()
 	h.spawnLocked(r)
 	return code, nil
@@ -481,22 +491,10 @@ func normalizeCode(code string) string {
 	return strings.ToUpper(strings.TrimSpace(code))
 }
 
-// Info implements Rooms.
-func (h *Hub) Info(code string) (Info, bool) {
-	h.mu.Lock()
-	r := h.rooms[normalizeCode(code)]
-	shuttingDown := h.shuttingDown
-	h.mu.Unlock()
-	if r == nil {
-		return Info{}, false
-	}
-	info, ok := r.info()
-	if !ok {
-		return Info{}, false
-	}
-	info.Joinable = info.Joinable && !shuttingDown
-	return info, true
-}
+// Info implements Rooms. It is the anonymous lookup, InfoFor with no caller:
+// in particular a public room is not joinable while public games are switched
+// off (an anonymous caller holds no seat it could reclaim).
+func (h *Hub) Info(code string) (Info, bool) { return h.InfoFor(code, "") }
 
 // ShuttingDown reports whether Shutdown has started. While it is true the hub
 // no longer knows its rooms (they are being flushed to the store and closed),

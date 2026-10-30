@@ -93,19 +93,21 @@ describe('report form', () => {
 		return ctx;
 	}
 
-	it('has the eight fixed reasons as radios, a 280-character comment with a counter, and a form that is well formed', async () => {
+	it('has the nine fixed reasons as radios, a 280-character comment with a counter, and a form that is well formed', async () => {
 		await openAnswerReport();
 		const radios = screen.getAllByRole('radio');
 		expect(radios.map((r) => (r as HTMLInputElement).value)).toEqual([
 			'harassment',
 			'hate',
 			'sexual',
+			'child_safety',
 			'violence',
 			'self_harm',
 			'spam',
 			'impersonation',
 			'other'
 		]);
+		expect(screen.getByRole('radio', { name: 'A child at risk' })).toBeTruthy();
 		expect(radios.every((r) => !(r as HTMLInputElement).checked)).toBe(true);
 		const comment = screen.getByLabelText('Comment (optional)') as HTMLTextAreaElement;
 		expect(comment.maxLength).toBe(280);
@@ -242,6 +244,14 @@ describe('report form', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Send report' }));
 		await waitFor(() => expect(api.reports).toHaveLength(1));
 		expect(api.accepts).toHaveLength(0);
+	});
+
+	it('sends a child at risk with its own reason code', async () => {
+		const { api } = await openAnswerReport();
+		await fireEvent.click(screen.getByRole('radio', { name: 'A child at risk' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Send report' }));
+		await waitFor(() => expect(api.reports).toHaveLength(1));
+		expect(api.reports[0]).toMatchObject({ kind: 'answer', reason: 'child_safety' });
 	});
 });
 

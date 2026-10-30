@@ -59,8 +59,11 @@ func TestVocabulary(t *testing.T) {
 			t.Errorf("%q accepted", bad)
 		}
 	}
-	if len(Kinds) != 4 || len(Reasons) != 8 {
+	if len(Kinds) != 4 || len(Reasons) != 9 {
 		t.Errorf("kinds %d, reasons %d", len(Kinds), len(Reasons))
+	}
+	if !ValidReason("child_safety") || ValidReason("child") || ValidReason("childsafety") {
+		t.Error("child_safety is the child-safety reason, and only it")
 	}
 }
 

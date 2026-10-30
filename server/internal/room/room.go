@@ -276,20 +276,6 @@ func (r *room) closeAfterPanic() {
 
 // ---- requests from other goroutines ----
 
-type infoResult struct {
-	info Info
-	ok   bool
-}
-
-// info returns the room's public summary; it is ordered after every task
-// posted before it.
-func (r *room) info() (Info, bool) {
-	ch := make(chan infoResult, 1)
-	r.post(func(r *room) { ch <- infoResult{r.summary(), true} }, func() { ch <- infoResult{} })
-	res := <-ch
-	return res.info, res.ok
-}
-
 // connect attaches c and returns its session once the room has accepted it.
 func (r *room) connect(c Client) (Session, error) {
 	s := &session{r: r, c: c, id: c.PlayerID()}
@@ -448,8 +434,9 @@ func (r *room) onJoin(now time.Time, s *session, d json.RawMessage, terms termsS
 	}
 
 	// Before the engine runs, so before any automated seat is replaced: a
-	// restricted guest, or one that shares a block with a human seated here
-	// (a reconnect included), takes nothing and displaces nobody.
+	// restricted guest, one that shares a block with a human seated here
+	// (a reconnect included), or a newcomer to a public room while public
+	// games are off takes nothing and displaces nobody.
 	if r.refusesJoin(s.id, s.userID) {
 		r.rejectJoinUnavailable(s)
 		return

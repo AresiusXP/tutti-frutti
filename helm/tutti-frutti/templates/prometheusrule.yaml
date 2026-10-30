@@ -357,4 +357,52 @@ spec:
             {{- with include "tutti-frutti.alertAnnotations" . }}
             {{- . | nindent 12 }}
             {{- end }}
+    {{- /* Moderation (docs/MODERATION.md): the operator's prompts for reports. Reasons are the fixed codes of internal/safety. */}}
+    - name: tutti-frutti.moderation
+      {{- with .Values.prometheusRule.interval }}
+      interval: {{ . }}
+      {{- end }}
+      rules:
+        - alert: TuttiFruttiReportWaiting
+          expr: |-
+            max(tuttifrutti_report_oldest_open_age_seconds{ {{- $m -}} }) > 72000
+          for: 15m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "warning" "context" .) | nindent 12 }}
+          annotations:
+            summary: A Tutti Frutti report has waited more than 20 hours
+            description: >-
+              The oldest open content report was filed {{`{{ $value | humanizeDuration }}`}} ago. Reports are checked
+              daily and decided within 7 days (docs/MODERATION.md); a report is deleted 90 days after it was filed
+              whether or not anybody looked at it. The alert resolves once no open report is older than 20 hours.
+            runbook: >-
+              Dashboard "Tutti Frutti", row Accounts, panels "Open reports" and "Oldest open report".
+              1) List the open reports: kubectl -n {{ $ns }} exec deploy/{{ $server }} -- /moderate reports list
+              2) Read one: kubectl -n {{ $ns }} exec deploy/{{ $server }} -- /moderate reports show ID
+              3) Decide, then close it: kubectl -n {{ $ns }} exec deploy/{{ $server }} -- /moderate reports resolve --operator NAME --note TEXT ID
+              (docs/MODERATION.md, "Triage").
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
+        - alert: TuttiFruttiUrgentReport
+          expr: |-
+            sum by (kind, reason) (increase(tuttifrutti_reports_total{ {{- $m }}, reason=~"violence|self_harm|sexual|child_safety"}[10m])) > 0
+          for: 0m
+          labels:
+            {{- include "tutti-frutti.alertLabels" (dict "severity" "critical" "context" .) | nindent 12 }}
+          annotations:
+            summary: Urgent Tutti Frutti report (violence or threats, self-harm, sexual content or a child at risk)
+            description: >-
+              About {{`{{ $value | humanize }}`}} report(s) of kind {{`{{ $labels.kind }}`}} with the reason
+              {{`{{ $labels.reason }}`}} were filed in the last 10 minutes. These reasons can mean a threat to someone's life,
+              self-harm, grooming or sexual content involving a minor (child_safety names those two): open the report now. The reason is the reporter's
+              choice and may be wrong (an UNVERIFIED report may be a false alarm), but read it before deciding.
+            runbook: >-
+              1) List the open reports: kubectl -n {{ $ns }} exec deploy/{{ $server }} -- /moderate reports list
+              2) Read the urgent one: kubectl -n {{ $ns }} exec deploy/{{ $server }} -- /moderate reports show ID
+              3) Real danger: follow docs/MODERATION.md, "Urgent safety cases" (room close, restrict, tell the authorities
+              within 24 hours; never save copies of abuse images). Otherwise triage it like any report.
+            {{- with include "tutti-frutti.alertAnnotations" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
 {{- end }}

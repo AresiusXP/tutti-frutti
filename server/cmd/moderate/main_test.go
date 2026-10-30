@@ -92,6 +92,9 @@ func TestCommandsBuildTheRightRequests(t *testing.T) {
 		{[]string{"profile", "remove", "--operator", "owner", "--user", "u1"}, moderation.PathProfileRemove, moderation.ProfileRemoveRequest{Operator: "owner", UserID: "u1"}},
 		{[]string{"judge", "disable", "--operator", "owner"}, moderation.PathJudge, moderation.JudgeRequest{Operator: "owner", Action: "disable"}},
 		{[]string{"judge", "status"}, moderation.PathJudge, moderation.JudgeRequest{Action: "status"}},
+		{[]string{"public", "disable", "--operator", "owner"}, moderation.PathPublic, moderation.PublicRequest{Operator: "owner", Action: "disable"}},
+		{[]string{"public", "enable", "--operator", "owner"}, moderation.PathPublic, moderation.PublicRequest{Operator: "owner", Action: "enable"}},
+		{[]string{"public", "status"}, moderation.PathPublic, moderation.PublicRequest{Action: "status"}},
 	} {
 		rec := &recorder{}
 		code, _, errOut := exec(t, rec, map[string]string{}, tc.args...)
@@ -116,6 +119,10 @@ func TestUsageErrorsNeverReachTheServer(t *testing.T) {
 		{"room", "close", "--operator", "owner", "A", "B"},
 		{"judge", "explode"},
 		{"judge"},
+		{"public"},
+		{"public", "off"},
+		{"public", "disable", "extra"},
+		{"public", "status", "--operator"},
 		{"status", "extra"},
 		{"--bogus", "status"},
 	} {
@@ -200,17 +207,38 @@ func TestListShowsTypedTextQuotedAndMarked(t *testing.T) {
 
 func TestStatusOutputAndJSON(t *testing.T) {
 	st := moderation.StatusResponse{Version: "1.2.3", OpenReports: 2, OldestOpenAgeSeconds: 7200, OldestOpenAt: time.Date(2026, 10, 30, 10, 0, 0, 0, time.UTC),
-		ActiveRestrictions: 1, Blocks: 4, Judge: moderation.JudgeStatus{Configured: true}}
+		ActiveRestrictions: 1, Blocks: 4, Judge: moderation.JudgeStatus{Configured: true}, Public: moderation.PublicStatus{Configured: true}}
 	_, out, _ := exec(t, &recorder{resp: st}, map[string]string{}, "status")
-	for _, want := range []string{"open reports:         2", "2h0m0s", "active restrictions:  1", "OFF"} {
+	for _, want := range []string{"open reports:         2", "2h0m0s", "active restrictions:  1", "AI judge:             OFF", "public games:         OFF"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("status output lacks %q:\n%s", want, out)
 		}
 	}
+	st.Public.Enabled = true
+	if _, out, _ = exec(t, &recorder{resp: st}, map[string]string{}, "status"); !strings.Contains(out, "public games:         on") {
+		t.Errorf("status output with public games on:\n%s", out)
+	}
 	_, out, _ = exec(t, &recorder{resp: st}, map[string]string{}, "--json", "status")
 	var back moderation.StatusResponse
-	if err := json.Unmarshal([]byte(out), &back); err != nil || back.OpenReports != 2 {
+	if err := json.Unmarshal([]byte(out), &back); err != nil || back.OpenReports != 2 || !back.Public.Enabled {
 		t.Errorf("--json output = %q (%v)", out, err)
+	}
+}
+
+func TestPublicSwitchOutput(t *testing.T) {
+	rec := &recorder{resp: moderation.PublicResponse{Public: moderation.PublicStatus{Configured: true}}}
+	code, out, _ := exec(t, rec, map[string]string{}, "public", "disable", "--operator", "owner")
+	if code != 0 || !strings.Contains(out, "public games are OFF") || !strings.Contains(out, "private rooms are unaffected") {
+		t.Errorf("disable: exit %d, %q", code, out)
+	}
+	rec.resp = moderation.PublicResponse{Public: moderation.PublicStatus{Configured: true, Enabled: true}, Warning: "audit failed"}
+	code, out, _ = exec(t, rec, map[string]string{}, "public", "enable", "--operator", "owner")
+	if code != 0 || !strings.Contains(out, "public games are on") || !strings.Contains(out, "WARNING: audit failed") {
+		t.Errorf("enable: exit %d, %q", code, out)
+	}
+	rec.err = &moderation.APIError{Status: 409, Code: moderation.CodePublicNotConfigured}
+	if code, _, errOut := exec(t, rec, map[string]string{}, "public", "status"); code != 1 || !strings.Contains(errOut, "public_not_configured") {
+		t.Errorf("refused: exit %d, %q", code, errOut)
 	}
 }
 
@@ -229,8 +257,10 @@ func TestEndToEndOverTheControlSocket(t *testing.T) {
 	}
 	mem := store.NewMemory()
 	policy := safety.NewPolicy(nil)
+	hub := room.NewHub(room.Config{Store: store.NewMemory()})
+	t.Cleanup(func() { _ = hub.Shutdown(context.Background()) })
 	srv := moderation.NewServer(moderation.Deps{
-		Reports: mem, Mod: mem, Policy: policy, Rooms: noRooms{}, Log: slog.New(slog.DiscardHandler), Version: "e2e",
+		Reports: mem, Mod: mem, Policy: policy, Rooms: noRooms{}, Public: hub, Log: slog.New(slog.DiscardHandler), Version: "e2e",
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -259,6 +289,23 @@ func TestEndToEndOverTheControlSocket(t *testing.T) {
 	}
 	if code, _, errOut := runCLI("room", "close", "--operator", "owner", "ZZZZ"); code != 1 || !strings.Contains(errOut, "not_found") {
 		t.Errorf("room close of an unknown room: %d %q", code, errOut)
+	}
+
+	// The holiday switch: off, audited, shown by status, and on again.
+	if code, _, errOut := runCLI("public", "disable"); code != 1 || !strings.Contains(errOut, "operator_required") || !hub.PublicEnabled() {
+		t.Fatalf("public disable without an operator: %d %q", code, errOut)
+	}
+	if code, out, errOut := runCLI("public", "disable", "--operator", "owner"); code != 0 || hub.PublicEnabled() || !strings.Contains(out, "OFF") {
+		t.Fatalf("public disable: %d %q %q", code, out, errOut)
+	}
+	if code, out, _ := runCLI("status"); code != 0 || !strings.Contains(out, "public games:         OFF") {
+		t.Errorf("status while off: %d %q", code, out)
+	}
+	if code, out, errOut := runCLI("public", "enable", "--operator", "owner"); code != 0 || !hub.PublicEnabled() || !strings.Contains(out, "public games are on") {
+		t.Fatalf("public enable: %d %q %q", code, out, errOut)
+	}
+	if acts, _ := mem.ListActions(ctx, 10); len(acts) != 3 {
+		t.Errorf("audit = %+v", acts)
 	}
 }
 

@@ -167,6 +167,7 @@ class DashboardTest(unittest.TestCase):
             "tuttifrutti_reports_open",
             "tuttifrutti_report_oldest_open_age_seconds",
             "tuttifrutti_judge_enabled",
+            "tuttifrutti_public_rooms_enabled",
             "tuttifrutti_stats_recorded_total",
             "tuttifrutti_stats_queue_depth",
             "tuttifrutti_stats_outbox_pending",

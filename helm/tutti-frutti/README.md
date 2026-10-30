@@ -90,6 +90,7 @@ Anything else goes into `server.extraEnv`.
 | `server.logLevel` | `info` | `LOG_LEVEL` |
 | `server.publicUrl` | `""` | `PUBLIC_URL`; empty = `https://<ingress.host>` |
 | `server.maxRooms` | `1000` | `MAX_ROOMS`: live rooms held in memory |
+| `server.publicRooms.enabled` | `true` | `PUBLIC_ROOMS_ENABLED`: `false` starts with public games off (no new public rooms or players, empty directory, no new bots while the ones already seated keep playing; private rooms unaffected), the owner's measure for an absence (`docs/MODERATION.md`). `moderate public enable\|disable` flips it at run time, in memory only |
 | `server.trustForwardedFor` | `false` | `TRUST_FORWARDED_FOR`: client IP for rate limits from the rightmost `X-Forwarded-For` entry |
 | `server.allowedOrigins` | `[]` | `ALLOWED_ORIGINS` (comma-joined): extra origins besides the public URL (dev only) |
 | `server.secrets.*` | see above | Existing Secret name, key names, `optional` |
@@ -149,14 +150,15 @@ dashboard layout and what to do when an alert fires are in
 |---|---|---|
 | ServiceMonitor (scrapes the server `/metrics`) | `serviceMonitor.enabled` | `templates/servicemonitor.yaml` |
 | Grafana dashboard ConfigMap | `dashboard.enabled` | `templates/grafana-dashboard.yaml`, content `dashboards/tutti-frutti.json` |
-| PrometheusRule (14 alerts) | `prometheusRule.enabled` | `templates/prometheusrule.yaml` |
+| PrometheusRule (16 alerts) | `prometheusRule.enabled` | `templates/prometheusrule.yaml` |
 
-Homelab (kube-prometheus-stack, Alertmanager disabled): the ServiceMonitor is picked
+Homelab (kube-prometheus-stack with Alertmanager): the ServiceMonitor is picked
 up by every Prometheus (`serviceMonitorSelector: {}`); rules need the label
 `release: kube-prometheus-stack` (default of `prometheusRule.labels`); the Grafana
 sidecar imports ConfigMaps labelled `grafana_dashboard: "1"` from any namespace
-into the "General" folder. Without Alertmanager the alerts show up in the
-Prometheus UI (Alerts) and in Grafana (Alerting, Prometheus rules) but nothing notifies.
+into the "General" folder. Alertmanager routes by `severity`: `critical` to the
+`ntfy-critical` receiver and `warning` to `ntfy-warning`, both pushed to the owner's
+phone through ntfy (the routing lives in the homelab, not in this chart).
 
 ```bash
 helm template t helm/tutti-frutti --set serviceMonitor.enabled=true \

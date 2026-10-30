@@ -55,8 +55,13 @@ func (r *room) seatedHumans() []string {
 
 // refusesJoin reports whether the guest may not take or keep a seat here: it
 // (or its account) is restricted, or it shares a block, in either direction,
-// with a human who is seated in this room. It runs on the room's goroutine.
+// with a human who is seated in this room, or the room is public, public games
+// are switched off and the guest has no seat in it (public.go). It runs on the
+// room's goroutine.
 func (r *room) refusesJoin(guestID, userID string) bool {
+	if r.publicClosedTo(guestID) {
+		return true
+	}
 	p := r.h.cfg.Policy
 	if p == nil {
 		return false
@@ -181,7 +186,9 @@ func (h *Hub) Sweep(ctx context.Context) (map[string][]string, error) {
 // that holds a human who shares a block with the caller, in either direction, is
 // reported as not joinable, exactly like a full one (no other reason is given,
 // and no roster is revealed). A restricted caller finds no joinable room.
-// guestID "" is an anonymous caller and sees what Info shows.
+// guestID "" is an anonymous caller (Info): blocks do not apply to it. For
+// every caller a public room is not joinable while public games are switched
+// off, unless the caller holds a seat in it (public.go).
 func (h *Hub) InfoFor(code, guestID string) (Info, bool) {
 	h.mu.Lock()
 	r := h.rooms[normalizeCode(code)]
@@ -197,7 +204,7 @@ func (h *Hub) InfoFor(code, guestID string) (Info, bool) {
 	ch := make(chan answer, 1)
 	r.post(func(r *room) {
 		info := r.summary()
-		if guestID != "" && r.refusesJoin(guestID, "") {
+		if r.publicClosedTo(guestID) || guestID != "" && r.refusesJoin(guestID, "") {
 			info.Joinable = false
 		}
 		ch <- answer{info, true}
@@ -215,6 +222,14 @@ func (h *Hub) InfoFor(code, guestID string) (Info, bool) {
 // membership it consults is a private field of the actor-published directory
 // entry; it never leaves this function. guestID "" lists everything.
 func (h *Hub) PublicRoomsFor(lang game.Lang, guestID string) []api.PublicRoom {
+	rooms, _ := h.PublicDirectory(lang, guestID)
+	return rooms
+}
+
+// PublicDirectory is PublicRoomsFor plus whether public games are on, both
+// from one consistent snapshot (see publicRooms): GET /api/rooms answers
+// "paused" from it, so the flag and the list cannot disagree.
+func (h *Hub) PublicDirectory(lang game.Lang, guestID string) (rooms []api.PublicRoom, enabled bool) {
 	return h.publicRooms(lang, func(e publicEntry) bool {
 		p := h.cfg.Policy
 		if p == nil || guestID == "" {

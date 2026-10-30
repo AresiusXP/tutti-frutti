@@ -35,6 +35,16 @@ type JudgeControl interface {
 	SetEnabled(on bool)
 }
 
+// PublicControl is the switch of public games; *room.Hub implements it.
+type PublicControl interface {
+	PublicEnabled() bool
+	// SetPublicEnabled changes nothing and returns ctx's error when ctx is
+	// already done. Otherwise it writes the switch (in force at once) and
+	// returns once the live public rooms re-evaluated their automated
+	// opponents, or room.ErrPublicRoomsPending when ctx ended first.
+	SetPublicEnabled(ctx context.Context, on bool) error
+}
+
 // Deps are the collaborators of the control Server.
 type Deps struct {
 	Reports store.Safety
@@ -42,7 +52,10 @@ type Deps struct {
 	Policy  *safety.Policy
 	Rooms   RoomControl
 	// Judge is nil when the server has no AI judge.
-	Judge   JudgeControl
+	Judge JudgeControl
+	// Public is the switch of public games (cmd/server: the room hub); nil
+	// refuses the public command.
+	Public  PublicControl
 	Gauges  *ReportGauges
 	Now     func() time.Time
 	Log     *slog.Logger
@@ -58,6 +71,26 @@ type Server struct {
 
 // timeout bounds one command (a sweep may touch every live room).
 const timeout = 20 * time.Second
+
+// auditTimeout bounds the audit record written right after an action.
+const auditTimeout = 5 * time.Second
+
+// detach returns a context for the work that must follow an action the server
+// already took (its audit record): it keeps the request's values but not its
+// cancellation, so a client that disconnects after the action cannot leave it
+// unaudited, and it is bounded by d.
+func detach(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), d)
+}
+
+// notStarted refuses a command whose request already ended (the client gave
+// up or the deadline passed) before it changes anything.
+func notStarted(ctx context.Context) error {
+	if ctx.Err() != nil {
+		return fail(http.StatusServiceUnavailable, CodeUnavailable, "the request ended before anything changed")
+	}
+	return nil
+}
 
 // NewServer builds the control server.
 func NewServer(d Deps) *Server {
@@ -80,6 +113,7 @@ func NewServer(d Deps) *Server {
 	route(PathRoomClose, s.roomClose)
 	route(PathProfileRemove, s.profileRemove)
 	route(PathJudge, s.judge)
+	route(PathPublic, s.public)
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		writeErr(w, http.StatusNotFound, CodeUnknownCommand, "unknown command")
 	})
@@ -254,6 +288,13 @@ func (s *Server) judgeStatus() JudgeStatus {
 	return JudgeStatus{Configured: true, Enabled: s.d.Judge.Enabled()}
 }
 
+func (s *Server) publicStatus() PublicStatus {
+	if s.d.Public == nil {
+		return PublicStatus{}
+	}
+	return PublicStatus{Configured: true, Enabled: s.d.Public.PublicEnabled()}
+}
+
 // ---- commands ----
 
 func (s *Server) status(r *http.Request, body []byte) (any, error) {
@@ -270,7 +311,7 @@ func (s *Server) status(r *http.Request, body []byte) (any, error) {
 	blocks, restrictions := s.d.Policy.Counts()
 	out := StatusResponse{
 		Version: s.d.Version, OpenReports: st.Open, OldestOpenAt: st.OldestOpen,
-		ActiveRestrictions: restrictions, Blocks: blocks, Judge: s.judgeStatus(),
+		ActiveRestrictions: restrictions, Blocks: blocks, Judge: s.judgeStatus(), Public: s.publicStatus(),
 	}
 	if st.Open > 0 && !st.OldestOpen.IsZero() {
 		out.OldestOpenAgeSeconds = max(int64(s.d.Now().Sub(st.OldestOpen).Seconds()), 0)
@@ -499,7 +540,9 @@ func (s *Server) roomClose(r *http.Request, body []byte) (any, error) {
 		return nil, err
 	}
 	out := RoomCloseResponse{Code: res.Code, InstanceID: res.RoomInstanceID}
-	if err := s.d.Mod.RecordAction(ctx, s.audit(op, safety.ActionRoomClose, safety.TargetRoom, res.RoomInstanceID, "", "code "+res.Code)); err != nil {
+	auditCtx, cancel := detach(ctx, auditTimeout) // the room is closed: record it even if the client is gone
+	defer cancel()
+	if err := s.d.Mod.RecordAction(auditCtx, s.audit(op, safety.ActionRoomClose, safety.TargetRoom, res.RoomInstanceID, "", "code "+res.Code)); err != nil {
 		s.d.Log.Error("the audit record of a room closure could not be stored", "room", res.Code, "operator", op, "err", err)
 		out.Warning = "the room was closed but its audit record could not be stored (see the server log)"
 	}
@@ -524,7 +567,9 @@ func (s *Server) profileRemove(r *http.Request, body []byte) (any, error) {
 		return nil, storeErr(err)
 	}
 	out := ProfileRemoveResponse{UserID: req.UserID}
-	if err := s.d.Mod.RecordAction(ctx, s.audit(op, safety.ActionProfileRemove, safety.TargetUser, req.UserID, "", "profile text removed")); err != nil {
+	auditCtx, cancel := detach(ctx, auditTimeout) // the profile is gone: record it even if the client is gone
+	defer cancel()
+	if err := s.d.Mod.RecordAction(auditCtx, s.audit(op, safety.ActionProfileRemove, safety.TargetUser, req.UserID, "", "profile text removed")); err != nil {
 		s.d.Log.Error("the audit record of a profile removal could not be stored", "operator", op, "err", err)
 		out.Warning = "the profile was removed but its audit record could not be stored (see the server log)"
 	}
@@ -552,16 +597,78 @@ func (s *Server) judge(r *http.Request, body []byte) (any, error) {
 		return nil, err
 	}
 	on := req.Action == "enable"
+	if err := notStarted(r.Context()); err != nil {
+		return nil, err
+	}
 	s.d.Judge.SetEnabled(on)
 	action := safety.ActionJudgeDisable
 	if on {
 		action = safety.ActionJudgeEnable
 	}
 	out := JudgeResponse{Judge: s.judgeStatus()}
-	if err := s.d.Mod.RecordAction(r.Context(), s.audit(op, action, safety.TargetJudge, "ai-judge", "", req.Action+"d")); err != nil {
+	// The switch moved: its record is written even if the client is gone.
+	auditCtx, cancel := detach(r.Context(), auditTimeout)
+	defer cancel()
+	if err := s.d.Mod.RecordAction(auditCtx, s.audit(op, action, safety.TargetJudge, "ai-judge", "", req.Action+"d")); err != nil {
 		s.d.Log.Error("the audit record of the judge switch could not be stored", "operator", op, "err", err)
 		out.Warning = "the switch was flipped but its audit record could not be stored (see the server log)"
 	}
 	s.d.Log.Info("AI judge switched by the operator", "enabled", on, "operator", op)
+	return out, nil
+}
+
+// public is the switch of public games, the owner's measure for an absence
+// (docs/MODERATION.md): while off nobody can create or newly join a public
+// room, the directory is empty and no new automated opponent is added (those
+// already seated keep playing); players already seated finish their game and
+// private rooms are unaffected. It lives in memory (PUBLIC_ROOMS_ENABLED is
+// what a restart comes back to).
+func (s *Server) public(r *http.Request, body []byte) (any, error) {
+	var req PublicRequest
+	if err := decode(body, &req); err != nil {
+		return nil, err
+	}
+	if s.d.Public == nil {
+		return nil, fail(http.StatusConflict, CodePublicNotConfigured, "this server has no room hub to switch")
+	}
+	switch req.Action {
+	case "status":
+		return PublicResponse{Public: s.publicStatus()}, nil
+	case "enable", "disable":
+	default:
+		return nil, fail(http.StatusBadRequest, CodeBadRequest, "use public enable, disable or status")
+	}
+	op, err := operator(req.Operator)
+	if err != nil {
+		return nil, err
+	}
+	on := req.Action == "enable"
+	out := PublicResponse{}
+	// SetPublicEnabled changes nothing when the request already ended (the
+	// client gave up); once it wrote the switch, the switch is in force
+	// whatever the rooms answer (they only re-evaluate their automated
+	// opponents), and their wait is bounded so that the audit has time.
+	roomsCtx, cancel := context.WithTimeout(r.Context(), timeout/2)
+	defer cancel()
+	switch err := s.d.Public.SetPublicEnabled(roomsCtx, on); {
+	case errors.Is(err, room.ErrPublicRoomsPending):
+		s.d.Log.Warn("the live rooms did not all apply the switch of public games in time", "err", err)
+		out.Warning = "the switch is in force, but not every live room confirmed it in time (automated opponents may follow at the next change)"
+	case err != nil:
+		return nil, fail(http.StatusServiceUnavailable, CodeUnavailable, "the request ended before anything changed")
+	}
+	out.Public = s.publicStatus()
+	action := safety.ActionPublicDisable
+	if on {
+		action = safety.ActionPublicEnable
+	}
+	// The switch moved: its record is written even if the client is gone.
+	auditCtx, cancelAudit := detach(r.Context(), auditTimeout)
+	defer cancelAudit()
+	if err := s.d.Mod.RecordAction(auditCtx, s.audit(op, action, safety.TargetPublic, "public-games", "", req.Action+"d")); err != nil {
+		s.d.Log.Error("the audit record of the switch of public games could not be stored", "operator", op, "err", err)
+		out.Warning = strings.TrimPrefix(out.Warning+"; ", "; ") + "the switch was flipped but its audit record could not be stored (see the server log)"
+	}
+	s.d.Log.Info("public games switched by the operator", "enabled", on, "operator", op)
 	return out, nil
 }

@@ -32,26 +32,28 @@ const (
 	PathRoomClose      = "/v1/room/close"
 	PathProfileRemove  = "/v1/profile/remove"
 	PathJudge          = "/v1/judge"
+	PathPublic         = "/v1/public"
 )
 
 // Error codes of ErrorResponse.Error.
 const (
-	CodeBadRequest         = "bad_request"
-	CodeUnknownCommand     = "unknown_command"
-	CodeMethodNotAllowed   = "method_not_allowed"
-	CodeTooLarge           = "request_too_large"
-	CodeOperatorRequired   = "operator_required"
-	CodeNotFound           = "not_found"
-	CodeConflict           = "conflict"
-	CodeUnavailable        = "unavailable"
-	CodeInternal           = "internal"
-	CodeNoVerifiedTarget   = "no_verified_target"
-	CodeUserNotProven      = "user_not_proven"
-	CodeAlreadyRestricted  = "already_restricted"
-	CodeAlreadyEnded       = "already_ended"
-	CodeAlreadyResolved    = "already_resolved"
-	CodeInstanceMismatch   = "instance_mismatch"
-	CodeJudgeNotConfigured = "judge_not_configured"
+	CodeBadRequest          = "bad_request"
+	CodeUnknownCommand      = "unknown_command"
+	CodeMethodNotAllowed    = "method_not_allowed"
+	CodeTooLarge            = "request_too_large"
+	CodeOperatorRequired    = "operator_required"
+	CodeNotFound            = "not_found"
+	CodeConflict            = "conflict"
+	CodeUnavailable         = "unavailable"
+	CodeInternal            = "internal"
+	CodeNoVerifiedTarget    = "no_verified_target"
+	CodeUserNotProven       = "user_not_proven"
+	CodeAlreadyRestricted   = "already_restricted"
+	CodeAlreadyEnded        = "already_ended"
+	CodeAlreadyResolved     = "already_resolved"
+	CodeInstanceMismatch    = "instance_mismatch"
+	CodeJudgeNotConfigured  = "judge_not_configured"
+	CodePublicNotConfigured = "public_not_configured"
 )
 
 // ErrorResponse is the body of every failed command.
@@ -82,6 +84,15 @@ type JudgeStatus struct {
 	Enabled bool `json:"enabled"`
 }
 
+// PublicStatus is the state of the switch of public games.
+type PublicStatus struct {
+	// Configured is false when the server has no room hub to switch (tools,
+	// tests); cmd/server always has one.
+	Configured bool `json:"configured"`
+	// Enabled is whether public games are on (always false when not configured).
+	Enabled bool `json:"enabled"`
+}
+
 // StatusResponse answers PathStatus: what the owner checks every day.
 type StatusResponse struct {
 	Version string `json:"version"`
@@ -94,8 +105,9 @@ type StatusResponse struct {
 	// ActiveRestrictions is the number of restrictions in force.
 	ActiveRestrictions int `json:"activeRestrictions"`
 	// Blocks is the total number of blocks (a count, never who blocked whom).
-	Blocks int         `json:"blocks"`
-	Judge  JudgeStatus `json:"judge"`
+	Blocks int          `json:"blocks"`
+	Judge  JudgeStatus  `json:"judge"`
+	Public PublicStatus `json:"public"`
 }
 
 // ReportsListRequest asks for reports. Status is open (default), resolved or all.
@@ -241,4 +253,17 @@ type JudgeRequest struct {
 type JudgeResponse struct {
 	Judge   JudgeStatus `json:"judge"`
 	Warning string      `json:"warning,omitempty"`
+}
+
+// PublicRequest is the switch of public games: Action is status, enable or
+// disable.
+type PublicRequest struct {
+	Operator string `json:"operator,omitempty"`
+	Action   string `json:"action"`
+}
+
+// PublicResponse answers PathPublic.
+type PublicResponse struct {
+	Public  PublicStatus `json:"public"`
+	Warning string       `json:"warning,omitempty"`
 }

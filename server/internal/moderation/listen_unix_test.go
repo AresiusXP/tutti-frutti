@@ -15,6 +15,7 @@ import (
 
 	"github.com/AresiusXP/tutti-frutti/server/internal/room"
 	"github.com/AresiusXP/tutti-frutti/server/internal/safety"
+	"github.com/AresiusXP/tutti-frutti/server/internal/store"
 )
 
 // shortDir is a short temp directory: a socket path is limited to ~100 bytes
@@ -211,6 +212,45 @@ func TestRestrictOverTheSocketReachesThePolicy(t *testing.T) {
 		t.Fatalf("restrict over the socket = %+v, %v", out, err)
 	}
 	if acts := e.actions(); len(acts) != 1 || acts[0].Operator != "owner" || acts[0].Action != safety.ActionRestrict {
+		t.Errorf("audit = %+v", acts)
+	}
+}
+
+// The switch of public games, over the socket, against a real room hub.
+func TestPublicSwitchOverTheSocketReachesTheHub(t *testing.T) {
+	dir := shortDir(t)
+	path := filepath.Join(dir, "m.sock")
+	l, err := Listen(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub := room.NewHub(room.Config{Store: store.NewMemory()})
+	t.Cleanup(func() { _ = hub.Shutdown(context.Background()) })
+	e := newEnv(t, false)
+	e.withDeps(func(d *Deps) { d.Public = hub })
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	go func() { _ = e.srv.Serve(ctx, l) }()
+
+	create := func(visibility string) error {
+		_, err := hub.Create(ctx, room.CreateRequest{PlayerID: "host", Name: "Host", Visibility: visibility})
+		return err
+	}
+	var out PublicResponse
+	if err := NewClient(path).Do(ctx, PathPublic, PublicRequest{Operator: "owner", Action: "disable"}, &out); err != nil || out.Public.Enabled {
+		t.Fatalf("public disable over the socket = %+v, %v", out, err)
+	}
+	if hub.PublicEnabled() || !errors.Is(create("public"), room.ErrPublicUnavailable) || create("private") != nil {
+		t.Fatal("the hub did not apply the switch")
+	}
+	if err := NewClient(path).Do(ctx, PathPublic, PublicRequest{Operator: "owner", Action: "enable"}, &out); err != nil || !out.Public.Enabled {
+		t.Fatalf("public enable over the socket = %+v, %v", out, err)
+	}
+	if !hub.PublicEnabled() || create("public") != nil {
+		t.Fatal("public rooms are still refused after enable")
+	}
+	if acts := e.actions(); len(acts) != 2 || acts[0].Action == acts[1].Action ||
+		(acts[0].Action != safety.ActionPublicDisable && acts[0].Action != safety.ActionPublicEnable) {
 		t.Errorf("audit = %+v", acts)
 	}
 }

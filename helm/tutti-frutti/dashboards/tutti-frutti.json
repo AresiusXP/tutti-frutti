@@ -5984,7 +5984,7 @@
     "type": "prometheus",
     "uid": "${DS_PROMETHEUS}"
    },
-   "description": "Reports stored in the selected range, by reason (harassment, hate, sexual, violence, self_harm, spam, impersonation, other).",
+   "description": "Reports stored in the selected range, by reason (harassment, hate, sexual, child_safety, violence, self_harm, spam, impersonation, other). A violence, self_harm, sexual or child_safety (a child at risk) report fires the critical TuttiFruttiUrgentReport alert at once.",
    "fieldConfig": {
     "defaults": {
      "color": {
@@ -6051,7 +6051,7 @@
     "type": "prometheus",
     "uid": "${DS_PROMETHEUS}"
    },
-   "description": "Content reports waiting for the operator (tuttifrutti_reports_open, status open). A metric is not a notification: Alertmanager is disabled in the homelab, so the owner's daily check is `kubectl exec deploy/<server> -- /moderate status` (docs/MODERATION.md). Anything above 0 needs a look; resolve them with `moderate reports resolve`.",
+   "description": "Content reports waiting for the operator (tuttifrutti_reports_open, status open). The owner checks them daily (`kubectl exec deploy/<server> -- /moderate status`, docs/MODERATION.md); the TuttiFruttiReportWaiting alert (ntfy) fires when the oldest one has waited 20 hours. Anything above 0 needs a look; resolve them with `moderate reports resolve`.",
    "fieldConfig": {
     "defaults": {
      "color": {
@@ -6126,7 +6126,7 @@
     "type": "prometheus",
     "uid": "${DS_PROMETHEUS}"
    },
-   "description": "How long the oldest open report has waited (tuttifrutti_report_oldest_open_age_seconds; 0 when none is open). The retention clock keeps running: a report is deleted 90 days after it was filed even if nobody looked at it, so one that is weeks old is about to disappear unresolved. Orange from 1 day, red from 3 days.",
+   "description": "How long the oldest open report has waited (tuttifrutti_report_oldest_open_age_seconds; 0 when none is open). The retention clock keeps running: a report is deleted 90 days after it was filed even if nobody looked at it, so one that is weeks old is about to disappear unresolved. Orange from 1 day, red from 3 days; the TuttiFruttiReportWaiting alert fires above 20 hours.",
    "fieldConfig": {
     "defaults": {
      "color": {
@@ -6283,6 +6283,92 @@
    "id": 67
   },
   {
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "description": "1 = public games are on, 0 = they are switched off (tuttifrutti_public_rooms_enabled): an operator ran `moderate public disable`, or the server started with PUBLIC_ROOMS_ENABLED=false (server.publicRooms.enabled), the owner's measure for an absence (docs/MODERATION.md). While off nobody can create or newly join a public room, the directory is empty and no new automated opponent is added (those already seated keep playing); private rooms are unaffected. The runtime switch lives in memory: a restart goes back to the configured value.",
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "OFF",
+         "color": "orange",
+         "index": 0
+        },
+        "1": {
+         "text": "on",
+         "color": "green",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "orange",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     },
+     "unit": "short",
+     "noValue": "no data"
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto",
+    "orientation": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "showPercentChange": false,
+    "textMode": "auto",
+    "wideLayout": true
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     },
+     "editorMode": "code",
+     "expr": "max(tuttifrutti_public_rooms_enabled{namespace=\"$namespace\", job=\"$job\"})",
+     "instant": true,
+     "legendFormat": "__auto",
+     "range": false,
+     "refId": "A"
+    }
+   ],
+   "title": "Public games switch",
+   "type": "stat",
+   "gridPos": {
+    "h": 6,
+    "w": 4,
+    "x": 12,
+    "y": 117
+   },
+   "id": 68
+  },
+  {
    "collapsed": false,
    "gridPos": {
     "h": 1,
@@ -6290,7 +6376,7 @@
     "x": 0,
     "y": 123
    },
-   "id": 68,
+   "id": 69,
    "panels": [],
    "title": "HTTP API",
    "type": "row"
@@ -6391,7 +6477,7 @@
     "x": 0,
     "y": 124
    },
-   "id": 69
+   "id": 70
   },
   {
    "datasource": {
@@ -6564,7 +6650,7 @@
     "x": 8,
     "y": 124
    },
-   "id": 70
+   "id": 71
   },
   {
    "datasource": {
@@ -6665,7 +6751,7 @@
     "x": 16,
     "y": 124
    },
-   "id": 71
+   "id": 72
   },
   {
    "datasource": {
@@ -6784,7 +6870,7 @@
     "x": 0,
     "y": 132
    },
-   "id": 72
+   "id": 73
   },
   {
    "datasource": {
@@ -6881,7 +6967,7 @@
     "x": 12,
     "y": 132
    },
-   "id": 73
+   "id": 74
   },
   {
    "collapsed": false,
@@ -6891,7 +6977,7 @@
     "x": 0,
     "y": 140
    },
-   "id": 74,
+   "id": 75,
    "panels": [],
    "title": "Go runtime and container",
    "type": "row"
@@ -7031,7 +7117,7 @@
     "x": 0,
     "y": 141
    },
-   "id": 75
+   "id": 76
   },
   {
    "datasource": {
@@ -7192,7 +7278,7 @@
     "x": 8,
     "y": 141
    },
-   "id": 76
+   "id": 77
   },
   {
    "datasource": {
@@ -7329,7 +7415,7 @@
     "x": 16,
     "y": 141
    },
-   "id": 77
+   "id": 78
   },
   {
    "datasource": {
@@ -7453,7 +7539,7 @@
     "x": 0,
     "y": 148
    },
-   "id": 78
+   "id": 79
   },
   {
    "datasource": {
@@ -7548,7 +7634,7 @@
     "x": 8,
     "y": 148
    },
-   "id": 79
+   "id": 80
   },
   {
    "datasource": {
@@ -7652,7 +7738,7 @@
     "x": 16,
     "y": 148
    },
-   "id": 80
+   "id": 81
   }
  ],
  "refresh": "30s",

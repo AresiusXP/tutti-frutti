@@ -279,6 +279,15 @@ describe('safety wording', () => {
 		expect(keysOf(/^report_reason_/)).toHaveLength(REPORT_REASONS.length + 2);
 	});
 
+	it('names the child-safety reason plainly and shortly in every language', () => {
+		expect(es.report_reason_child_safety).toBe('Riesgo para un menor');
+		expect(en.report_reason_child_safety).toBe('A child at risk');
+		expect(nl.report_reason_child_safety).toBe('Een kind in gevaar');
+		for (const catalog of [es, en, nl]) {
+			expect(catalog.report_reason_child_safety.length).toBeLessThanOrEqual(30);
+		}
+	});
+
 	it('the terms box says what the server records: 13 or older and accepting the terms', () => {
 		expect(en.terms_gate_age_label).toBe('I am 13 or older and accept the Terms');
 		expect(es.terms_gate_age_label).toMatch(/13 años o más/);

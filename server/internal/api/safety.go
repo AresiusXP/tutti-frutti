@@ -46,9 +46,13 @@ const (
 
 // Reasons of a report (ReportRequest.Reason).
 const (
-	ReportReasonHarassment    = "harassment"
-	ReportReasonHate          = "hate"
-	ReportReasonSexual        = "sexual"
+	ReportReasonHarassment = "harassment"
+	ReportReasonHate       = "hate"
+	ReportReasonSexual     = "sexual"
+	// ReportReasonChildSafety is a child at risk: grooming, or sexual content
+	// involving a minor. Like violence, self-harm and sexual content it pages
+	// the operator (docs/MODERATION.md, "Urgent safety cases").
+	ReportReasonChildSafety   = "child_safety"
 	ReportReasonViolence      = "violence"
 	ReportReasonSelfHarm      = "self_harm"
 	ReportReasonSpam          = "spam"

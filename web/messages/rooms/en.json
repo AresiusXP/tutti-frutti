@@ -10,6 +10,8 @@
 	"rooms_refresh": "Refresh",
 	"rooms_loading": "Looking for games…",
 	"rooms_empty": "No games waiting right now",
+	"rooms_paused": "Public games are paused for now. You can still play a private game with friends.",
+	"err_public_unavailable": "Public games are paused for now. Try again later, or create a private game.",
 	"rooms_create": "Create a public game",
 	"rooms_players": "{count}/{max} players",
 	"rooms_rounds": "{count} rounds",

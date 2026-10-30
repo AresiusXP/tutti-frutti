@@ -44,6 +44,15 @@ server:
   publicUrl: ""
   # Upper bound of live game rooms held in memory (MAX_ROOMS).
   maxRooms: 1000
+  # Public games (PUBLIC_ROOMS_ENABLED). false keeps them off across restarts,
+  # for an owner who cannot moderate for a while (docs/MODERATION.md,
+  # "Absence"): nobody can create or newly join a public room, the directory
+  # says public games are paused and no new bot is added (bots already seated
+  # keep playing); players already seated finish their game and private rooms
+  # are unaffected. `moderate public enable|disable` flips it at run time, in
+  # memory only.
+  publicRooms:
+    enabled: true
   # Automatic bot fill for public rooms. Disable new additions for rollback;
   # existing bots keep playing. max is 1..2 (use enabled=false to disable).
   publicBots:

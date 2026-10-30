@@ -100,6 +100,9 @@ type Config struct {
 	// BotsEnabled permits new automated seats in eligible public lobbies.
 	// Existing seats keep playing when disabled. Default false.
 	BotsEnabled bool
+	// PublicDisabled starts the hub with public games switched off (the
+	// operator's switch, see SetPublicEnabled); the zero value is on.
+	PublicDisabled bool
 	// Filling delays are measured from uninterrupted loneliness (20–30s and
 	// 40–55s by default), rather than from the preceding addition.
 	BotFirstDelayMin  time.Duration

@@ -137,9 +137,21 @@ export interface PublicRoom {
   rounds: number /* int */;
   timeLimitSeconds: number /* int */;
 }
+/**
+ * PublicRoomsResponse is the body of GET /api/rooms. Paused is true while the
+ * operator has public games switched off (docs/MODERATION.md, "Absence"): Rooms
+ * is then empty and the client says that public games are paused.
+ */
 export interface PublicRoomsResponse {
   rooms: PublicRoom[];
+  paused?: boolean;
 }
+/**
+ * ErrCodePublicUnavailable (403): POST /api/rooms asked for a public room while
+ * the operator has public games switched off. Private rooms are unaffected. It
+ * is a decision, not a failure, so it is not a 5xx.
+ */
+export const ErrCodePublicUnavailable = "public_unavailable";
 
 //////////
 // source: safety.go
@@ -214,6 +226,12 @@ export const ReportReasonHate = "hate";
  * Reasons of a report (ReportRequest.Reason).
  */
 export const ReportReasonSexual = "sexual";
+/**
+ * ReportReasonChildSafety is a child at risk: grooming, or sexual content
+ * involving a minor. Like violence, self-harm and sexual content it pages
+ * the operator (docs/MODERATION.md, "Urgent safety cases").
+ */
+export const ReportReasonChildSafety = "child_safety";
 /**
  * Reasons of a report (ReportRequest.Reason).
  */

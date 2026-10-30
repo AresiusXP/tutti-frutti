@@ -110,11 +110,13 @@ describe('buildReport', () => {
 });
 
 describe('reasons', () => {
-	it('are exactly the eight the server accepts, in the order they are shown', () => {
+	it('are exactly the nine the server accepts, in the order they are shown', () => {
 		expect([...REPORT_REASONS]).toEqual([
 			'harassment',
 			'hate',
 			'sexual',
+			// a child at risk (grooming, sexual content involving a minor) sits next to sexual content
+			'child_safety',
 			'violence',
 			'self_harm',
 			'spam',

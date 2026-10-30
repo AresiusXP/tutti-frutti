@@ -62,7 +62,9 @@ const MESSAGES: Record<string, () => string> = {
 	not_in_room: () => m.err_not_in_room(),
 	invalid_block: () => m.err_invalid_block(),
 	block_limit: () => m.err_block_limit(),
-	join_unavailable: () => m.err_join_unavailable()
+	join_unavailable: () => m.err_join_unavailable(),
+	// the operator switched public games off (docs/MODERATION.md, "Absence")
+	public_unavailable: () => m.err_public_unavailable()
 };
 
 /** The translated, user-facing sentence for an error code (current UI locale). */

@@ -10,6 +10,8 @@
 	"rooms_refresh": "Vernieuwen",
 	"rooms_loading": "Spellen zoeken…",
 	"rooms_empty": "Er wachten nu geen spellen",
+	"rooms_paused": "Openbare spellen zijn even gepauzeerd. Je kunt wel een privéspel met vrienden spelen.",
+	"err_public_unavailable": "Openbare spellen zijn even gepauzeerd. Probeer het later opnieuw of maak een privéspel.",
 	"rooms_create": "Maak een openbaar spel",
 	"rooms_players": "{count}/{max} spelers",
 	"rooms_rounds": "{count} rondes",

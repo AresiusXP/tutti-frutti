@@ -106,6 +106,19 @@ describe('errorMessage', () => {
 		i18n.set('es');
 	});
 
+	it('public_unavailable says public games are paused and points to a private game, in every language', () => {
+		const expected = {
+			es: 'Las partidas públicas están en pausa por ahora. Probá más tarde o creá una partida privada.',
+			en: 'Public games are paused for now. Try again later, or create a private game.',
+			nl: 'Openbare spellen zijn even gepauzeerd. Probeer het later opnieuw of maak een privéspel.'
+		};
+		for (const [locale, text] of Object.entries(expected)) {
+			i18n.set(locale);
+			expect(errorMessage('public_unavailable'), locale).toBe(text);
+		}
+		i18n.set('es');
+	});
+
 	it('falls back to err_unknown for anything else and follows the language', () => {
 		i18n.set('es');
 		expect(errorMessage('definitely_new')).toBe(m.err_unknown());

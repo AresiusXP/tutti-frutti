@@ -34,6 +34,8 @@ services:
       PORT: "8080"
       LOG_LEVEL: debug
       PUBLIC_URL: http://localhost:${EDGE_PORT:-8000}
+      # Public games (false: no new public rooms or players, empty directory, no new bots).
+      PUBLIC_ROOMS_ENABLED: "${PUBLIC_ROOMS_ENABLED:-true}"
       # Automatic public-room bot additions; false leaves existing bots playing.
       PUBLIC_BOTS_ENABLED: "${PUBLIC_BOTS_ENABLED:-true}"
       PUBLIC_BOTS_MAX: "${PUBLIC_BOTS_MAX:-2}"

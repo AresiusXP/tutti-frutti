@@ -47,6 +47,15 @@ type PublicRoom struct {
 	TimeLimitSeconds int       `json:"timeLimitSeconds"`
 }
 
+// PublicRoomsResponse is the body of GET /api/rooms. Paused is true while the
+// operator has public games switched off (docs/MODERATION.md, "Absence"): Rooms
+// is then empty and the client says that public games are paused.
 type PublicRoomsResponse struct {
-	Rooms []PublicRoom `json:"rooms"`
+	Rooms  []PublicRoom `json:"rooms"`
+	Paused bool         `json:"paused,omitempty"`
 }
+
+// ErrCodePublicUnavailable (403): POST /api/rooms asked for a public room while
+// the operator has public games switched off. Private rooms are unaffected. It
+// is a decision, not a failure, so it is not a 5xx.
+const ErrCodePublicUnavailable = "public_unavailable"

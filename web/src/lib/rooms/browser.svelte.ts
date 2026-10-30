@@ -4,6 +4,8 @@ import type { Lang, PublicRoom } from '$lib/protocol';
 /** A single visible-page poller. Cancelled requests never publish results or reset cooldowns. */
 export class RoomBrowser {
 	rooms = $state<PublicRoom[]>([]);
+	/** The operator switched public games off: the list is empty on purpose and the page says so. */
+	paused = $state(false);
 	loading = $state(false);
 	error = $state<string | null>(null);
 	lang = $state<Lang | undefined>();
@@ -73,6 +75,7 @@ export class RoomBrowser {
 			const result = await this.client.listRooms(this.lang, { signal: request.signal });
 			if (request.signal.aborted) return;
 			this.rooms = (result.rooms ?? []).slice(0, 50);
+			this.paused = result.paused === true;
 			this.error = null;
 		} catch (error) {
 			if (request.signal.aborted) return;

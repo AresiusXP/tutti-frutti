@@ -34,6 +34,7 @@ const (
 	ReasonHarassment    = api.ReportReasonHarassment
 	ReasonHate          = api.ReportReasonHate
 	ReasonSexual        = api.ReportReasonSexual
+	ReasonChildSafety   = api.ReportReasonChildSafety
 	ReasonViolence      = api.ReportReasonViolence
 	ReasonSelfHarm      = api.ReportReasonSelfHarm
 	ReasonSpam          = api.ReportReasonSpam
@@ -43,7 +44,7 @@ const (
 
 // Reasons lists every report reason.
 var Reasons = []string{
-	ReasonHarassment, ReasonHate, ReasonSexual, ReasonViolence,
+	ReasonHarassment, ReasonHate, ReasonSexual, ReasonChildSafety, ReasonViolence,
 	ReasonSelfHarm, ReasonSpam, ReasonImpersonation, ReasonOther,
 }
 

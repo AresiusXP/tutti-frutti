@@ -13,6 +13,7 @@ import {
 	ReportReasonHate,
 	ReportReasonImpersonation,
 	ReportReasonOther,
+	ReportReasonChildSafety,
 	ReportReasonSelfHarm,
 	ReportReasonSexual,
 	ReportReasonSpam,
@@ -23,11 +24,15 @@ import {
 export const MAX_COMMENT = 280;
 export const MAX_OBSERVED = 200;
 
-/** The fixed reasons, in the order they are shown (the server accepts exactly these). */
+/**
+ * The fixed reasons, in the order they are shown (the server accepts exactly these). A child at risk sits
+ * right after sexual content, so the more specific (and urgent) choice is next to the one it could be confused with.
+ */
 export const REPORT_REASONS = [
 	ReportReasonHarassment,
 	ReportReasonHate,
 	ReportReasonSexual,
+	ReportReasonChildSafety,
 	ReportReasonViolence,
 	ReportReasonSelfHarm,
 	ReportReasonSpam,

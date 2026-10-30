@@ -126,6 +126,7 @@ func run() error {
 		BotFirstDelayMax:  cfg.BotFirstDelayMax,
 		BotSecondDelayMin: cfg.BotSecondDelayMin,
 		BotSecondDelayMax: cfg.BotSecondDelayMax,
+		PublicDisabled:    !cfg.PublicRoomsEnabled,
 		Policy:            policy,
 	}
 	var judgeSwitch *judge.Switch
@@ -160,6 +161,9 @@ func run() error {
 		return fmt.Errorf("restore rooms: %w", err)
 	}
 	logger.Info("rooms restored", "count", restored)
+	if !cfg.PublicRoomsEnabled {
+		logger.Warn("public games are switched off (PUBLIC_ROOMS_ENABLED=false): new public games cannot be created or joined; players already seated in a public game can reconnect and finish it; private rooms work as usual")
+	}
 
 	// The operator's side of the safety layer (docs/MODERATION.md): the daily
 	// retention purge and the control socket. Both stop with the process, before
@@ -175,7 +179,7 @@ func run() error {
 	})
 	if cfg.ModerationSocket != "" {
 		deps := moderation.Deps{
-			Reports: st, Mod: st, Policy: policy, Rooms: hub, Gauges: gauges, Log: logger, Version: version,
+			Reports: st, Mod: st, Policy: policy, Rooms: hub, Public: hub, Gauges: gauges, Log: logger, Version: version,
 		}
 		if judgeSwitch != nil { // a nil *judge.Switch must not reach the interface
 			deps.Judge = judgeSwitch

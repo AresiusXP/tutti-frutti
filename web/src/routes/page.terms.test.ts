@@ -138,6 +138,21 @@ describe('creating a game', () => {
 			expect(toasts.items.map((t) => t.text)).toEqual(["You can't join this game right now."])
 		);
 	});
+
+	it('a public game while public games are paused says so and enters nothing', async () => {
+		i18n.set('en');
+		vi.mocked(api.createRoom).mockRejectedValue(new ApiError(403, 'public_unavailable'));
+		render(Home);
+		await fireEvent.click(screen.getByRole('button', { name: 'Public' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Create game' }));
+		await waitFor(() =>
+			expect(toasts.items.map((t) => t.text)).toEqual([
+				'Public games are paused for now. Try again later, or create a private game.'
+			])
+		);
+		expect(vi.mocked(api.createRoom).mock.calls[0][0]).toMatchObject({ visibility: 'public' });
+		expect(goto).not.toHaveBeenCalled();
+	});
 });
 
 describe('joining by code', () => {

@@ -110,6 +110,7 @@ type metrics struct {
 	publicHumans     prometheus.Gauge
 	automatedPlayers prometheus.Gauge
 	fillWait         prometheus.Histogram
+	publicEnabled    prometheus.Gauge
 }
 
 func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
@@ -194,6 +195,9 @@ func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
 		fillWait: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Name: "tuttifrutti_public_fill_wait_seconds", Help: "Time spent alone before each automated seat is added to a public lobby.",
 			Buckets: []float64{10, 20, 30, 40, 55, 90, 180, 300}}),
+		publicEnabled: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "tuttifrutti_public_rooms_enabled",
+			Help: "1 while public games are on, 0 while the operator has them switched off (moderate public disable, or PUBLIC_ROOMS_ENABLED=false at start)."}),
 	}
 	// Constant cardinality: every series exists from the start.
 	for _, r := range []string{statsOK, statsError, statsDropped} {
@@ -244,6 +248,7 @@ func newMetrics(reg prometheus.Registerer, log *slog.Logger) *metrics {
 	m.publicHumans = register(reg, m.publicHumans, log)
 	m.automatedPlayers = register(reg, m.automatedPlayers, log)
 	m.fillWait = register(reg, m.fillWait, log)
+	m.publicEnabled = register(reg, m.publicEnabled, log)
 	return m
 }
 

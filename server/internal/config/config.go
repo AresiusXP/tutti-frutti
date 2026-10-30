@@ -46,6 +46,12 @@ type Config struct {
 	// MaxRooms bounds the number of live rooms (MAX_ROOMS, default 1000,
 	// 1..100000).
 	MaxRooms int
+	// PublicRoomsEnabled is the starting position of the operator's switch of
+	// public games (PUBLIC_ROOMS_ENABLED, default true; docs/MODERATION.md,
+	// "Absence"). While off nobody can create or newly join a public room and
+	// the directory is empty; `moderate public enable|disable` flips it at run
+	// time, in memory only, so this is what a restart comes back to.
+	PublicRoomsEnabled bool
 	// BotsEnabled permits new automatic bot additions to public rooms
 	// (PUBLIC_BOTS_ENABLED, default true). Existing bots keep playing when off.
 	BotsEnabled bool
@@ -103,12 +109,13 @@ func Load(getenv func(string) string) (Config, error) {
 		CloudflareAccountID: strings.TrimSpace(getenv("CLOUDFLARE_ACCOUNT_ID")),
 		CloudflareAPIToken:  strings.TrimSpace(getenv("CLOUDFLARE_API_TOKEN")),
 
-		BotsEnabled:       true,
-		MaxBots:           2,
-		BotFirstDelayMin:  20 * time.Second,
-		BotFirstDelayMax:  30 * time.Second,
-		BotSecondDelayMin: 40 * time.Second,
-		BotSecondDelayMax: 55 * time.Second,
+		PublicRoomsEnabled: true,
+		BotsEnabled:        true,
+		MaxBots:            2,
+		BotFirstDelayMin:   20 * time.Second,
+		BotFirstDelayMax:   30 * time.Second,
+		BotSecondDelayMin:  40 * time.Second,
+		BotSecondDelayMax:  55 * time.Second,
 	}
 
 	port, err := strconv.Atoi(cfg.Port)
@@ -180,6 +187,13 @@ func Load(getenv func(string) string) (Config, error) {
 		cfg.MaxRooms = n
 	}
 
+	if raw := strings.TrimSpace(getenv("PUBLIC_ROOMS_ENABLED")); raw != "" {
+		b, err := strconv.ParseBool(raw)
+		if err != nil {
+			return Config{}, fmt.Errorf("config: invalid PUBLIC_ROOMS_ENABLED %q (want true or false)", raw)
+		}
+		cfg.PublicRoomsEnabled = b
+	}
 	if raw := strings.TrimSpace(getenv("PUBLIC_BOTS_ENABLED")); raw != "" {
 		b, err := strconv.ParseBool(raw)
 		if err != nil {

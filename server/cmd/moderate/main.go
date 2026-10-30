@@ -31,7 +31,7 @@ Flags go before the arguments. --operator NAME is required for every command
 that changes something (it is recorded in the audit log).
 
 commands:
-  status                                  open reports, oldest open report, restrictions, AI judge
+  status                                  open reports, oldest open report, restrictions, AI judge, public games
   reports list [--status open|resolved|all] [--limit N]
   reports show ID                         evidence, provenance and what is unverified
   reports resolve --operator NAME --note TEXT [--dismiss] ID
@@ -41,6 +41,8 @@ commands:
   profile remove --operator NAME --user ID
   judge status
   judge enable|disable --operator NAME
+  public status
+  public enable|disable --operator NAME   public games on/off (for an absence: docs/MODERATION.md)
 
 The socket is --socket, else $MODERATION_SOCKET, else ` + moderation.DefaultSocket + `.
 `
@@ -96,6 +98,8 @@ func run(args []string, stdout, stderr io.Writer, getenv func(string) string, ne
 		err = c.sub(rest, "profile", map[string]func([]string) error{"remove": c.profileRemove})
 	case "judge":
 		err = c.judge(rest)
+	case "public":
+		err = c.public(rest)
 	case "help", "-h", "--help":
 		fmt.Fprint(stdout, usage)
 		return 0
@@ -249,6 +253,14 @@ func (c *cli) status(args []string) error {
 		fmt.Fprintln(c.out, "AI judge:             on")
 	default:
 		fmt.Fprintln(c.out, "AI judge:             OFF (switched off by an operator; a restart turns it on again)")
+	}
+	switch {
+	case !st.Public.Configured:
+		fmt.Fprintln(c.out, "public games:         not configured")
+	case st.Public.Enabled:
+		fmt.Fprintln(c.out, "public games:         on")
+	default:
+		fmt.Fprintln(c.out, "public games:         OFF (no new public rooms or players; a restart goes back to PUBLIC_ROOMS_ENABLED)")
 	}
 	return nil
 }
@@ -535,6 +547,33 @@ func (c *cli) judge(args []string) error {
 		state = "on"
 	}
 	fmt.Fprintf(c.out, "AI judge is %s\n", state)
+	c.warn(res.Warning)
+	return nil
+}
+
+func (c *cli) public(args []string) error {
+	if len(args) == 0 || (args[0] != "status" && args[0] != "enable" && args[0] != "disable") {
+		return usageError("use: public status | public enable|disable --operator NAME")
+	}
+	action := args[0]
+	fs := flags("public " + action)
+	op := fs.String("operator", "", "")
+	if _, err := parse(fs, args[1:], 0); err != nil {
+		return err
+	}
+	var res moderation.PublicResponse
+	if err := c.call(moderation.PathPublic, moderation.PublicRequest{Operator: *op, Action: action}, &res); err != nil {
+		return err
+	}
+	if c.json {
+		c.printJSON(res)
+		return nil
+	}
+	if res.Public.Enabled {
+		fmt.Fprintln(c.out, "public games are on")
+	} else {
+		fmt.Fprintln(c.out, "public games are OFF: no new public rooms or players, the directory is empty, no new automated opponents (those already seated stay); players already seated finish their game, private rooms are unaffected")
+	}
 	c.warn(res.Warning)
 	return nil
 }

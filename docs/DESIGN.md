@@ -402,6 +402,22 @@ Round total = sum over categories; added to the player's running total.
   removal of discovery or a frontend release.
   Lowering the maximum trims waiting lobbies, including on restore; an
   in-progress game keeps its existing opponents through its final phase.
+* **Switching public games off** (the owner's measure for an absence, `docs/MODERATION.md`):
+  `PUBLIC_ROOMS_ENABLED` (default true, chart `server.publicRooms.enabled`) is the position at start, and
+  `moderate public disable|enable` flips it at run time, in memory only (section 9c, "Operator tool"). While off:
+  `POST /api/rooms` with `visibility: public` is `403 public_unavailable` (a decision, never a 5xx; private rooms
+  are created as usual); `GET /api/rooms` answers `{rooms: [], paused: true}` (the field is omitted while on) and
+  the browser says "Public games are paused" with a link to Home instead of the "create a public game" invitation;
+  no new automated opponent is seated (a fill already scheduled is dropped; the opponents already seated stay and
+  keep playing); a public room
+  admits only the players who hold a seat in it (reconnects and reclaimed seats), any other join by code or link is
+  the generic `join_unavailable` and `GET /api/rooms/{code}` reports `joinable: false` to such a caller. Players
+  already seated finish their game, and private rooms are untouched. The switch is read where the restrictions are:
+  `Hub.Create` under the hub's mutex (where the switch is written), the actor's serialized `onJoin`
+  (`refusesJoin`), the directory read and the bots' fill check; after `SetPublicEnabled` the hub posts one task to
+  every live room so a lonely lobby's fill is dropped or rescheduled at once. Gauge
+  `tuttifrutti_public_rooms_enabled`. Tests: `room/public_switch_test.go` (including creates and joins racing the
+  switch under `-race`), `httpapi/public_test.go`, `moderation`, `cmd/moderate`.
 
 ## 4. Category catalog
 
@@ -628,10 +644,15 @@ strict CSP needs no change, and crawlers and people without JavaScript read it t
     configured outside it; the page says so instead of asserting a number);
 
   plus the Google API Services User Data Policy *Limited Use* statement, deletion (in-app *Delete my
-  account*, or by email, 30 days; what it does **not** remove: content in a running room until the room
+  account*, at once, or by email: answered without undue delay and within one month at the latest, the account deleted
+  within one month after its owner has shown it is theirs; in Argentina answered within 5 business days and deleted
+  within 5 business days after that, Ley 25.326 art. 16; what it does **not** remove: content in a running room until the room
   ends (the seat stays as a guest; from the deletion on the game no longer treats the player as signed in:
   no AI judge, nothing recorded for an account), safety records until their retention ends, the `tf_guest`
-  cookie and browser storage, the Google account) and the GDPR rights, and the optional AI judge: the category label, the letter, the language
+  cookie and browser storage, the Google account) and the data-protection rights (GDPR, Ley 25.326) with their
+  deadlines (without undue delay, at the latest within one month, two more months for a complex request where the law
+  allows it, not in Argentina; in Argentina access within 10 days and correction or deletion within 5 business days,
+  arts. 14 and 16), and the optional AI judge: the category label, the letter, the language
   and the non-empty answers of **all** players that start with the letter (never nicknames or ids) go to
   Cloudflare Workers AI when a signed-in host asks, which acts as a processor and does not train on them;
   the generated explanation can be reported. The age wording says the game is intended for people aged 13
@@ -664,8 +685,11 @@ stops future games with that browser identity; clearing cookies or another brows
 the page says so plainly), what the owner may do (remove content, close a game, restrict a browser identity
 or an account, remove a saved profile), no automatic penalty from report counts, appeals by email, the
 service as-is by an individual, voluntary support links that give no benefit, and re-acceptance on change.
-It makes **no promise about response times** ("we review reports regularly and prioritise serious safety
-concerns") and no claim of legal compliance; both are owner decisions.
+It makes no claim of legal compliance. Its section *Our response times* states the owner's commitments, the same as
+`docs/MODERATION.md` ("Commitments"; gate G4 in `docs/PLAY-RELEASE.md`), and must never promise more: in-game reports
+checked daily (a goal) and decided within 7 days, urgent safety cases acted on within 24 hours of being seen, emailed
+notices acknowledged within 3 days and decided within 7, appeals within 14 days, data requests and deletion by email
+with the deadlines of the privacy policy and the deletion page, any other message acknowledged within 7 days.
 
 ### Account deletion page
 
@@ -680,8 +704,11 @@ the deletion on the game no longer treats the player as signed in, see "Deleting
 safety records until their retention ends, browser cookies and storage, server logs, the Google account itself)
 and the email route for people who
 cannot sign in. Because the server stores no email address, the email route cannot look an account up: the
-owner replies with instructions to verify control (for example by signing in) and then deletes it, within
-30 days. The retention figures are the ones of the policy and must stay equal.
+owner replies with instructions to verify control (for example by signing in) and then deletes it: the answer comes
+without undue delay and within one month at the latest (two more months for a complex request where the law allows
+it, not in Argentina), and the account is deleted within one month after its owner has shown it is theirs; in
+Argentina the answer comes within 5 business days and the deletion within 5 business days after that (Ley 25.326,
+art. 16). The retention figures are the ones of the policy and must stay equal.
 
 ### Support links
 
@@ -721,6 +748,12 @@ script or embedded resource, so the CSP and the privacy policy are untouched.
   referrer names this package AND the display mode is `standalone` or `fullscreen` (a plain installed PWA, or one opened
   by another app, matches neither). Residual risk, in `docs/ANDROID.md`: a document opened in another tab or Custom Tab
   without the referrer shows the links.
+* **Why hidden (gate G2, final).** Play's Payments policy forbids leading users of an app to a payment method other
+  than Play billing; its only tip exception needs 100% of the tip to reach the creator and is refused in practice for
+  tips to the app's own developer, while Ko-fi and Cafecito take platform and/or processor fees. The EEA external-offers
+  programme needs a registered business, Argentina has no programme, and both platforms require supporters to be 18+.
+  So the app hides the links, the store listing never mentions support or donations, and the website keeps them.
+  Sources, enforcement examples and when to revisit: `docs/PLAY-RELEASE.md`, gate G2.
 * **Adding a region.** Add a rule to `REGIONS` in `support.ts` (first match wins; `SUPPORT_DEFAULT` is the
   fallback), e.g. `Europe/Amsterdam` or `nl-NL` to a `bunq.me` link if that ever becomes possible, and a row to
   the table in `support.test.ts` and to `DEVICES` in `e2e/tests/14-support.spec.ts`.
@@ -1113,13 +1146,14 @@ Code: `lib/account/` (store, REST client, types, `GoogleButton`, `AccountChip`, 
 
 Three optional chart resources, all off by default: `serviceMonitor.enabled` (scrape),
 `dashboard.enabled` (Grafana dashboard ConfigMap, uid `tutti-frutti`) and
-`prometheusRule.enabled` (14 alerts). The homelab enables all three in
+`prometheusRule.enabled` (16 alerts). The homelab enables all three in
 `argocd-apps/values/tutti-frutti.yaml`. Facts about that install that the defaults
 encode: Prometheus selects every ServiceMonitor (`serviceMonitorSelector: {}`) but only
 rules labelled `release: kube-prometheus-stack`; the Grafana sidecar imports ConfigMaps
 labelled `grafana_dashboard: "1"` from all namespaces into "General" (no folder
-annotation); **Alertmanager is disabled**, so alerts are visible (Prometheus Alerts,
-Grafana Alerting) but nothing notifies until a receiver is added.
+annotation). **Alertmanager is enabled** and routes by `severity`: `critical` to the
+receiver `ntfy-critical`, `warning` to `ntfy-warning`, both pushed to the owner's phone
+through ntfy (no mail, no other channel). That routing lives in the homelab, not in the chart.
 
 **Metrics** (server `/metrics`, scraped every 30 s; `job` = server Service name,
 `namespace` = release namespace). Labels are bounded: every value comes from a fixed set in
@@ -1135,6 +1169,7 @@ dashboard and the alerts disagree.
 | `tuttifrutti_public_humans`                           | gauge     |                                                                         | Successfully joined connected humans in public rooms, never automated seats or unjoined sockets |
 | `tuttifrutti_automated_players`                       | gauge     |                                                                         | Active automated seats in public rooms; no sockets |
 | `tuttifrutti_public_fill_wait_seconds`                | histogram |                                                                         | Wait since a connected host became alone until each automated seat was added; count is successful additions |
+| `tuttifrutti_public_rooms_enabled`                    | gauge     |                                                                         | 1 while public games are on, 0 while they are switched off (`moderate public disable`, or `PUBLIC_ROOMS_ENABLED=false` at start; see "Public rooms and automated opponents"). Dashboard stat "Public games switch" |
 | `tuttifrutti_connections`                             | gauge     |                                                                         | Clients attached to a room (joined)                                                                                                        |
 | `tuttifrutti_ws_connections_open`                     | gauge     |                                                                         | All live sockets, joined or not (cap 2000 → `503 server_busy`)                                                                             |
 | `tuttifrutti_commands_total`                          | counter   | `type` (19 commands, `unknown`), `result` (`ok` or the error code)      | Client frames handled by a room                                                                                                            |
@@ -1162,9 +1197,9 @@ dashboard and the alerts disagree.
 | `tuttifrutti_stats_queue_depth`                       | gauge     |                                                                         | Finished games queued in the stats recorder (the one being written is not counted)                                                         |
 | `tuttifrutti_stats_outbox_pending`                    | gauge     |                                                                         | Finished games the rooms keep in their outbox (and snapshot) until the store confirms them                                                 |
 | `tuttifrutti_logins_total`                            | counter   | `result`: `ok`, `failed`, `cancelled`                                   | Google logins that reached the callback                                                                                                    |
-| `tuttifrutti_reports_total`                           | counter   | `kind` (`player`, `custom_label`, `answer`, `ai_verdict`), `reason` (8 fixed codes) | Content reports stored in the database (never counted when the insert failed or on an idempotent replay; never any report text, see "Content safety") |
-| `tuttifrutti_reports_open`                            | gauge     |                                                                         | Content reports waiting for the operator (status open); set from the database at start, daily and after every resolution, raised when a report is filed. **A metric is not a notification** (Alertmanager is disabled): the owner's daily check is `moderate status` (docs/MODERATION.md) |
-| `tuttifrutti_report_oldest_open_age_seconds`          | gauge     |                                                                         | Age of the oldest open report, computed at every scrape; 0 when none is open. Reports are deleted 90 days after filing whether or not anybody looked, so a report weeks old is about to vanish unresolved |
+| `tuttifrutti_reports_total`                           | counter   | `kind` (`player`, `custom_label`, `answer`, `ai_verdict`), `reason` (9 fixed codes) | Content reports stored in the database (never counted when the insert failed or on an idempotent replay; never any report text, see "Content safety"); the urgent reasons `violence`, `self_harm`, `sexual`, `child_safety` page the owner (`TuttiFruttiUrgentReport`) |
+| `tuttifrutti_reports_open`                            | gauge     |                                                                         | Content reports waiting for the operator (status open); set from the database at start, daily and after every resolution, raised when a report is filed. The owner's daily check is `moderate status` (docs/MODERATION.md); `TuttiFruttiReportWaiting` is the reminder |
+| `tuttifrutti_report_oldest_open_age_seconds`          | gauge     |                                                                         | Age of the oldest open report, computed at every scrape; 0 when none is open. Reports are deleted 90 days after filing whether or not anybody looked, so a report weeks old is about to vanish unresolved. Above 20 h for 15 min: `TuttiFruttiReportWaiting` |
 | `tuttifrutti_ws_closes_total`                         | counter   | `code` (1000, 1001, 1006, 1008, 1009, 1011, 1012, 4001–4005, `other`)   | Why connections ended                                                                                                                      |
 | `tuttifrutti_ws_send_drops_total`                     | counter   |                                                                         | Slow clients closed (1008) because their send queue was full (once per connection; the client reconnects)                                  |
 | `tuttifrutti_ws_frames_total`                         | counter   | `dir` (`in`/`out`), `type`                                              | WebSocket frames                                                                                                                           |
@@ -1252,6 +1287,8 @@ were two of 30 s, hence the long `for` on availability alerts.
 | `TuttiFruttiMemoryGrowth`             | warning  | linear trend of 6 h would exceed the limit within 4 h (pods older than 6 h only)                                                                                                               | 30m                          | memory panel vs rooms; restart at a quiet hour                                                                                                           |
 | `TuttiFruttiStatsRecordingFailing`    | warning  | stats write errors in every 5 min window for 10 min                                                                                                                                            | 10m                          | logs `game statistics`; Postgres                                                                                                                         |
 | `TuttiFruttiStatsDropped`             | warning  | any finished game given up in 10 min (stats of that game lost)                                                                                                                                 | 0m                           | same; fix the database                                                                                                                                   |
+| `TuttiFruttiReportWaiting`            | warning  | the oldest open content report is older than 20 h (`max(tuttifrutti_report_oldest_open_age_seconds) > 72000`): the daily check is due                                                          | 15m                          | `kubectl exec deploy/<server> -- /moderate reports list`, then triage (`docs/MODERATION.md`)                                                             |
+| `TuttiFruttiUrgentReport`             | critical | any report with reason `violence`, `self_harm`, `sexual` or `child_safety` in 10 min (`increase(tuttifrutti_reports_total{reason=~"violence\|self_harm\|sexual\|child_safety"}[10m]) > 0`, one alert per `kind` and `reason`) | 0m                           | open the report now: `moderate reports show ID`; real danger → "Urgent safety cases" in `docs/MODERATION.md`                                             |
 
 **Runbook: the three snapshot alerts.** They watch different things and usually fire together
 when Postgres misbehaves, with `TuttiFruttiServerNotReady` (critical) when it is unreachable:
@@ -1274,6 +1311,17 @@ Persistence row (saves by result, latency, queue, time since last save), then th
 running from memory meanwhile: the risk is a restart before the store is back, which restores old
 rooms or none. After the fix the queue drains by itself (the savers retry) and the alerts
 resolve; there is nothing to replay.
+
+**Runbook: the two moderation alerts.** They are the operator's prompts, not automation: nothing
+acts on a report by itself. `ReportWaiting` (warning) is the daily-check reminder: an open report
+older than 20 h. `UrgentReport` (critical) fires on the first report whose reason is one of the
+four codes that can mean a threat to life, self-harm, grooming or sexual content involving a minor
+(`internal/safety`: `violence`, `self_harm`, `sexual`, and `child_safety`, "a child at risk", the code
+for grooming and sexual content involving a minor); it resolves by
+itself 10 minutes later, so the open report, not the alert, is the to-do. The reason is the
+reporter's choice, an `UNVERIFIED` report can be filed by anybody who knows a room code, and the
+per-guest, per-account and per-IP report limits bound how often that can page the owner. What to do
+on each is in `docs/MODERATION.md` ("Alerts on the phone").
 
 **Extending.** Dashboard: edit `dashboards/generate.py` (helpers `stat`, `timeseries`,
 `state_timeline`; the layout engine places panels left to right on the 24-column grid),
@@ -2044,7 +2092,8 @@ operator's tool and the maintenance loop); bodies in `internal/api`.
 
 * `POST /api/reports` `{kind, roomInstanceId?, code?, ref, reason, comment?, idempotencyKey, observedText?}`. `kind`:
   `player` (nickname/avatar), `custom_label`, `answer`, `ai_verdict`. `reason`: `harassment`, `hate`, `sexual`,
-  `violence`, `self_harm`, `spam`, `impersonation`, `other`. `ref` (a structured reference in the vocabulary of the
+  `child_safety` (a child at risk: grooming, sexual content involving a minor), `violence`, `self_harm`, `spam`,
+  `impersonation`, `other`. `ref` (a structured reference in the vocabulary of the
   room, never a database id): `player` -> `playerId`; `custom_label` -> `category` + `label` (the text the reporter
   saw; the room compares it with its own copy, which is what makes a label that changed detectable); `answer` ->
   `round` + `category` + `playerId`; `ai_verdict` -> `round` + `category` + `playerId` (whose answer was judged).
@@ -2106,7 +2155,8 @@ operator's tool and the maintenance loop); bodies in `internal/api`.
 `customCategories` counts the custom ones (the client renders a localized "Custom category"); the real labels are only
 in `State` inside the room. For a caller identified by `tf_guest` the directory (and `GET /api/rooms/{code}`) also
 leaves out, or reports as `joinable: false`, a room that holds a human who shares a block with the caller in either
-direction (see "Blocks"); anonymous callers see everything.
+direction (see "Blocks"); anonymous callers see everything. While the operator has public games switched off the
+directory is `{rooms: [], paused: true}` for everybody (section 3, "Public rooms and automated opponents").
 
 ### Blocks
 
@@ -2217,7 +2267,7 @@ command that changes something, validated, recorded in the audit log) is only a 
 created is logged loudly and does not stop the game (the owner's daily `moderate status` then fails and says so).
 
 Commands (flags before the arguments): `status` (open reports, age of the oldest, restrictions in force, number of
-blocks, judge state); `reports list [--status open|resolved|all] [--limit N]`; `reports show ID` (the evidence, the
+blocks, judge state, public games state); `reports list [--status open|resolved|all] [--limit N]`; `reports show ID` (the evidence, the
 provenance, whether the evidence is verified, and every text typed by a player or the reporter marked UNVERIFIED where
 it is not the room's own copy; control and invisible characters are printed escaped so text cannot drive the operator's
 terminal); `reports resolve ID --note TEXT [--dismiss]`; `restrict (--guest ID | --report ID) [--user ID] --reason TEXT
@@ -2225,7 +2275,8 @@ terminal); `reports resolve ID --note TEXT [--dismiss]`; `restrict (--guest ID |
 verified target is refused; `--user` needs `--report` and must be the account that report proved); `unrestrict ID`;
 `room close [CODE] [--instance ID]` (closes exactly that instance through its actor, deleting its snapshot; a code with
 an instance id that no longer holds the code is refused); `profile remove --user ID` (clears the saved nickname,
-avatar and Google display name; statistics stay); `judge status|enable|disable` (the AI judge's kill switch, below).
+avatar and Google display name; statistics stay); `judge status|enable|disable` (the AI judge's kill switch, below);
+`public status|enable|disable` (the switch of public games, below).
 `blocks show` is deliberately **not** offered: who blocked whom is the blockers' private data and the owner's needs
 are met by counts. Exit codes: 0 ok, 1 refused or failed, 2 usage.
 
@@ -2244,10 +2295,21 @@ are met by counts. Exit codes: 0 ok, 1 refused or failed, 2 usage.
   goroutine before applying a verdict, which closes the gap between the Switch and the actor (a discarded verdict is
   shown as the usual "AI busy" failure). Tests: `judge/switch_test.go` (blocking provider, real HTTP client against a
   server that sees the connection drop) and `room/judge_switch_test.go`.
+* **Public games switch.** `moderate public disable|enable --operator NAME` (`POST /v1/public {action, operator}`;
+  `status` needs no operator) calls `room.Hub.SetPublicEnabled` (the hub is the control server's `PublicControl`): the
+  switch is written under the hub's mutex and is in force when the call returns; the hub then posts one task to every
+  live room (bounded to half the command's deadline: a room that does not confirm in time leaves a `WARNING`, the switch
+  stands) and the command is audited (`public_disable` / `public_enable`, target kind `public_games`, right after the
+  change, `WARNING` if that record fails). It lives in memory: a restart goes back to `PUBLIC_ROOMS_ENABLED` (chart
+  `server.publicRooms.enabled`), which is how the owner keeps public games off across restarts. What it does to rooms,
+  the directory and the bots: section 3, "Public rooms and automated opponents". Gauge `tuttifrutti_public_rooms_enabled`.
+  Refused with `409 public_not_configured` when the server has no room hub (tools, tests).
 * **Gauges.** `tuttifrutti_reports_open` and `tuttifrutti_report_oldest_open_age_seconds` are refreshed from the
   database at start, by the daily loop and after every resolution, and raised in memory when a report is filed (the age
-  is computed at each scrape). **A metric is not a notification:** Alertmanager is disabled, so
-  `docs/MODERATION.md` defines the owner's daily check (`moderate status`) and the dashboard shows the two gauges.
+  is computed at each scrape). They feed the dashboard and the `TuttiFruttiReportWaiting` alert (oldest open report
+  older than 20 h); `tuttifrutti_reports_total` feeds `TuttiFruttiUrgentReport` (reasons `violence`, `self_harm`,
+  `sexual`, `child_safety`). Both reach the owner's phone through Alertmanager and ntfy; `docs/MODERATION.md` defines the owner's
+  daily check (`moderate status`) and what to do on each alert.
 
 ### Maintenance and retention
 
@@ -2298,7 +2360,8 @@ never carry the Spanish call or characters.
   by the prefix, which also means they are the only ones without a flag).
   One `SafetyHost` per room provides them; the sheet has steps (players → menu → report form or block confirmation) inside a
   single `Sheet`, so Android Back closes it in one press.
-* **Report form.** The eight fixed reasons as radios (none preselected), an optional comment (280, with a counter), the
+* **Report form.** The nine fixed reasons as radios (none preselected; "A child at risk", `child_safety`, right after
+  "Sexual content"), an optional comment (280, with a counter), the
   explanation that the other person is not told. `POST /api/reports` always carries `roomInstanceId` (from `State`) and the
   room `code`, the reference in the room's vocabulary (`playerId`; `category` + `label` as the reporter sees it; `round` +
   `category` + `playerId`) and the text the reporter saw as `observedText` (≤ 200 characters; the server only keeps it when
@@ -2316,7 +2379,11 @@ never carry the Spanish call or characters.
   keys, and a list of nicknames is not one of them). A join or room creation refused with `join_unavailable` (REST or
   WebSocket) shows only "You can't join this game right now".
 * **Directory.** The public list shows the built-in category labels and a localized "N custom categories" chip
-  (`customCategories`); it never shows text a player typed.
+  (`customCategories`); it never shows text a player typed. When the server answers `paused: true` the page says
+  "Public games are paused for now. You can still play a private game with friends." with a link to Home, instead of the
+  empty state's "Create a public game"; Home's public creation refused with `public_unavailable` toasts "Public games are
+  paused for now. Try again later, or create a private game." (`rooms/` message area; tests `RoomBrowser.test.ts`,
+  `browser.test.ts`, `page.terms.test.ts`).
 * **Tests.** `safety/*.test.ts` (store, gate, report draft and sheet, blocks, entry points, API client), the room route
   (`RoomRoute.safety.test.ts`), Home (`page.terms.test.ts`), the account store's terms pause, and `e2e/tests/19-terms-gate` and
   `20-reports`, `21-blocks`.
@@ -2363,5 +2430,5 @@ Invariants:
   app-signing certificate; it has to stay valid through every rollback.
 
 Build, signing, verification and the release runbook: [`ANDROID.md`](ANDROID.md); the Play Console checklist
-and the open owner decisions (minors/consent, direct-tip links, terms, moderation commitments):
+and the owner gates (minors/consent, direct-tip links, terms, moderation commitments, closed test):
 [`PLAY-RELEASE.md`](PLAY-RELEASE.md); the module: [`../android/README.md`](../android/README.md).

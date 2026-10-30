@@ -161,22 +161,39 @@ func (s *Server) handlePublicRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var rooms []api.PublicRoom
-	if l, ok := s.rooms.(callerLister); ok {
+	paused := false
+	switch l := s.rooms.(type) {
+	case publicDirectory:
+		// One snapshot of the hub: the list and the switch of public games
+		// (while they are off the list is empty and the client is told why).
 		// The caller's own blocks decide what it sees; anonymous callers see all.
+		var enabled bool
+		rooms, enabled = l.PublicDirectory(lang, s.callerOf(r))
+		paused = !enabled
+	case callerLister:
 		rooms = l.PublicRoomsFor(lang, s.callerOf(r))
-	} else {
+	default:
 		rooms = s.rooms.(publicRoomLister).PublicRooms(lang)
 	}
-	if rooms == nil {
+	if rooms == nil || paused {
 		rooms = []api.PublicRoom{}
 	}
-	writeJSON(w, http.StatusOK, api.PublicRoomsResponse{Rooms: rooms})
+	writeJSON(w, http.StatusOK, api.PublicRoomsResponse{Rooms: rooms, Paused: paused})
+}
+
+// publicDirectory is implemented by the room hub (room.Hub.PublicDirectory).
+type publicDirectory interface {
+	PublicDirectory(lang game.Lang, guestID string) (rooms []api.PublicRoom, enabled bool)
 }
 
 func (s *Server) writeCreateError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, room.ErrRestricted) {
 		// Generic on purpose, like the refusal of a join: it never says why.
 		writeError(w, http.StatusForbidden, api.ErrCodeJoinUnavailable)
+		return
+	}
+	if errors.Is(err, room.ErrPublicUnavailable) {
+		writeError(w, http.StatusForbidden, api.ErrCodePublicUnavailable)
 		return
 	}
 	if errors.Is(err, room.ErrTooManyRooms) || errors.Is(err, room.ErrShuttingDown) {

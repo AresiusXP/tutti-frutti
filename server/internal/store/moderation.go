@@ -145,8 +145,9 @@ var (
 	auditActions = []string{
 		safety.ActionReportResolve, safety.ActionRestrict, safety.ActionUnrestrict, safety.ActionRoomClose,
 		safety.ActionProfileRemove, safety.ActionJudgeDisable, safety.ActionJudgeEnable,
+		safety.ActionPublicDisable, safety.ActionPublicEnable,
 	}
-	auditTargets = []string{safety.TargetReport, safety.TargetGuest, safety.TargetUser, safety.TargetRoom, safety.TargetJudge}
+	auditTargets = []string{safety.TargetReport, safety.TargetGuest, safety.TargetUser, safety.TargetRoom, safety.TargetJudge, safety.TargetPublic}
 )
 
 func validateAction(a safety.Action) error {

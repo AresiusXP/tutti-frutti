@@ -133,7 +133,7 @@ func (r *room) reconcileBots(now time.Time) ([]game.Event, bool) {
 		}
 	}
 	host := r.players[r.g.HostID]
-	lonely := r.h.cfg.BotsEnabled && r.visibility == visibilityPublic && r.claimed &&
+	lonely := r.h.cfg.BotsEnabled && r.h.PublicEnabled() && r.visibility == visibilityPublic && r.claimed &&
 		!r.botSuppressed && r.g.Phase == game.PhaseLobby && r.humanConnected() == 1 &&
 		r.botCapacity() > 0 && host != nil && !host.dead && !r.g.IsAutomated(r.g.HostID) && r.botSettingsSupported()
 	if !lonely {
@@ -169,6 +169,13 @@ func maxTime(a, b time.Time) time.Time {
 	return b
 }
 
+// botFillPending reports whether a lonely lobby still waits for an automated
+// seat. The switch of public games is read here too, so a fill that was
+// scheduled before the operator switched them off never happens.
+func (r *room) botFillPending() bool {
+	return r.botLonely && r.h.PublicEnabled() && r.botFillStep < r.h.cfg.MaxBots && len(r.automatedSeats()) < r.botCapacity()
+}
+
 func (r *room) nextBotDeadline() time.Time {
 	var at time.Time
 	consider := func(t time.Time) {
@@ -176,7 +183,7 @@ func (r *room) nextBotDeadline() time.Time {
 			at = t
 		}
 	}
-	if r.botLonely && r.botFillStep < r.h.cfg.MaxBots && len(r.automatedSeats()) < r.botCapacity() {
+	if r.botFillPending() {
 		consider(r.botFillAt[r.botFillStep])
 	}
 	for _, plan := range r.botPlans {
@@ -238,7 +245,7 @@ func (r *room) nextAnswerAt(now time.Time, remaining int) time.Time {
 // runBot consumes one due action. Every action is removed/rescheduled before
 // Apply, including rejected commands, so an overdue timer cannot spin.
 func (r *room) runBot(now time.Time) bool {
-	if r.botLonely && r.botFillStep < r.h.cfg.MaxBots && len(r.automatedSeats()) < r.botCapacity() && !now.Before(r.botFillAt[r.botFillStep]) {
+	if r.botFillPending() && !now.Before(r.botFillAt[r.botFillStep]) {
 		r.botFillStep++
 		variant := uint64(r.botRandom(1 << 30))
 		var p game.Player

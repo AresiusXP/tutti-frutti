@@ -49,6 +49,8 @@ spec:
               value: {{ include "tutti-frutti.publicUrl" . | quote }}
             - name: MAX_ROOMS
               value: {{ .Values.server.maxRooms | quote }}
+            - name: PUBLIC_ROOMS_ENABLED
+              value: {{ .Values.server.publicRooms.enabled | quote }}
             - name: PUBLIC_BOTS_ENABLED
               value: {{ .Values.server.publicBots.enabled | quote }}
             - name: PUBLIC_BOTS_MAX

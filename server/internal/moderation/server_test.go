@@ -43,6 +43,7 @@ type fakeRooms struct {
 	closeResult room.CloseResult
 	closeErr    error
 	closed      []room.CloseTarget
+	atClose     func() // called after the room closed (a client that disconnects)
 }
 
 func (f *fakeRooms) Sweep(context.Context) (map[string][]string, error) {
@@ -60,23 +61,66 @@ func (f *fakeRooms) CloseRoom(_ context.Context, t room.CloseTarget) (room.Close
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.closed = append(f.closed, t)
+	if f.atClose != nil {
+		f.atClose()
+	}
 	return f.closeResult, f.closeErr
 }
 
-type fakeJudge struct{ on bool }
+type fakeJudge struct {
+	on    bool
+	onSet func() // called after the switch moved (a client that disconnects)
+}
 
-func (j *fakeJudge) Enabled() bool      { return j.on }
-func (j *fakeJudge) SetEnabled(on bool) { j.on = on }
+func (j *fakeJudge) Enabled() bool { return j.on }
+func (j *fakeJudge) SetEnabled(on bool) {
+	j.on = on
+	if j.onSet != nil {
+		j.onSet()
+	}
+}
 
-// failingMod makes some writes fail on demand.
+// fakePublic is the switch of public games, with the contract of the hub:
+// nothing changes when ctx is already done; once written, a ctx that ends is
+// room.ErrPublicRoomsPending. err is what the rooms answer otherwise.
+type fakePublic struct {
+	on    bool
+	sets  []bool
+	err   error
+	gotCt bool   // the call had a deadline
+	onSet func() // called after the switch moved (a client that disconnects)
+}
+
+func (p *fakePublic) PublicEnabled() bool { return p.on }
+func (p *fakePublic) SetPublicEnabled(ctx context.Context, on bool) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	p.on = on
+	p.sets = append(p.sets, on)
+	_, p.gotCt = ctx.Deadline()
+	if p.onSet != nil {
+		p.onSet()
+	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("%w: %w", room.ErrPublicRoomsPending, err)
+	}
+	return p.err
+}
+
+// failingMod makes some writes fail on demand. With ctxAware, RecordAction
+// fails on a done context, like the database does.
 type failingMod struct {
 	*store.Memory
-	failRecord, failCreate bool
+	failRecord, failCreate, ctxAware bool
 }
 
 func (f *failingMod) RecordAction(ctx context.Context, a safety.Action) error {
 	if f.failRecord {
 		return errors.New("boom")
+	}
+	if f.ctxAware && ctx.Err() != nil {
+		return ctx.Err()
 	}
 	return f.Memory.RecordAction(ctx, a)
 }
@@ -112,6 +156,7 @@ type env struct {
 	policy *safety.Policy
 	rooms  *fakeRooms
 	judge  *fakeJudge
+	public *fakePublic
 	gauges *ReportGauges
 	deps   Deps
 	srv    *Server
@@ -131,12 +176,12 @@ func (e *env) withDeps(mutate func(*Deps)) {
 
 func newEnv(t *testing.T, withJudge bool) *env {
 	t.Helper()
-	e := &env{t: t, mem: store.NewMemory(), policy: safety.NewPolicy(func() time.Time { return t0 }), rooms: &fakeRooms{}, now: t0}
+	e := &env{t: t, mem: store.NewMemory(), policy: safety.NewPolicy(func() time.Time { return t0 }), rooms: &fakeRooms{}, public: &fakePublic{on: true}, now: t0}
 	e.mod = &failingMod{Memory: e.mem}
 	e.gauges = NewReportGauges(nil, func() time.Time { return t0 })
 	logs := &syncBuilder{}
 	d := Deps{
-		Reports: e.mem, Mod: e.mod, Policy: e.policy, Rooms: e.rooms, Gauges: e.gauges,
+		Reports: e.mem, Mod: e.mod, Policy: e.policy, Rooms: e.rooms, Public: e.public, Gauges: e.gauges,
 		Now: func() time.Time { return e.now }, Log: slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		Version: "test",
 	}
@@ -184,6 +229,12 @@ func (r result) errCode(t *testing.T) string {
 
 func (e *env) post(path string, req any) result {
 	e.t.Helper()
+	return e.postCtx(context.Background(), path, req)
+}
+
+// postCtx is post with the request's context (a client that gives up).
+func (e *env) postCtx(ctx context.Context, path string, req any) result {
+	e.t.Helper()
 	var body io.Reader
 	switch v := req.(type) {
 	case nil:
@@ -197,7 +248,7 @@ func (e *env) post(path string, req any) result {
 		body = strings.NewReader(string(raw))
 	}
 	rec := httptest.NewRecorder()
-	e.h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, path, body))
+	e.h.ServeHTTP(rec, httptest.NewRequestWithContext(ctx, http.MethodPost, path, body))
 	return result{rec.Code, rec.Body.String()}
 }
 
@@ -275,6 +326,8 @@ func TestEveryMutatingCommandRequiresAnOperator(t *testing.T) {
 		{PathProfileRemove, ProfileRemoveRequest{UserID: targetUser}},
 		{PathJudge, JudgeRequest{Action: "disable"}},
 		{PathJudge, JudgeRequest{Action: "enable"}},
+		{PathPublic, PublicRequest{Action: "disable"}},
+		{PathPublic, PublicRequest{Action: "enable"}},
 	} {
 		for _, bad := range []string{"", "two words", "semi;colon", strings.Repeat("a", 65)} {
 			body := map[string]any{}
@@ -286,7 +339,7 @@ func TestEveryMutatingCommandRequiresAnOperator(t *testing.T) {
 			}
 		}
 	}
-	if len(e.actions()) != 0 || len(e.rooms.closed) != 0 || e.rooms.sweeps != 0 || !e.judge.on {
+	if len(e.actions()) != 0 || len(e.rooms.closed) != 0 || e.rooms.sweeps != 0 || !e.judge.on || len(e.public.sets) != 0 {
 		t.Error("a command without an operator changed something")
 	}
 	for _, p := range []string{PathStatus, PathReportsList} { // read-only: no operator
@@ -297,6 +350,9 @@ func TestEveryMutatingCommandRequiresAnOperator(t *testing.T) {
 	if r := e.post(PathJudge, JudgeRequest{Action: "status"}); r.status != http.StatusOK {
 		t.Errorf("judge status: %d %s", r.status, r.body)
 	}
+	if r := e.post(PathPublic, PublicRequest{Action: "status"}); r.status != http.StatusOK {
+		t.Errorf("public status: %d %s", r.status, r.body)
+	}
 }
 
 func TestStatus(t *testing.T) {
@@ -304,8 +360,13 @@ func TestStatus(t *testing.T) {
 	var st StatusResponse
 	e.post(PathStatus, "{}").into(t, &st)
 	if st.OpenReports != 0 || st.OldestOpenAgeSeconds != 0 || !st.OldestOpenAt.IsZero() || st.Version != "test" ||
-		st.Judge != (JudgeStatus{Configured: true, Enabled: true}) {
+		st.Judge != (JudgeStatus{Configured: true, Enabled: true}) || st.Public != (PublicStatus{Configured: true, Enabled: true}) {
 		t.Errorf("empty status = %+v", st)
+	}
+	e.public.on = false
+	e.post(PathStatus, "{}").into(t, &st)
+	if st.Public != (PublicStatus{Configured: true, Enabled: false}) {
+		t.Errorf("status with public games off = %+v", st.Public)
 	}
 	e.report(1) // filed 1 h ago
 	e.report(3) // filed 3 h ago
@@ -829,6 +890,120 @@ func TestJudgeKillSwitch(t *testing.T) {
 	if r := none.post(PathJudge, JudgeRequest{Action: "status"}); r.status != http.StatusConflict {
 		t.Errorf("status with no judge: %d", r.status)
 	}
+}
+
+func TestPublicGamesSwitch(t *testing.T) {
+	e := newEnv(t, true)
+	var out PublicResponse
+	e.post(PathPublic, PublicRequest{Operator: "owner", Action: "disable"}).into(t, &out)
+	if e.public.on || out.Public != (PublicStatus{Configured: true, Enabled: false}) || out.Warning != "" {
+		t.Errorf("after disable: on=%v %+v", e.public.on, out)
+	}
+	if !e.public.gotCt {
+		t.Error("the wait for the rooms must be bounded")
+	}
+	e.post(PathPublic, PublicRequest{Action: "status"}).into(t, &out)
+	if out.Public.Enabled || len(e.public.sets) != 1 {
+		t.Errorf("status = %+v (sets %v): status must not flip anything", out, e.public.sets)
+	}
+	e.now = t0.Add(time.Minute)
+	e.post(PathPublic, PublicRequest{Operator: "owner", Action: "enable"}).into(t, &out)
+	if !e.public.on || !out.Public.Enabled {
+		t.Errorf("after enable: on=%v %+v", e.public.on, out)
+	}
+	acts := e.actions()
+	if len(acts) != 2 || acts[0].Action != safety.ActionPublicEnable || acts[1].Action != safety.ActionPublicDisable ||
+		acts[0].TargetKind != safety.TargetPublic || acts[0].Operator != "owner" || acts[1].Details != "disabled" {
+		t.Errorf("audit = %+v", acts)
+	}
+	if r := e.post(PathPublic, PublicRequest{Operator: "owner", Action: "explode"}); r.status != http.StatusBadRequest {
+		t.Errorf("unknown action: %d", r.status)
+	}
+
+	// The rooms did not all confirm in time: the switch is in force anyway, and audited.
+	e.public.err = fmt.Errorf("%w: %w", room.ErrPublicRoomsPending, context.DeadlineExceeded)
+	e.post(PathPublic, PublicRequest{Operator: "owner", Action: "disable"}).into(t, &out)
+	if e.public.on || out.Public.Enabled || !strings.Contains(out.Warning, "in force") || len(e.actions()) != 3 {
+		t.Errorf("slow rooms: on=%v %+v, %d audit records", e.public.on, out, len(e.actions()))
+	}
+	// The audit record could not be stored: the switch stands and the operator is warned.
+	e.public.err = nil
+	e.mod.failRecord = true
+	e.post(PathPublic, PublicRequest{Operator: "owner", Action: "enable"}).into(t, &out)
+	if !e.public.on || !strings.Contains(out.Warning, "audit record") || strings.HasPrefix(out.Warning, ";") {
+		t.Errorf("failed audit: on=%v %+v", e.public.on, out)
+	}
+
+	none := newEnv(t, false)
+	none.withDeps(func(d *Deps) { d.Public = nil })
+	if r := none.post(PathPublic, PublicRequest{Operator: "owner", Action: "disable"}); r.status != http.StatusConflict || r.errCode(t) != CodePublicNotConfigured {
+		t.Errorf("no hub: %d %s", r.status, r.body)
+	}
+	var st StatusResponse
+	none.post(PathStatus, "{}").into(t, &st)
+	if st.Public != (PublicStatus{}) {
+		t.Errorf("status with no hub = %+v", st.Public)
+	}
+}
+
+// A switch never moves without its audit record: a request that already ended
+// changes nothing, and a client that disconnects once the switch moved still
+// gets the record written (with a server-owned, bounded context).
+func TestSwitchesNeverMoveWithoutTheirAuditRecord(t *testing.T) {
+	type sw struct {
+		name   string
+		path   string
+		req    func(action string) any
+		on     func(e *env) bool
+		onSet  func(e *env, f func())
+		action string
+	}
+	for _, s := range []sw{
+		{"public games", PathPublic, func(a string) any { return PublicRequest{Operator: "owner", Action: a} },
+			func(e *env) bool { return e.public.on }, func(e *env, f func()) { e.public.onSet = f }, safety.ActionPublicDisable},
+		{"AI judge", PathJudge, func(a string) any { return JudgeRequest{Operator: "owner", Action: a} },
+			func(e *env) bool { return e.judge.on }, func(e *env, f func()) { e.judge.onSet = f }, safety.ActionJudgeDisable},
+	} {
+		t.Run(s.name+": the request already ended", func(t *testing.T) {
+			e := newEnv(t, true)
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			r := e.postCtx(ctx, s.path, s.req("disable"))
+			if r.status != http.StatusServiceUnavailable || r.errCode(t) != CodeUnavailable {
+				t.Errorf("status %d %s, want 503 unavailable", r.status, r.body)
+			}
+			if !s.on(e) || len(e.actions()) != 0 {
+				t.Errorf("the switch moved (%v) or was audited (%d) for a request that had ended", !s.on(e), len(e.actions()))
+			}
+		})
+		t.Run(s.name+": the client disconnects right after the switch moved", func(t *testing.T) {
+			e := newEnv(t, true)
+			e.mod.ctxAware = true // like the database: a cancelled context fails the write
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			s.onSet(e, cancel)
+			e.postCtx(ctx, s.path, s.req("disable"))
+			if s.on(e) {
+				t.Fatal("the switch did not move")
+			}
+			acts := e.actions()
+			if len(acts) != 1 || acts[0].Action != s.action || acts[0].Operator != "owner" {
+				t.Errorf("audit = %+v, want the %s record although the client left", acts, s.action)
+			}
+		})
+	}
+	t.Run("a room closure is audited although the client left", func(t *testing.T) {
+		e := newEnv(t, true)
+		e.mod.ctxAware = true
+		e.rooms.closeResult = room.CloseResult{Code: "KT7P", RoomInstanceID: instanceID}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		e.rooms.atClose = cancel
+		e.postCtx(ctx, PathRoomClose, RoomCloseRequest{Operator: "owner", Code: "KT7P"})
+		if acts := e.actions(); len(acts) != 1 || acts[0].Action != safety.ActionRoomClose {
+			t.Errorf("audit = %+v", acts)
+		}
+	})
 }
 
 func TestLoadPolicyLoadsBlocksAndTheRestrictionsInForce(t *testing.T) {

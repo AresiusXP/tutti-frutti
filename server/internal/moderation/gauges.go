@@ -16,8 +16,10 @@ import (
 // resolved, and bumped in memory when a report is filed (ReportCreated); the age
 // is computed at every scrape, so it keeps growing between refreshes.
 //
-// A metric alone is not a notification process (Alertmanager is disabled in the
-// homelab): docs/MODERATION.md defines the daily check.
+// A metric alone is not a notification process: Alertmanager routes the
+// chart's warning and critical alerts (TuttiFruttiReportWaiting,
+// TuttiFruttiUrgentReport) to the owner's phone through ntfy, and
+// docs/MODERATION.md defines the daily check.
 type ReportGauges struct {
 	now func() time.Time
 

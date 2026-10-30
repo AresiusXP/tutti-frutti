@@ -1256,7 +1256,9 @@ def build_panels() -> list[dict]:
     lo.add(
         stat(
             "Reports in range by reason",
-            "Reports stored in the selected range, by reason (harassment, hate, sexual, violence, self_harm, spam, impersonation, other).",
+            "Reports stored in the selected range, by reason (harassment, hate, sexual, child_safety, violence, self_harm, spam, "
+            "impersonation, other). A violence, self_harm, sexual or child_safety (a child at risk) report fires the critical "
+            "TuttiFruttiUrgentReport alert at once.",
             f"sum by (reason) (increase(tuttifrutti_reports_total{{{M}}}[$__range]))",
             decimals=0,
             instant=True,
@@ -1270,9 +1272,9 @@ def build_panels() -> list[dict]:
     lo.add(
         stat(
             "Open reports",
-            "Content reports waiting for the operator (tuttifrutti_reports_open, status open). A metric is not a notification: "
-            "Alertmanager is disabled in the homelab, so the owner's daily check is `kubectl exec deploy/<server> -- /moderate status` "
-            "(docs/MODERATION.md). Anything above 0 needs a look; resolve them with `moderate reports resolve`.",
+            "Content reports waiting for the operator (tuttifrutti_reports_open, status open). The owner checks them daily "
+            "(`kubectl exec deploy/<server> -- /moderate status`, docs/MODERATION.md); the TuttiFruttiReportWaiting alert (ntfy) "
+            "fires when the oldest one has waited 20 hours. Anything above 0 needs a look; resolve them with `moderate reports resolve`.",
             f"max(tuttifrutti_reports_open{{{M}}})",
             decimals=0,
             steps=((GREEN, None), (ORANGE, 1), (RED, 10)),
@@ -1286,7 +1288,8 @@ def build_panels() -> list[dict]:
             "Oldest open report",
             "How long the oldest open report has waited (tuttifrutti_report_oldest_open_age_seconds; 0 when none is open). The "
             "retention clock keeps running: a report is deleted 90 days after it was filed even if nobody looked at it, so one that is "
-            "weeks old is about to disappear unresolved. Orange from 1 day, red from 3 days.",
+            "weeks old is about to disappear unresolved. Orange from 1 day, red from 3 days; the TuttiFruttiReportWaiting alert "
+            "fires above 20 hours.",
             f"max(tuttifrutti_report_oldest_open_age_seconds{{{M}}})",
             "s",
             decimals=0,
@@ -1309,6 +1312,26 @@ def build_panels() -> list[dict]:
                 {"type": "value", "options": {"0": {"text": "OFF", "color": RED, "index": 0}, "1": {"text": "on", "color": GREEN, "index": 1}}}
             ],
             no_value="not configured",
+        ),
+        4,
+        6,
+    )
+    lo.add(
+        stat(
+            "Public games switch",
+            "1 = public games are on, 0 = they are switched off (tuttifrutti_public_rooms_enabled): an operator ran `moderate public "
+            "disable`, or the server started with PUBLIC_ROOMS_ENABLED=false (server.publicRooms.enabled), the owner's measure for an "
+            "absence (docs/MODERATION.md). While off nobody can create or newly join a public room, the directory is empty and no new "
+            "automated opponent is added (those already seated keep playing); private rooms are unaffected. The runtime switch lives "
+            "in memory: a restart goes back to the configured value.",
+            f"max(tuttifrutti_public_rooms_enabled{{{M}}})",
+            graph=False,
+            instant=True,
+            steps=((ORANGE, None), (GREEN, 1)),
+            mappings=[
+                {"type": "value", "options": {"0": {"text": "OFF", "color": ORANGE, "index": 0}, "1": {"text": "on", "color": GREEN, "index": 1}}}
+            ],
+            no_value="no data",
         ),
         4,
         6,

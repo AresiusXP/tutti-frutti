@@ -133,6 +133,7 @@
 		harassment: () => m.report_reason_harassment(),
 		hate: () => m.report_reason_hate(),
 		sexual: () => m.report_reason_sexual(),
+		child_safety: () => m.report_reason_child_safety(),
 		violence: () => m.report_reason_violence(),
 		self_harm: () => m.report_reason_self_harm(),
 		spam: () => m.report_reason_spam(),

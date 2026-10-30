@@ -169,4 +169,34 @@ describe('public room browser', () => {
 			'/?visibility=public'
 		);
 	});
+	it('says that public games are paused, offers a private game instead, and lists them again once they are back', async () => {
+		vi.mocked(api.listRooms)
+			.mockResolvedValueOnce({ rooms: [], paused: true })
+			.mockResolvedValue({ rooms: [room] });
+		render(RoomBrowser);
+		expect(
+			await screen.findByText(
+				'Public games are paused for now. You can still play a private game with friends.'
+			)
+		).toBeTruthy();
+		// Not the "empty" state: no invitation to create a public game that would be refused.
+		expect(screen.queryByText('No games waiting right now')).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Create a public game' })).toBeNull();
+		expect(screen.getByRole('link', { name: 'Create game' }).getAttribute('href')).toBe('/');
+		i18n.set('es');
+		expect(
+			await screen.findByText(
+				'Las partidas públicas están en pausa por ahora. Podés jugar una partida privada con amigos.'
+			)
+		).toBeTruthy();
+		i18n.set('nl');
+		expect(
+			await screen.findByText(
+				'Openbare spellen zijn even gepauzeerd. Je kunt wel een privéspel met vrienden spelen.'
+			)
+		).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Vernieuwen' }));
+		expect(await screen.findByRole('button', { name: 'Meedoen met KT7P' })).toBeTruthy();
+		expect(screen.queryByTestId('rooms-paused')).toBeNull();
+	});
 });

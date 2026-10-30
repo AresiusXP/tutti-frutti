@@ -1,19 +1,54 @@
 # Moderation runbook
 
-How the owner of Tutti Frutti handles reports, restrictions and takedowns. The design is in
-[`DESIGN.md`](DESIGN.md) section 9c ("Content safety"); this is the daily manual. It makes **no promise
-about response times** and gives no legal advice (see "Serious concerns" and "Limits").
+How the owner of Tutti Frutti (one person, a hobby, in the Netherlands) handles reports, restrictions,
+takedowns and the contact mailbox. The design is in [`DESIGN.md`](DESIGN.md) section 9c ("Content safety");
+this is the operator's procedure. It gives no legal advice and claims no legal compliance (see "Limits").
 
 Players can report a player (nickname/avatar), a custom category label, an answer or an AI verdict, and
 can block another player. There is **no public admin page**: moderation is a command run by the owner
-inside the server's pod.
+inside the server's pod. The game carries **no images**: avatars are an emoji and a colour, everything else
+is text typed by players.
+
+## Commitments
+
+What the owner, a single operator, commits to. The terms page (section "Our response times"), the privacy
+policy and the account-deletion page state the same figures in all three languages: change them together, and
+never promise more there (gate G4 in [`PLAY-RELEASE.md`](PLAY-RELEASE.md)). The contact address is
+**aresiusxp@gmail.com** (the address on the terms and privacy pages).
+
+| What | Commitment |
+|---|---|
+| In-game reports | Checked **daily** (a goal: see "Absence"); every report decided **within 7 days** of being filed |
+| Urgent safety cases: threat to someone's life, self-harm, grooming, sexual content involving a minor | Acted on **within 24 hours of being seen** (see "Urgent safety cases") |
+| Notices of illegal content by email | Acknowledged **within 3 days**, decided **within 7 days**; the reply gives the outcome and how to appeal |
+| Appeals (of a restriction or a decision about a notice) | Decided **within 14 days** |
+| Data-protection requests (access, correction, deletion, a copy, objection) | Answered **without undue delay, at the latest within one month**; where the law allows it (not in Argentina) a complex request can take two more months, and the person is told so within the first month. **Argentina** (Ley 25.326, arts. 14 and 16): access **within 10 days**, correction or deletion **within 5 business days** |
+| Account deletion by email (the server stores no email: the reply asks the person to show the account is theirs, for example by signing in) | Answered **without undue delay, at the latest within one month**; the account is deleted **within one month at the latest after** the person has shown it is theirs. **Argentina** (Ley 25.326, art. 16): answered **within 5 business days** and deleted **within 5 business days after** they have shown it is theirs |
+| Any other contact | Acknowledged **within 7 days** |
+| Removal orders of the Dutch ATKM | Within the legal deadline: **1 hour** for terrorist content, **12 hours** for child sexual abuse material (see "Removal orders") |
+
+## Alerts on the phone
+
+Alertmanager routes the chart's alerts by severity: `critical` to the receiver `ntfy-critical`, `warning` to
+`ntfy-warning`; both reach the owner's phone through ntfy. There is no mail or other channel. Two alerts are
+about moderation (definitions: [`DESIGN.md`](DESIGN.md), "Observability"):
+
+| Alert | Severity | Fires when | What to do |
+|---|---|---|---|
+| `TuttiFruttiUrgentReport` | critical | a report with the reason `violence` (violence or threats), `self_harm`, `sexual` or `child_safety` (a child at risk) was filed in the last 10 minutes; one alert per kind and reason | **Open it now**: `moderate reports list`, then `moderate reports show ID`. Real danger: "Urgent safety cases". Otherwise triage it like any report, today |
+| `TuttiFruttiReportWaiting` | warning | the oldest open report is older than 20 hours (for 15 minutes) | The daily check is due: run it (next section). It resolves once no open report is older than 20 hours |
+
+`TuttiFruttiUrgentReport` resolves by itself 10 minutes after the last such report: the **open report is the
+to-do, not the alert**. The reason is what the reporter picked, so it can be wrong or abusive (an `UNVERIFIED`
+report can come from anybody who knows a room code); read it anyway. The other critical alerts
+(`TuttiFruttiServerDown`, `TuttiFruttiServerNotReady`) also mean that `moderate` cannot work until the server
+is back. Keep the ntfy app allowed to notify (not muted, not battery-restricted) and send it a test push after
+changing phones.
 
 ## The daily check
 
-Alertmanager is disabled in the homelab, so **nothing notifies you**. The metrics
-`tuttifrutti_reports_open` and `tuttifrutti_report_oldest_open_age_seconds` (dashboard, row *Accounts*:
-*Open reports*, *Oldest open report*) show the backlog, but a metric is not a notification process. The
-routine is this, once a day:
+The goal is once a day, at about the same time, so `TuttiFruttiReportWaiting` rarely needs to remind you.
+The dashboard (row *Accounts*: *Open reports*, *Oldest open report*) shows the same backlog. The routine:
 
 ```sh
 kubectl -n <namespace> exec deploy/<server> -- /moderate status
@@ -26,11 +61,13 @@ oldest open report:   26h0m0s (filed 2026-10-29T10:00:00Z)
 active restrictions:  1
 blocks:               14
 AI judge:             on
+public games:         on
 ```
 
 If `open reports` is 0 you are done. Otherwise triage them (next section). If the command cannot reach
 the control socket it says so (the server is down, or the socket could not be created: see the server
-log, `moderation control socket`): fix that first, because nobody can be moderated meanwhile.
+log, `moderation control socket`): fix that first, because nobody can be moderated meanwhile. `public
+games: OFF` after you are back means you still have to run `moderate public enable` (see "Absence").
 
 A report is **deleted 90 days after it was filed even if nobody looked at it** (30 days after you resolve
 it). A report that has waited weeks is about to disappear.
@@ -98,7 +135,7 @@ action. Every restriction is a decision you take after reading the evidence.
 
 | Command | What it does |
 |---|---|
-| `status` | open reports, age of the oldest, restrictions in force, number of blocks (a count, never who blocked whom), AI judge state |
+| `status` | open reports, age of the oldest, restrictions in force, number of blocks (a count, never who blocked whom), AI judge state, public games state |
 | `reports list [--status open\|resolved\|all] [--limit N]` | summaries, oldest first for `open`, newest first otherwise |
 | `reports show ID` | the whole report, see above |
 | `reports resolve --operator NAME --note TEXT [--dismiss] ID` | closes a report; audited |
@@ -107,6 +144,7 @@ action. Every restriction is a decision you take after reading the evidence.
 | `room close --operator NAME [--instance ID] [CODE]` | closes exactly that room instance |
 | `profile remove --operator NAME --user ID` | deletes the saved profile text of an account |
 | `judge status` / `judge enable\|disable --operator NAME` | the AI judge's kill switch |
+| `public status` / `public enable\|disable --operator NAME` | public games on or off (see "Absence") |
 
 Examples:
 
@@ -118,6 +156,7 @@ moderate room close --operator ana KT7P
 moderate room close --operator ana --instance 2c9b…     # closes that instance only, wherever it is
 moderate room close --operator ana --instance 2c9b… KT7P  # the room holding KT7P must be that instance
 moderate judge disable --operator ana
+moderate public disable --operator ana
 ```
 
 ## Enforcement semantics
@@ -164,10 +203,19 @@ server accepts a single join).
   you enable it again meanwhile) and the room shows the usual "the AI is busy" failure. It lives only in memory: **a restart turns the judge on again**. To turn
   it off for good, remove the `cloudflare-*` keys from the Secret. It is for abuse of the model or an
   incident, not a budget tool (the daily Neuron budget is automatic).
+* **Public games switch.** `public disable` turns public games off; `public enable` turns them on again.
+  While they are off: nobody can create a public room (the app says public games are paused and suggests a
+  private game); the list of public games is empty and says they are paused; nobody new can join a public
+  room, by the list, by code or by link (they get the usual "You can't join this game right now"); no new
+  automated opponent is added (the ones already seated stay and keep playing). Players already seated in a public room (also one who reconnects) finish
+  their game. Private rooms are not affected at all. It takes effect when the command returns. It lives only
+  in memory: **a restart goes back to the chart value** `server.publicRooms.enabled` (env
+  `PUBLIC_ROOMS_ENABLED`, default `true`); set it to `false` to keep public games off across restarts and
+  deploys. The dashboard stat *Public games switch* and `moderate status` show the state.
 
 Every change is written to the audit log (`moderation_actions`: time, operator, action, target, report,
 your note) in the same transaction as the change when it touches the database. A closure, a profile
-removal and a judge switch are audited right after they happen; if that record cannot be stored the
+removal and a judge or public-games switch are audited right after they happen; if that record cannot be stored the
 command says `WARNING`. Read the log with SQL when you need it
 (`SELECT at, operator, action, target_kind, target_id, details FROM moderation_actions ORDER BY at DESC`).
 
@@ -187,33 +235,116 @@ Run by the server itself once a day and once at start (counts only are logged, n
 
 `web/static/privacy.html` states the same figures in all three languages; change both together.
 
+There are **no backups**: the shared Postgres has no dump or WAL archive and its volume no backup target, so
+whatever the retention deletes, or an account deletion removes, is gone for good, also for the authorities.
+Server logs (Fluent Bit to Loki) are kept **7 days** and hold **no player IP addresses**: Cloudflare Tunnel is in
+front of the cluster and the servers only see internal addresses (Cloudflare handles the IPs as network provider).
+
 ## Appeals
 
-A player who thinks a restriction is wrong writes to **aresiusxp@gmail.com** (the address on the terms and
-privacy pages). The owner re-reads the report and the audit log and decides; `moderate unrestrict` lifts
-it at once. The server stores no email, so it cannot look anybody up: ask for the guest or account id
-the player can see (or any detail that identifies the report), or lift by date. Answer in the player's
-language when you can.
+A player who thinks a restriction or a decision is wrong writes to **aresiusxp@gmail.com**. The owner re-reads
+the report and the audit log and decides **within 14 days**; `moderate unrestrict` lifts a restriction at once.
+The server stores no email, so it cannot look anybody up: ask for the guest or account id the player can see (or
+any detail that identifies the report), or lift by date. Reply with the decision, in the player's language when
+you can.
 
-## Serious concerns
+## Urgent safety cases
 
-Illegal content, threats to a person's life or safety, or anything involving a child's safety is not a
-normal report. Do **not** just resolve it and move on:
+A threat to someone's life (also self-harm that looks imminent), grooming (somebody steering a young player
+towards sexual talk, private contact, photos or a meeting) and sexual content involving a minor are not normal
+reports. `TuttiFruttiUrgentReport` pages you for the reasons `violence`, `self_harm`, `sexual` and
+`child_safety` (shown to players as "A child at risk", for grooming or sexual content involving a minor); such a case
+can also arrive as `harassment` or `other`, or by email. Act **within 24 hours of seeing it**, in this order:
 
-1. Take the evidence now: `moderate reports show ID` (and `--json`) into a file you keep, before the 90-day
-   retention deletes it. Note the room instance and match instance ids.
-2. Close the room (`room close`) and restrict the identity if that stops harm.
-3. Decide, as the owner, whom to tell: the local authorities, the platform (Google Play's developer
-   support) or both, as appropriate where you and the people involved live. This document gives no
-   legal advice and the repository claims no legal compliance; that call is yours.
+1. **Read it** (`moderate reports show ID`) and decide whether it is real danger. If not, triage it as usual.
+2. **Keep the evidence in the report only.** Do not copy it into files, screenshots, chats or mail of your own.
+   The game holds no images; if a text points to images or a link elsewhere, never open, download or screenshot
+   them. Leave the report **open** while the authorities may need it: an open report is kept up to 90 days
+   after filing, a resolved one is deleted 30 days after you resolve it, and there are no backups.
+3. **Stop the harm:** `moderate room close --operator you --instance ROOMINSTANCE` if the room still runs, then
+   `moderate restrict --operator you --report ID [--user USERID] --reason "..."` (no `--days`: until you lift
+   it).
+4. **Report it:**
+
+   | Situation | Whom to tell |
+   |---|---|
+   | Life at risk now, in the Netherlands | **112** |
+   | Netherlands, no immediate danger | Police, **0900-8844** |
+   | Child sexual abuse material, any country | **Meldpunt Kinderporno** ([meldpunt-kinderporno.nl](https://www.meldpunt-kinderporno.nl), run by Offlimits) |
+   | Life at risk now, in Argentina | **911** |
+   | Argentina, no immediate danger | **UFECI** (Unidad Fiscal Especializada en Ciberdelincuencia), denunciasufeci@mpf.gov.ar |
+   | Country unknown | The **Dutch police** (0900-8844; 112 if a life is at risk now) |
+
+   Give them the report id, the time it was filed, the room instance and match instance ids, the guest and
+   account ids and the text as the report shows it, typed or pasted into their own form or mail (that is not
+   a copy you keep). Say that the server never sees player IP addresses.
+5. **Resolve** the report once the authorities no longer need it, with a note of whom you told and when
+   (`--note "police 0900-8844, 2026-11-02, ref ..."`).
+
+## Notices of illegal content by email
+
+Anybody may write to **aresiusxp@gmail.com** that something in the game is illegal or breaks the terms.
+
+1. **Acknowledge within 3 days** (a short reply in their language). Ask for what you need to find the content
+   if it is missing: room code, date and time, nickname, the text.
+2. **Decide within 7 days.** Find the matching reports (`moderate reports list --status all`) and act like for a
+   report: `room close`, `profile remove`, `restrict`. A notice about child sexual abuse material or a threat
+   follows "Urgent safety cases" and its 24 hours instead.
+3. **Reply with the outcome** (what you removed or restricted, or why nothing) and the appeal route: answer to the
+   same address; appeals are decided within 14 days.
+
+The mail thread is the record of the notice; keep no other copy.
+
+## Removal orders (ATKM)
+
+The Dutch **ATKM** (Autoriteit online Terroristisch en Kinderpornografisch Materiaal) can order a hosting
+service to remove **terrorist content within 1 hour** (EU Regulation 2021/784) and to make **child sexual abuse
+material inaccessible within at most 12 hours** (Wet bestuursrechtelijke aanpak online kinderpornografisch
+materiaal). Orders arrive in writing at the contact address, so keep **mail notifications for
+aresiusxp@gmail.com on the phone**, next to ntfy, with sound allowed.
+
+On an order: `room close` the room, `profile remove` the account, `restrict` the identity, and confirm to the
+ATKM the way the order asks. Both laws expect the removed data to be preserved for the authorities (the
+terrorist-content regulation: six months), while the reports table keeps at most 90 days and nothing is backed
+up: ask the ATKM in your confirmation how they want it preserved.
+
+## Absence
+
+Before being away for **more than 2 days**:
+
+1. Run the daily check and decide every open report.
+2. If you can still read ntfy and mail where you go, nothing else changes: the alerts keep working and the
+   commitments stay (urgent cases within 24 hours, reports within 7 days).
+3. If you will be unreachable, switch off what nobody can watch:
+
+   ```sh
+   moderate public disable --operator you   # no new public rooms or players, empty list, no new bots
+   moderate judge disable --operator you    # the AI judge
+   ```
+
+   Players already seated in a public game finish it; private rooms (friends with a code) keep working. Both
+   switches live in memory and **a restart turns them back on** (any deploy or node reboot restarts the
+   server). To make public games stay off across restarts, also set the chart value
+   `server.publicRooms.enabled: false` (env `PUBLIC_ROOMS_ENABLED=false`) in the app's values in
+   `AresiusXP/argocd-apps`; to keep the judge off, remove the `cloudflare-*` keys from the Secret. Reports
+   (from private rooms, and about content already seen) keep arriving and wait for you; an absence longer than
+   7 days breaks the 7-day commitment.
+4. Back home: `moderate status`, triage the oldest first, then `moderate public enable --operator you` and
+   `moderate judge enable --operator you` (and set `server.publicRooms.enabled` back to `true` if you changed it).
 
 ## Limits
 
 * Identities are **guest cookies** (and Google ids). A determined person gets a new one by clearing
   cookies. Restrictions and blocks slow down, they do not stop.
-* **No real-time guarantee.** Nobody is paged. A report waits until your daily check, the AI verdict is
-  advisory, and a room is only closed when you close it.
+* **Only the urgent reasons page you.** Every other report waits for the daily check or the 20-hour reminder;
+  the AI verdict is advisory, and a room is only closed when you close it.
 * Evidence only exists while the room does (or while the reporter saw it): a report about something
   nobody saw is `UNVERIFIED`.
+* No player IP addresses and no backups (see "Retention").
 * The tool is single-operator: the kill switch and any command are available to anyone who can exec into
   the pod; the audit log records the name they typed.
+
+## Open points
+
+* **Preservation after a removal order** is longer (six months for terrorist content) than the report retention
+  (90 days at most), and there are no backups.

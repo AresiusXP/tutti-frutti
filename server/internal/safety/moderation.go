@@ -104,12 +104,15 @@ const (
 	ActionProfileRemove = "profile_remove"
 	ActionJudgeDisable  = "judge_disable"
 	ActionJudgeEnable   = "judge_enable"
+	ActionPublicDisable = "public_disable"
+	ActionPublicEnable  = "public_enable"
 
 	TargetReport = "report"
 	TargetGuest  = "guest"
 	TargetUser   = "user"
 	TargetRoom   = "room"
 	TargetJudge  = "judge"
+	TargetPublic = "public_games"
 )
 
 // AuditRetention is how long a moderation_actions row is kept.

@@ -10,6 +10,8 @@
 	"rooms_refresh": "Actualizar",
 	"rooms_loading": "Buscando partidas…",
 	"rooms_empty": "No hay partidas esperando ahora",
+	"rooms_paused": "Las partidas públicas están en pausa por ahora. Podés jugar una partida privada con amigos.",
+	"err_public_unavailable": "Las partidas públicas están en pausa por ahora. Probá más tarde o creá una partida privada.",
 	"rooms_create": "Creá una partida pública",
 	"rooms_players": "{count}/{max} jugadores",
 	"rooms_rounds": "{count} rondas",

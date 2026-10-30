@@ -92,7 +92,20 @@
 		{#if browser.loading}<p class="text-center text-cream-muted">{m.rooms_loading()}</p>{/if}
 		{#if browser.error}<p class="text-center text-strawberry">{errorMessage(browser.error)}</p>{/if}
 	</div>
-	{#if !browser.loading && !browser.error && browser.rooms.length === 0}
+	{#if !browser.loading && !browser.error && browser.paused}
+		<!-- The operator switched public games off: say so, and point to what still works. -->
+		<div
+			data-testid="rooms-paused"
+			class="flex flex-col gap-4 rounded-2xl bg-night-2 p-4 text-center"
+		>
+			<p>{m.rooms_paused()}</p>
+			<a
+				href={resolve('/')}
+				class="flex min-h-12 items-center justify-center rounded-xl bg-banana px-3 font-bold text-night"
+				>{m.create_game()}</a
+			>
+		</div>
+	{:else if !browser.loading && !browser.error && browser.rooms.length === 0}
 		<div class="flex flex-col gap-4 rounded-2xl bg-night-2 p-4 text-center">
 			<p>{m.rooms_empty()}</p>
 			<a
