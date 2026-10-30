@@ -12,7 +12,7 @@ to end the round. Hosted on the homelab at **https://tuttifrutti.aresius.xyz**.
 
 | Area | Decision |
 |---|---|
-| Client | SvelteKit (adapter-static) + Tailwind + Paraglide i18n, installable PWA. UI languages: Spanish (Argentina), English and Dutch; a first visit follows the browser language (Spanish for any other), the ES/EN/NL switch is remembered |
+| Client | SvelteKit (adapter-static) + Tailwind + Paraglide i18n, installable PWA. UI languages: Spanish (Argentina), English and Dutch; a first visit follows the browser language (Spanish for any other), the ES/EN/NL switch is remembered. The shell opts out of browser translation (`translate="no"`, `<meta name="google" content="notranslate">`): a machine translation would also rewrite the players' answers and categories, and Chrome's "Translate page?" bar covered the header of the Android app; the cost is that players whose language is not ES/EN/NL cannot have the browser translate the UI. |
 | Server | Go, WebSockets, **single replica**, authoritative game state in memory, snapshots to Postgres on every phase change (and every ~5 s while playing) |
 | Identity | Nickname + avatar (emoji + colour) for guests. Optional Google login (OIDC) adds profile + lifetime stats |
 | Lobbies | Private (invite/code/QR) or public (discoverable waiting lobbies); 4-char code, max 10 players. Public games are casual, without lifetime statistics |

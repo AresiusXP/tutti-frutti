@@ -93,6 +93,14 @@ describe('message catalogs', () => {
 		expect(html).toContain(`<title>${BRAND}</title>`);
 	});
 
+	it('opts the app out of browser translation: the game has its own ES/EN/NL switch', () => {
+		// A machine translation would also rewrite the players' answers and categories, and Chrome's
+		// "Translate page?" bar covers the header of the Android app on its first launch.
+		const html = readFileSync(new URL('../app.html', import.meta.url), 'utf8');
+		expect(html).toMatch(/<html lang="es" translate="no">/);
+		expect(html).toContain('<meta name="google" content="notranslate" />');
+	});
+
 	it('compiles every key for every locale (no missing translation falls back to Spanish)', () => {
 		for (const locale of ['en', 'nl'] as const) {
 			for (const key of ['basta_button', 'create_game', 'lobby_lang_nl', 'language_label']) {
