@@ -5,10 +5,10 @@ metadata:
   labels:
     {{- include "tutti-frutti.componentLabels" (dict "component" "server" "context" .) | nindent 4 }}
 spec:
-  # Fixed at ONE replica on purpose (not a value): the authoritative game state
-  # lives in this pod's memory, so a second replica would split rooms. Recreate
-  # guarantees the old pod has stopped (and flushed its snapshot) before the new
-  # one starts; clients simply reconnect.
+  # Fixed at ONE replica on purpose (not a value, and never behind an HPA): the
+  # authoritative game state lives in this pod's memory, so a second replica
+  # would split rooms. Recreate guarantees the old pod has stopped (and flushed
+  # its snapshot) before the new one starts; clients simply reconnect.
   replicas: 1
   strategy:
     type: Recreate

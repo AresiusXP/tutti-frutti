@@ -57,7 +57,10 @@ to end the round. Hosted on the homelab at **https://tuttifrutti.aresius.xyz**.
   Other players' answers are hidden while `PLAYING`/`GRACE`; only fill-progress
   is visible.
 * **Restarts**: snapshot to Postgres; on startup reload and let clients
-  reconnect with backoff. Deployment is `strategy: Recreate`, replicas: 1.
+  reconnect with backoff. Deployment is `strategy: Recreate`, replicas: 1
+  (never autoscaled: the room state is in this pod's memory; only the stateless
+  web deployment gets a `HorizontalPodAutoscaler`, chart `web.autoscaling`, CPU
+  target 80 %, 1 to 6 replicas).
 * **Identity**: signed `HttpOnly` guest cookie (random guest ID = player ID) lets
   a player reclaim their seat; it never changes. Google OIDC (code flow + PKCE,
   scope `openid profile`, no email stored) is handled by the server and sets a

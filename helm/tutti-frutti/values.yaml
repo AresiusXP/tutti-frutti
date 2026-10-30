@@ -30,7 +30,9 @@ containerSecurityContext:
 # Server (Go: REST /api, WebSocket /ws)
 # ---------------------------------------------
 # Always exactly one replica with strategy Recreate: authoritative game state
-# lives in memory, so there is intentionally no replicaCount value.
+# lives in memory, so there is intentionally no replicaCount value and NO
+# autoscaling (an HPA would split the rooms across pods). Scale it vertically
+# (resources, maxRooms) instead.
 server:
   image:
     repository: ghcr.io/aresiusxp/tutti-frutti-server
@@ -110,7 +112,16 @@ server:
 # Web (static SvelteKit build on nginx-unprivileged)
 # ---------------------------------------------
 web:
+  # Fixed replica count; only used when web.autoscaling.enabled=false (with the
+  # HPA on, the Deployment omits `replicas` so Helm/ArgoCD do not fight the HPA).
   replicaCount: 1
+  # HorizontalPodAutoscaler for the stateless nginx pods (needs metrics-server).
+  # The CPU utilization is measured against web.resources.requests.cpu.
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 80
   image:
     repository: ghcr.io/aresiusxp/tutti-frutti-web
     # Empty = .Chart.AppVersion

@@ -25,14 +25,21 @@ In the homelab ArgoCD does this: Renovate bumps the chart version in
 helm lint helm/tutti-frutti
 helm template t helm/tutti-frutti
 helm template t helm/tutti-frutti --set serviceMonitor.enabled=true
+helm template t helm/tutti-frutti --set web.autoscaling.enabled=false   # fixed replicas, no HPA
 ```
 
 Notes:
 
 * The **server always runs exactly one replica with `strategy: Recreate`**.
-  Game state lives in memory, so there is deliberately no replica value. Do not
-  scale it out without redesigning state. During a rollout clients reconnect.
-* The **web** deployment is a regular rolling update (`web.replicaCount`).
+  Game state lives in memory, so there is deliberately no replica value and no
+  HPA. Do not scale it out without redesigning state (scale it vertically with
+  `server.resources` / `server.maxRooms`). During a rollout clients reconnect.
+* The **web** deployment is a regular rolling update. By default it is autoscaled
+  by a `HorizontalPodAutoscaler` (`web.autoscaling.*`, needs metrics-server): CPU
+  target 80 % of `web.resources.requests.cpu`, 1 to 6 replicas. With the HPA on,
+  the Deployment omits `replicas` so Helm/ArgoCD syncs do not reset the autoscaled
+  count; set `web.autoscaling.enabled=false` to get a fixed `web.replicaCount`.
+  The server is **never** autoscaled (see above).
 * Pods run non-root with a read-only root filesystem, all capabilities dropped
   and the `RuntimeDefault` seccomp profile. The web pod mounts `emptyDir`s on
   `/tmp`, `/var/cache/nginx` and `/var/run` for nginx.
@@ -88,7 +95,10 @@ Anything else goes into `server.extraEnv`.
 | `server.secrets.*` | see above | Existing Secret name, key names, `optional` |
 | `server.extraEnv` | `[]` | Extra `EnvVar` entries |
 | `server.resources` | 50m / 64Mi, 256Mi limit | |
-| `web.replicaCount` | `1` | |
+| `web.replicaCount` | `1` | Fixed replica count, only used when `web.autoscaling.enabled=false` |
+| `web.autoscaling.enabled` | `true` | `HorizontalPodAutoscaler` (`autoscaling/v2`, CPU) for the web Deployment; needs metrics-server. The server never gets one |
+| `web.autoscaling.minReplicas` / `.maxReplicas` | `1` / `6` | HPA bounds |
+| `web.autoscaling.targetCPUUtilizationPercentage` | `80` | Average CPU utilization against `web.resources.requests.cpu` (10m, so about 8m per pod) |
 | `web.image.repository` / `.tag` | `ghcr.io/aresiusxp/tutti-frutti-web` / `""` | Empty tag = chart `appVersion` |
 | `web.resources` | 10m / 16Mi, 128Mi limit | |
 | `ingress.enabled` | `true` | |

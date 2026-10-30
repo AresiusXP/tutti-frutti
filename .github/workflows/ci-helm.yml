@@ -84,6 +84,12 @@ jobs:
           helm template t "$CHART_PATH" \
             | kubeconform -strict -ignore-missing-schemas -kubernetes-version "$KUBERNETES_VERSION" -summary
 
+      - name: kubeconform (autoscaling disabled)
+        run: |
+          helm template t "$CHART_PATH" \
+            --set web.autoscaling.enabled=false \
+            | kubeconform -strict -ignore-missing-schemas -kubernetes-version "$KUBERNETES_VERSION" -summary
+
       - name: kubeconform (all optional resources enabled)
         run: |
           helm template t "$CHART_PATH" \

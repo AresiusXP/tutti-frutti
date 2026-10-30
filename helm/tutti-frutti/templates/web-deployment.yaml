@@ -5,7 +5,10 @@ metadata:
   labels:
     {{- include "tutti-frutti.componentLabels" (dict "component" "web" "context" .) | nindent 4 }}
 spec:
+  {{- /* With the HPA on, `replicas` is omitted so every sync does not reset the autoscaled count. */}}
+  {{- if not .Values.web.autoscaling.enabled }}
   replicas: {{ .Values.web.replicaCount }}
+  {{- end }}
   strategy:
     type: RollingUpdate
     rollingUpdate:
