@@ -176,7 +176,8 @@ base64 -i upload-keystore.jks | tr -d '\n' | pbcopy      # Linux: base64 -w0 upl
 GitHub: Settings > Environments > **`android-release`**: required reviewers (the owner), deployment
 branches `main`; secrets `ANDROID_UPLOAD_KEYSTORE_B64` (the base64 above), `ANDROID_UPLOAD_KEYSTORE_PASSWORD`,
 `ANDROID_UPLOAD_KEY_ALIAS`, `ANDROID_UPLOAD_KEY_PASSWORD`; optional **variable** `ANDROID_UPLOAD_CERT_SHA256`
-(the upload certificate's fingerprint, public) which the signed bundle must match.
+(the upload certificate's fingerprint, public) which the signed bundle must match. Set since 2026-10-31 to
+`A7:0D:51:25:…:0C:87:80` (the key in the owner's `upload-keystore.jks`, the one Play registered on the first upload).
 
 ## 7. Digital Asset Links (what makes it a TWA)
 
@@ -279,7 +280,7 @@ The same Custom-Tab fallback is what users without a TWA-capable browser get.
   | versionCode | Tag | Date | Where | Note |
   |---|---|---|---|---|
   | 1 | v1.6.0 | 2026-10-30 | Internal testing (first upload, created the app-signing key) | Crashes on launch (`ManageDataLauncherActivity`); never ship it |
-  | 2 | v1.7.1 | | Internal testing | First usable build |
+  | 2 | v1.7.1 | 2026-10-31 | Internal testing | First usable build; release bundle launch-tested on an Android 15 emulator |
 
 * `scripts/check-version.mjs` validates the file format, that the versionName is semantic, and with
   `--min-exclusive N` that versionCode > N (N = the previous Play release). `release-android.yml` runs it with
