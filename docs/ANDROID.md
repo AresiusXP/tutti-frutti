@@ -273,6 +273,14 @@ The same Custom-Tab fallback is what users without a TWA-capable browser get.
   2100000000). It is bumped **by hand**, +1, in the PR that prepares an Android release, never from the date or
   the CI run number. Play rejects a versionCode it has already seen and users only update to a higher one:
   keep it strictly increasing.
+* **Uploaded to Play so far** (Play refuses a versionCode it has seen, even from a discarded draft; add a line
+  for every upload and pass the highest as `previous_version_code`):
+
+  | versionCode | Tag | Date | Where | Note |
+  |---|---|---|---|---|
+  | 1 | v1.6.0 | 2026-10-30 | Internal testing (first upload, created the app-signing key) | Crashes on launch (`ManageDataLauncherActivity`); never ship it |
+  | 2 | v1.7.1 | | Internal testing | First usable build |
+
 * `scripts/check-version.mjs` validates the file format, that the versionName is semantic, and with
   `--min-exclusive N` that versionCode > N (N = the previous Play release). `release-android.yml` runs it with
   `--expect-version <tag>` and `--min-exclusive <previous_version_code>`, and `audit-manifest.mjs` checks that the
