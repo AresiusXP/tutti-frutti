@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.2](https://github.com/AresiusXP/tutti-frutti/compare/v1.7.1...v1.7.2) (2026-10-31)
+
+
+### Documentation
+
+* Play trader declaration opens in November 2026 ([71a608b](https://github.com/AresiusXP/tutti-frutti/commit/71a608b664df6959fd9f299264573b8b51e1d79b))
+* record versionCode 2 and the upload certificate pin ([1ef0bb5](https://github.com/AresiusXP/tutti-frutti/commit/1ef0bb500abfae0fc70e16fd8953dc1cc83d855c))
+
 ## [1.7.1](https://github.com/AresiusXP/tutti-frutti/compare/v1.7.0...v1.7.1) (2026-10-31)
 
 
