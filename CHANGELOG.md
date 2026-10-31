@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.7.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.6.0...v1.7.0) (2026-10-31)
+
+
+### Features
+
+* **web:** publish Digital Asset Links for the Play app ([dd10b3b](https://github.com/AresiusXP/tutti-frutti/commit/dd10b3b9a904c4df4e2ae1086511943243762d1f))
+
+
+### Bug Fixes
+
+* **android:** declare ManageDataLauncherActivity so the app starts ([cc015e0](https://github.com/AresiusXP/tutti-frutti/commit/cc015e0e50371a64a2c4db757443e1c71bf70ba0))
+* **web:** opt out of browser translation ([8341264](https://github.com/AresiusXP/tutti-frutti/commit/8341264a7cc587cc5df96901848a3a0181313a19))
+
+
+### Documentation
+
+* explain the home Wi-Fi timeout and the upload certificate ([adae634](https://github.com/AresiusXP/tutti-frutti/commit/adae6340d3276697bb48799e041a7f6a684168ec))
+
 ## [1.6.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.5.0...v1.6.0) (2026-10-30)
 
 
