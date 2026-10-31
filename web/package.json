@@ -27,7 +27,7 @@
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
 		"@inlang/paraglide-js": "^2.29.0",
-		"@inlang/plugin-message-format": "4.5.4",
+		"@inlang/plugin-message-format": "4.5.6",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
