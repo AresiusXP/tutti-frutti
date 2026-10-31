@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/AresiusXP/tutti-frutti/compare/v1.7.0...v1.7.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **android:** bump versionCode to 2 ([446fdf1](https://github.com/AresiusXP/tutti-frutti/commit/446fdf1c3278d213cc5d8cbe3e25300a76f528e5))
+
 ## [1.7.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.6.0...v1.7.0) (2026-10-31)
 
 
