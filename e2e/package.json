@@ -12,6 +12,7 @@
 		"test:stack": "bash scripts/run-local.sh",
 		"test:fast": "playwright test --project=chromium",
 		"test:slow": "playwright test --project=slow",
+		"store:screenshots": "bash scripts/run-local.sh -c playwright.store.config.ts",
 		"report": "playwright show-report",
 		"browsers": "playwright install --with-deps chromium",
 		"lint": "prettier --check . && eslint . && tsc --noEmit",

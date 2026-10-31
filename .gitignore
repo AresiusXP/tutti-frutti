@@ -17,6 +17,8 @@ web/dist/
 e2e/node_modules/
 e2e/test-results/
 e2e/playwright-report/
+# Store screenshots: regenerated with `cd e2e && npm run store:screenshots`
+android/store/screenshots/
 
 # Helm
 helm/**/charts/

@@ -93,6 +93,11 @@ server`). Every other test would notice, so it runs **alone, after the other two
 
 Traces are kept for failures (`trace: 'retain-on-failure'`); there is no video.
 
+**Store screenshots** are not a project of this config: `npm run store:screenshots` runs
+`store/screenshots.spec.ts` with `playwright.store.config.ts` (405×720 at 8/3 = 1080×1920) on a fresh compose stack and
+writes the Google Play phone screenshots to `android/store/screenshots/{es,en,nl}/` (git-ignored). One short game per
+language with real words: the chooser aims at the cast's letter (M, S, B) and the table is replayed on a miss.
+
 ## The specs
 
 | Spec                        | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |

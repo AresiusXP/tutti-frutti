@@ -16,7 +16,7 @@ export default tseslint.config(
 	},
 	{
 		...playwright.configs['flat/recommended'],
-		files: ['tests/**/*.ts', 'src/**/*.ts'],
+		files: ['tests/**/*.ts', 'src/**/*.ts', 'store/**/*.ts'],
 		rules: {
 			...playwright.configs['flat/recommended'].rules,
 			'playwright/expect-expect': 'off',
