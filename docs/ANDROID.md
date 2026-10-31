@@ -166,7 +166,8 @@ keytool -genkeypair -v \
   -alias upload -keyalg RSA -keysize 2048 -validity 9125 \
   -dname "CN=Tutti Frutti upload key"
 
-# the certificate Play Console asks for (upload the PEM there, or read the SHA-256 below)
+# the public certificate of the upload key: keep it next to the keystore. Play learns the upload key from
+# the first .aab you upload; the PEM is only needed if Play asks for it (e.g. an upload key reset).
 keytool -exportcert -rfc -keystore upload-keystore.jks -alias upload -file upload-certificate.pem
 keytool -list -v -keystore upload-keystore.jks -alias upload | grep 'SHA256:'
 base64 -i upload-keystore.jks | tr -d '\n' | pbcopy      # Linux: base64 -w0 upload-keystore.jks
@@ -197,11 +198,11 @@ repository's Android side only needs the right fingerprint in it:
 
 How to get the fingerprint:
 
-1. Create the app in Play Console and enrol in Play App Signing (the default for new apps), then upload a
-   first bundle to **internal testing** (the key is created on the first upload).
-2. Play Console > your app > **Test and release > App signing** (older consoles: Release > Setup > App
-   signing) > "App signing key certificate" > copy the **SHA-256 certificate fingerprint**
-   (`AA:BB:...`, 32 pairs).
+1. Create the app in Play Console and enrol in Play App Signing (the default for new apps). The app-signing
+   key may be shown as soon as the app exists; otherwise it appears after the first upload to internal testing.
+2. Play Console > your app > **Test and release > App integrity > App signing** > "App signing key
+   certificate" > copy the **SHA-256 certificate fingerprint** (`AA:BB:...`, 32 pairs). The "Download
+   certificate" buttons are not needed. (Live value: `31:D2:04:…:35:C0`, in the file since v1.7.0.)
 3. Put it in `sha256_cert_fingerprints` (the website agent/owner edits the file), deploy the website, and
    verify (section 8). Keep the entry for as long as any installed version is signed with that key.
 
@@ -239,6 +240,18 @@ adb logcat -c && adb shell am start -W -n xyz.aresius.tuttifrutti/.LauncherActiv
 adb logcat -d | grep -E "FATAL|TWAProviderPicker"   # expect no FATAL and "Found TWA provider"
 adb shell dumpsys activity activities | grep topResumedActivity   # Chrome (first run, then the custom tab)
 ```
+
+### "ERR_CONNECTION_TIMED_OUT" only on the home Wi-Fi
+
+Android 17 blocks an app (Chrome included, and so this app, which runs in Chrome) from connecting to a
+**private IP** unless it holds the "Nearby devices" (local network) permission; the connection just times out.
+The homelab's Pi-hole used to answer `tuttifrutti.aresius.xyz` with the LAN address of Traefik, so phones at
+home failed while mobile data worked. Since 31 Oct 2026 the host has **no Pi-hole record**: the LAN resolves it
+to Cloudflare like every player does (argocd-apps `values/tutti-frutti.yaml` sets the chart's
+`external-dns.aresius.xyz` annotation and label to `none`; external-dns is `upsert-only`, so the old record was
+deleted by hand). Do not add it back. Check: `dig +short tuttifrutti.aresius.xyz @192.168.178.220` lists
+Cloudflare addresses, not `192.168.178.222`. Other homelab sites that do resolve to the LAN need Chrome's
+"Nearby devices" permission on Android 17 (Settings > Apps > Chrome > Permissions).
 
 ## 9. Debug builds and the fallback
 

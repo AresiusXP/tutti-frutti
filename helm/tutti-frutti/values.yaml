@@ -172,6 +172,9 @@ ingress:
   className: traefik
   host: tuttifrutti.aresius.xyz
   # external-dns needs BOTH the annotation and the label to register the record.
+  # The homelab deployment sets both to "none" (argocd-apps values/tutti-frutti.yaml): the public game must
+  # resolve to Cloudflare on the home LAN too, because Android 17 blocks Chrome from private IPs without the
+  # "Nearby devices" permission (docs/ANDROID.md, section 8).
   annotations:
     kubernetes.io/tls-acme: "true"
     cert-manager.io/cluster-issuer: letsencrypt
