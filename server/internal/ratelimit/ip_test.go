@@ -52,7 +52,54 @@ func TestClientIP(t *testing.T) {
 			for _, v := range tt.xff {
 				r.Header.Add("X-Forwarded-For", v)
 			}
-			if got := ClientIP(r, tt.trust); got != tt.want {
+			if got := ClientIP(r, tt.trust, ""); got != tt.want {
+				t.Errorf("ClientIP = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClientIPHeader(t *testing.T) {
+	const header = "CF-Connecting-IP"
+	tests := []struct {
+		name       string
+		remoteAddr string
+		headers    map[string][]string
+		trust      bool
+		hdr        string
+		want       string
+	}{
+		{name: "header wins over a longer XFF chain", remoteAddr: "10.0.0.1:1", trust: true, hdr: header,
+			headers: map[string][]string{header: {"198.51.100.7"}, "X-Forwarded-For": {"6.6.6.6, 198.51.100.7, 10.1.209.152"}}, want: "198.51.100.7"},
+		{name: "header alone", remoteAddr: "10.0.0.1:1", trust: true, hdr: header,
+			headers: map[string][]string{header: {"198.51.100.7"}}, want: "198.51.100.7"},
+		{name: "lower-case configured name still matches", remoteAddr: "10.0.0.1:1", trust: true, hdr: "cf-connecting-ip",
+			headers: map[string][]string{header: {"198.51.100.7"}}, want: "198.51.100.7"},
+		{name: "ipv6 value", remoteAddr: "10.0.0.1:1", trust: true, hdr: header,
+			headers: map[string][]string{header: {"2001:DB8::1"}}, want: "2001:db8::1"},
+		{name: "rightmost entry of a list", remoteAddr: "10.0.0.1:1", trust: true, hdr: header,
+			headers: map[string][]string{header: {"6.6.6.6, 198.51.100.7"}}, want: "198.51.100.7"},
+		{name: "absent falls back to XFF", remoteAddr: "10.0.0.1:1", trust: true, hdr: header,
+			headers: map[string][]string{"X-Forwarded-For": {"198.51.100.9"}}, want: "198.51.100.9"},
+		{name: "garbage falls back to XFF", remoteAddr: "10.0.0.1:1", trust: true, hdr: header,
+			headers: map[string][]string{header: {"unknown"}, "X-Forwarded-For": {"198.51.100.9"}}, want: "198.51.100.9"},
+		{name: "empty falls back to the peer", remoteAddr: "10.0.0.1:1", trust: true, hdr: header,
+			headers: map[string][]string{header: {""}}, want: "10.0.0.1"},
+		{name: "ignored without trust", remoteAddr: "10.0.0.1:1", trust: false, hdr: header,
+			headers: map[string][]string{header: {"198.51.100.7"}}, want: "10.0.0.1"},
+		{name: "not read when no header is configured", remoteAddr: "10.0.0.1:1", trust: true, hdr: "",
+			headers: map[string][]string{header: {"198.51.100.7"}}, want: "10.0.0.1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := httptest.NewRequest(http.MethodGet, "/", nil)
+			r.RemoteAddr = tt.remoteAddr
+			for k, vs := range tt.headers {
+				for _, v := range vs {
+					r.Header.Add(k, v)
+				}
+			}
+			if got := ClientIP(r, tt.trust, tt.hdr); got != tt.want {
 				t.Errorf("ClientIP = %q, want %q", got, tt.want)
 			}
 		})

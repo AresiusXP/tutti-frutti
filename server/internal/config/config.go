@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -43,6 +44,14 @@ type Config struct {
 	// instead of the TCP peer (TRUST_FORWARDED_FOR, default false). Only
 	// enable it when every request comes through a proxy that sets the header.
 	TrustForwardedFor bool
+	// ClientIPHeader names a header that an edge in front of the reverse proxy
+	// (Cloudflare: CF-Connecting-IP) sets to the real client IP
+	// (CLIENT_IP_HEADER, default empty = rightmost X-Forwarded-For only). It
+	// needs TRUST_FORWARDED_FOR=true, and must be a header that edge overwrites
+	// and that nobody can send to the server directly: otherwise clients pick
+	// their own rate-limit key. With a second proxy hop in front of ours the
+	// rightmost X-Forwarded-For entry is that hop, not the client.
+	ClientIPHeader string
 	// MaxRooms bounds the number of live rooms (MAX_ROOMS, default 1000,
 	// 1..100000).
 	MaxRooms int
@@ -178,6 +187,16 @@ func Load(getenv func(string) string) (Config, error) {
 		cfg.TrustForwardedFor = b
 	}
 
+	if raw := strings.TrimSpace(getenv("CLIENT_IP_HEADER")); raw != "" {
+		if !validHeaderName(raw) {
+			return Config{}, fmt.Errorf("config: invalid CLIENT_IP_HEADER %q (want an HTTP header name such as CF-Connecting-IP)", raw)
+		}
+		if !cfg.TrustForwardedFor {
+			return Config{}, errors.New("config: CLIENT_IP_HEADER requires TRUST_FORWARDED_FOR=true")
+		}
+		cfg.ClientIPHeader = raw
+	}
+
 	cfg.MaxRooms = defaultMaxRooms
 	if raw := strings.TrimSpace(getenv("MAX_ROOMS")); raw != "" {
 		n, err := strconv.Atoi(raw)
@@ -240,6 +259,24 @@ func Load(getenv func(string) string) (Config, error) {
 
 // parseOrigins parses a comma-separated list of http(s) origins. Empty
 // entries are ignored, trailing slashes are trimmed and duplicates dropped.
+// validHeaderName reports whether s is an HTTP header field name (an RFC 9110
+// token): letters, digits and !#$%&'*+-.^_`|~ only.
+func validHeaderName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case strings.IndexByte("!#$%&'*+-.^_`|~", c) >= 0:
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 func parseOrigins(raw string) ([]string, error) {
 	var out []string
 	for _, entry := range strings.Split(raw, ",") {

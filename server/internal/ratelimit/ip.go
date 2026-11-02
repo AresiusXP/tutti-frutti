@@ -15,10 +15,25 @@ import (
 // supplied by the client and ignored. If that entry is not a valid IP (the
 // header did not come from a trusted proxy) or the header is absent, and
 // whenever trustForwardedFor is false, it is the host part of r.RemoteAddr.
+//
+// clientIPHeader (only read with trustForwardedFor) names a header that an
+// edge in front of our reverse proxy sets to the real client, e.g.
+// CF-Connecting-IP behind Cloudflare. When the proxy chain is longer than one
+// hop the rightmost X-Forwarded-For entry is an intermediate proxy, not the
+// client. The header wins when it holds a valid IP (its rightmost entry, like
+// X-Forwarded-For); otherwise the lookup falls back to X-Forwarded-For. Only
+// name a header that the edge overwrites and that cannot reach the server any
+// other way, or clients can choose their own address.
+//
 // The result is a canonical IP string (IPv4-mapped IPv6 addresses are
 // unmapped, zones and ports dropped).
-func ClientIP(r *http.Request, trustForwardedFor bool) string {
+func ClientIP(r *http.Request, trustForwardedFor bool, clientIPHeader string) string {
 	if trustForwardedFor {
+		if clientIPHeader != "" {
+			if ip, ok := rightmostForwarded(r.Header.Values(clientIPHeader)); ok {
+				return ip
+			}
+		}
 		if ip, ok := rightmostForwarded(r.Header.Values("X-Forwarded-For")); ok {
 			return ip
 		}

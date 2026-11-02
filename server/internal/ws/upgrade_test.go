@@ -203,6 +203,31 @@ func TestUpgradeRateLimitIsPerClientIP(t *testing.T) {
 		}
 		_ = c.CloseNow()
 	})
+	t.Run("client IP header: the edge's value beats the proxy chain", func(t *testing.T) {
+		e := newEnv(t, func(d *Deps) {
+			d.TrustForwardedFor = true
+			d.ClientIPHeader = "CF-Connecting-IP"
+		})
+		edge := func(client, hop string) []dialOpt {
+			return []dialOpt{header("CF-Connecting-IP", client), forwardedFor(hop)}
+		}
+		for i := 0; i < 20; i++ {
+			// Two proxy hops: the rightmost XFF entry is always the first one, only the header tells clients apart.
+			c, _, err := e.tryDial(edge("198.51.100.7", "10.1.209.152")...)
+			if err != nil {
+				t.Fatalf("upgrade %d: %v", i+1, err)
+			}
+			_ = c.CloseNow()
+		}
+		if _, resp, err := e.tryDial(edge("198.51.100.7", "10.1.245.167")...); err == nil || resp.StatusCode != 429 {
+			t.Errorf("same client through another proxy pod dodged the limit: err=%v resp=%v", err, resp)
+		}
+		c, _, err := e.tryDial(edge("198.51.100.8", "10.1.209.152")...)
+		if err != nil {
+			t.Fatalf("another client behind the same proxy must not be limited: %v", err)
+		}
+		_ = c.CloseNow()
+	})
 }
 
 func TestUpgradeDisablesCompression(t *testing.T) {

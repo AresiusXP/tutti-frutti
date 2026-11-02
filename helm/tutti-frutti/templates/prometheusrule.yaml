@@ -184,9 +184,10 @@ spec:
           annotations:
             summary: Tutti Frutti is rate limiting players
             description: >-
-              More than 6 requests per minute have been answered 429 for 5 minutes. The limiters are global buckets
-              (Traefik hides client IPs), so real players are being refused: either a burst of reconnects/scrapers,
-              or a single abusive client draining the shared bucket.
+              More than 6 requests per minute have been answered 429 for 5 minutes. The limiters are per client IP
+              when CLIENT_IP_HEADER is set and the edge sends it; otherwise they are global buckets (Traefik hides
+              client IPs) and real players are being refused. Either way: a burst of reconnects/scrapers, or a
+              single abusive client draining its bucket.
             runbook: >-
               Dashboard "Tutti Frutti", row Connections, panel "Rate-limited requests" shows the route.
               kubectl -n {{ $ns }} logs deploy/{{ $server }} --tail=300 | grep '"status":429';

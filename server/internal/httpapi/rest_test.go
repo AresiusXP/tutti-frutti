@@ -775,6 +775,26 @@ func TestRateLimits(t *testing.T) {
 			t.Errorf("a different real client = %d, want 201", rec.Code)
 		}
 	})
+	t.Run("trusted with a client IP header: the edge's value beats the proxy chain", func(t *testing.T) {
+		e := newRESTEnv(t, func(o *Options) {
+			o.TrustForwardedFor = true
+			o.ClientIPHeader = "CF-Connecting-IP"
+		})
+		proxy := "10.0.0.1:1"
+		for i := 0; i < 5; i++ {
+			// Two proxy hops: the rightmost XFF entry is always the first proxy, only the header tells clients apart.
+			rec := post(e, proxy, withHeader("CF-Connecting-IP", "198.51.100.7"), withHeader("X-Forwarded-For", "10.1.209.152"))
+			if rec.Code != http.StatusCreated {
+				t.Fatalf("request %d = %d", i+1, rec.Code)
+			}
+		}
+		if rec := post(e, proxy, withHeader("CF-Connecting-IP", "198.51.100.7"), withHeader("X-Forwarded-For", "10.1.245.167")); rec.Code != http.StatusTooManyRequests {
+			t.Errorf("same client through another proxy pod = %d, want 429", rec.Code)
+		}
+		if rec := post(e, proxy, withHeader("CF-Connecting-IP", "198.51.100.8"), withHeader("X-Forwarded-For", "10.1.209.152")); rec.Code != http.StatusCreated {
+			t.Errorf("a different real client = %d, want 201", rec.Code)
+		}
+	})
 	t.Run("IPv6 addresses of one /64 share a bucket", func(t *testing.T) {
 		e := newRESTEnv(t, nil)
 		for i := 0; i < 5; i++ {

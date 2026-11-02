@@ -970,15 +970,23 @@ the persistence contract is `server/internal/store`.
   cookie/Origin/upgrade checks never spend the per-IP bucket either (otherwise one
   bad actor could exhaust the shared bucket). Gauge `tuttifrutti_ws_connections_open`.
 * `SESSION_SECRET`, when set, must be at least 32 bytes (startup error otherwise).
-* Per IP (client IP from the **rightmost** `X-Forwarded-For` entry when
-  `TRUST_FORWARDED_FOR=true`, else `RemoteAddr`; IPv6 keyed by /64): room creation
+* Per IP (client IP from the header named by `CLIENT_IP_HEADER` when set, else from the
+  **rightmost** `X-Forwarded-For` entry when `TRUST_FORWARDED_FOR=true`, else `RemoteAddr`;
+  IPv6 keyed by /64): room creation
   30/min (burst 10), `GET /api/rooms/{code}` and WebSocket upgrades 300/min
   (burst 60) → `429 rate_limited` with `Retry-After`. Buckets are evicted when idle.
-  **Homelab caveat:** the Traefik Service uses `externalTrafficPolicy=Cluster`, so
-  every client appears as the same SNAT'd pod IP and these buckets act as one
-  *global* bucket; the numbers are sized for that (a group of friends and a
-  reconnect storm after a deploy never hit them). Switching the Service to
-  `Local` would make them truly per-client.
+  `CLIENT_IP_HEADER` (needs `TRUST_FORWARDED_FOR=true`, startup error otherwise) is for an edge
+  in front of the reverse proxy that sets the real client IP in a header it overwrites, e.g.
+  `CF-Connecting-IP` behind Cloudflare: with two proxy hops (Cloudflare Tunnel → Traefik) the
+  rightmost `X-Forwarded-For` entry is the first hop, not the client. The header is only
+  trustworthy when the server cannot be reached around the edge (in the homelab a LAN client
+  that talks to Traefik directly could still send its own value; the network is trusted); a
+  missing or invalid value falls back to `X-Forwarded-For`, then `RemoteAddr`.
+  **Homelab:** the cluster sets `CLIENT_IP_HEADER=CF-Connecting-IP`, so the buckets are per
+  client. Without it (or if the header is missing) every client would appear as the same SNAT'd
+  pod IP (the Traefik Service uses `externalTrafficPolicy=Cluster`) and the buckets would act as
+  one *global* bucket, which the numbers above were first sized for (a group of friends and a
+  reconnect storm after a deploy never hit them).
 * **Discovery** has its own 300/min, burst-60 bucket for `GET /api/rooms`; it
   cannot consume room lookup or WebSocket reconnect capacity. Successful lists
   and errors use `Cache-Control: no-store`; a draining server answers 503
@@ -1279,7 +1287,7 @@ were two of 30 s, hence the long `for` on availability alerts.
 | `TuttiFruttiSnapshotFailures`         | warning  | any snapshot error (write, deletion or janitor sweep) in every 5 min window for 10 min (a short DB blip does not alert); the broad signal                                                      | 10m                          | logs `snapshot`; Postgres disk / connections                                                                                                             |
 | `TuttiFruttiSnapshotSaveFailing`      | warning  | > 50 % of the snapshot write attempts of 10 min failed (at least 6 attempts): the saved state of the rooms is going stale                                                                      | 10m                          | dashboard Persistence row (saves by result, latency); logs `saving room snapshot failed`; Postgres disk full / read-only                                 |
 | `TuttiFruttiSnapshotStale`            | warning  | rooms exist and nothing was saved for 15 min while snapshots are waiting (`snapshot_save_queue > 0`), or for 2 h whatever the queue; counted from the later of the last save and the pod start | 5m                           | dashboard Persistence row (time since last save, save queue); logs `snapshot`; Postgres; nothing waiting for 2 h = stuck refresh timers: restart the pod |
-| `TuttiFruttiRateLimitSaturation`      | warning  | > 6 requests/min answered 429 (global buckets: real players refused)                                                                                                                           | 5m                           | dashboard Connections row; one abusive client?                                                                                                           |
+| `TuttiFruttiRateLimitSaturation`      | warning  | > 6 requests/min answered 429 (per client IP, global if the IP header is missing)                                                                                                                           | 5m                           | dashboard Connections row; one abusive client?                                                                                                           |
 | `TuttiFruttiWebSocketUpgradesFailing` | warning  | > 50 % of upgrades (≥ 3/min) not 101                                                                                                                                                           | 10m                          | status code on the dashboard (401 cookie, 403 Origin → `server.publicUrl`/`allowedOrigins`, 429, 503)                                                    |
 | `TuttiFruttiHighErrorRate`            | warning  | > 5 % 5xx of user traffic (probes excluded, ≥ 1.2 req/min)                                                                                                                                     | 10m                          | logs `"status":5`                                                                                                                                        |
 | `TuttiFruttiGoroutineLeak`            | warning  | `go_goroutines` > 100 + 4 × open sockets + 3 × rooms (healthy: ~2 per socket and room + ~15)                                                                                                   | 30m                          | goroutine panel; restart and open an issue                                                                                                               |

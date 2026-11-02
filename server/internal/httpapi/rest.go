@@ -54,7 +54,7 @@ func (s *Server) registerREST() {
 
 // limitKey is the rate-limit key of a request: its client IP.
 func (s *Server) limitKey(r *http.Request) string {
-	return ratelimit.KeyForIP(ratelimit.ClientIP(r, s.trustXFF))
+	return ratelimit.KeyForIP(ratelimit.ClientIP(r, s.trustXFF, s.clientIPHdr))
 }
 
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {

@@ -98,6 +98,10 @@ type Options struct {
 	// TrustForwardedFor takes the rate-limit client IP from the rightmost
 	// X-Forwarded-For entry instead of the TCP peer.
 	TrustForwardedFor bool
+	// ClientIPHeader, with TrustForwardedFor, names a header set by the edge
+	// in front of the proxy that holds the real client IP (CF-Connecting-IP);
+	// see ratelimit.ClientIP.
+	ClientIPHeader string
 	// ReadyChecks run on every /readyz (2 s budget in total); the first
 	// failure makes it answer 503. Liveness (/healthz) is unaffected.
 	ReadyChecks []func(context.Context) error
@@ -181,6 +185,7 @@ type Server struct {
 	logins      *prometheus.CounterVec
 	origins     []string
 	trustXFF    bool
+	clientIPHdr string
 	readyChecks []func(context.Context) error
 	createLimit *ratelimit.Keyed
 	lookupLimit *ratelimit.Keyed
@@ -225,6 +230,7 @@ func New(opts Options) *Server {
 		logins:      newLoginMetric(),
 		origins:     opts.AllowedOrigins,
 		trustXFF:    opts.TrustForwardedFor,
+		clientIPHdr: opts.ClientIPHeader,
 		readyChecks: opts.ReadyChecks,
 		createLimit: ratelimit.NewKeyed(lim.CreateRate, lim.CreateBurst, limiterIdleTTL, opts.Now),
 		lookupLimit: ratelimit.NewKeyed(lim.LookupRate, lim.LookupBurst, limiterIdleTTL, opts.Now),

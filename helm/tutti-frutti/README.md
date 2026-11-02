@@ -92,6 +92,7 @@ Anything else goes into `server.extraEnv`.
 | `server.maxRooms` | `1000` | `MAX_ROOMS`: live rooms held in memory |
 | `server.publicRooms.enabled` | `true` | `PUBLIC_ROOMS_ENABLED`: `false` starts with public games off (no new public rooms or players, empty directory, no new bots while the ones already seated keep playing; private rooms unaffected), the owner's measure for an absence (`docs/MODERATION.md`). `moderate public enable\|disable` flips it at run time, in memory only |
 | `server.trustForwardedFor` | `false` | `TRUST_FORWARDED_FOR`: client IP for rate limits from the rightmost `X-Forwarded-For` entry |
+| `server.clientIPHeader` | `""` | `CLIENT_IP_HEADER` (needs `trustForwardedFor`): header an edge in front of the proxy sets to the real client IP, e.g. `CF-Connecting-IP` behind Cloudflare; wins over `X-Forwarded-For` when it holds a valid IP |
 | `server.allowedOrigins` | `[]` | `ALLOWED_ORIGINS` (comma-joined): extra origins besides the public URL (dev only) |
 | `server.secrets.*` | see above | Existing Secret name, key names, `optional` |
 | `server.extraEnv` | `[]` | Extra `EnvVar` entries |

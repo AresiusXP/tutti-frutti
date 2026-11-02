@@ -234,6 +234,7 @@ func run() error {
 		Reports:           gauges,
 		AllowedOrigins:    origins,
 		TrustForwardedFor: cfg.TrustForwardedFor,
+		ClientIPHeader:    cfg.ClientIPHeader,
 		ReadyChecks:       readyChecks,
 	})
 	wsHandler := ws.NewHandler(ws.Deps{
@@ -242,6 +243,7 @@ func run() error {
 		Sessions:          sessions,
 		AllowedOrigins:    origins,
 		TrustForwardedFor: cfg.TrustForwardedFor,
+		ClientIPHeader:    cfg.ClientIPHeader,
 		Logger:            logger,
 		Registerer:        reg,
 	})

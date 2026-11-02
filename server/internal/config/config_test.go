@@ -154,6 +154,36 @@ func TestLoadAllowedOrigins(t *testing.T) {
 	}
 }
 
+func TestLoadClientIPHeader(t *testing.T) {
+	tests := []struct {
+		name    string
+		env     map[string]string
+		want    string
+		wantErr bool
+	}{
+		{name: "default is empty", env: map[string]string{}, want: ""},
+		{name: "set with trust", env: map[string]string{"TRUST_FORWARDED_FOR": "true", "CLIENT_IP_HEADER": "CF-Connecting-IP"}, want: "CF-Connecting-IP"},
+		{name: "trimmed", env: map[string]string{"TRUST_FORWARDED_FOR": "true", "CLIENT_IP_HEADER": " X-Real-IP "}, want: "X-Real-IP"},
+		{name: "blank is empty", env: map[string]string{"CLIENT_IP_HEADER": "  "}, want: ""},
+		{name: "needs trust", env: map[string]string{"CLIENT_IP_HEADER": "CF-Connecting-IP"}, wantErr: true},
+		{name: "trust false does not count", env: map[string]string{"TRUST_FORWARDED_FOR": "false", "CLIENT_IP_HEADER": "CF-Connecting-IP"}, wantErr: true},
+		{name: "space in the name", env: map[string]string{"TRUST_FORWARDED_FOR": "true", "CLIENT_IP_HEADER": "CF Connecting IP"}, wantErr: true},
+		{name: "colon in the name", env: map[string]string{"TRUST_FORWARDED_FOR": "true", "CLIENT_IP_HEADER": "CF-Connecting-IP:"}, wantErr: true},
+		{name: "header injection", env: map[string]string{"TRUST_FORWARDED_FOR": "true", "CLIENT_IP_HEADER": "X\r\nHost"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := Load(env(tt.env))
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Load() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil && cfg.ClientIPHeader != tt.want {
+				t.Errorf("ClientIPHeader = %q, want %q", cfg.ClientIPHeader, tt.want)
+			}
+		})
+	}
+}
+
 func TestLoadTrustForwardedFor(t *testing.T) {
 	tests := []struct {
 		raw     string

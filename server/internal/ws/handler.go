@@ -103,6 +103,10 @@ type Deps struct {
 	// TrustForwardedFor takes the client IP (rate limiting, logs) from the
 	// rightmost X-Forwarded-For entry instead of the TCP peer.
 	TrustForwardedFor bool
+	// ClientIPHeader, with TrustForwardedFor, names a header set by the edge
+	// in front of the proxy that holds the real client IP (CF-Connecting-IP);
+	// see ratelimit.ClientIP.
+	ClientIPHeader string
 	// Logger defaults to slog.Default().
 	Logger *slog.Logger
 	// Registerer receives tuttifrutti_ws_closes_total,
@@ -141,6 +145,7 @@ type Handler struct {
 	sessions         *auth.Sessions
 	origins          []string
 	trustXFF         bool
+	clientIPHdr      string
 	log              *slog.Logger
 	m                *metrics
 	readIdleTimeout  time.Duration
@@ -185,6 +190,7 @@ func NewHandler(d Deps) *Handler {
 		sessions:         d.Sessions,
 		origins:          d.AllowedOrigins,
 		trustXFF:         d.TrustForwardedFor,
+		clientIPHdr:      d.ClientIPHeader,
 		log:              d.Logger,
 		m:                newMetrics(d.Registerer),
 		readIdleTimeout:  d.ReadIdleTimeout,
@@ -248,7 +254,7 @@ func (h *Handler) Open() int {
 
 // ServeHTTP implements http.Handler.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ip := ratelimit.ClientIP(r, h.trustXFF)
+	ip := ratelimit.ClientIP(r, h.trustXFF, h.clientIPHdr)
 	id, ok := h.guests.Identify(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, protocol.ErrUnauthorized)
