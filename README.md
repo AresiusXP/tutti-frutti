@@ -62,7 +62,7 @@ exists after the first release. Merge the release PR (publishes images + chart) 
 2. Secret `tutti-frutti-secrets` in namespace `tutti-frutti` with keys
    `database-url`, `session-secret`, `google-client-id`, `google-client-secret`
    (plus `cloudflare-account-id` and `cloudflare-api-token` to turn on the optional AI judge).
-3. A public DNS record for `tuttifrutti.aresius.xyz`: add `tuttifrutti` to `dnsRecords` in `argocd-apps/values/porkbun-cronjob.yaml` (the hourly Porkbun cronjob creates it).
+3. A public route for `tuttifrutti.aresius.xyz` through the Cloudflare Tunnel: a rule in `argocd-apps/values/cloudflared.yaml` **and** a proxied CNAME `tuttifrutti` in the `aresius.xyz` Cloudflare zone pointing at `<tunnel-id>.cfargotunnel.com` (see "Public DNS and the Cloudflare Tunnel" in `AresiusXP/argocd-apps` `AGENTS.md`). The cluster is not exposed directly any more.
 4. GHCR packages `tutti-frutti-server`, `tutti-frutti-web` and `charts/tutti-frutti` may stay
    **private**: ArgoCD needs a scheme-less `repo-creds` template (`ghcr.io/aresiusxp`), the
    `tutti-frutti` namespace needs a `ghcr-pull` image pull secret, and Renovate needs a `ghcr.io`
