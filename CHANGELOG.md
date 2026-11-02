@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.8.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.7.1...v1.8.0) (2026-11-02)
+
+
+### Features
+
+* **server:** add CLIENT_IP_HEADER setting for rate limiting ([2a933b2](https://github.com/AresiusXP/tutti-frutti/commit/2a933b27a5d9027c1027388627170254b64bfeb3))
+
+
+### Documentation
+
+* Play trader declaration opens in November 2026 ([71a608b](https://github.com/AresiusXP/tutti-frutti/commit/71a608b664df6959fd9f299264573b8b51e1d79b))
+* record versionCode 2 and the upload certificate pin ([1ef0bb5](https://github.com/AresiusXP/tutti-frutti/commit/1ef0bb500abfae0fc70e16fd8953dc1cc83d855c))
+* replace Porkbun DNS prerequisite with Cloudflare Tunnel ([2b9e7e2](https://github.com/AresiusXP/tutti-frutti/commit/2b9e7e2515eac2ad18fe31d1a1748b2275b07bf7))
+
 ## [1.7.1](https://github.com/AresiusXP/tutti-frutti/compare/v1.7.0...v1.7.1) (2026-10-31)
 
 
