@@ -27,6 +27,8 @@ export const fakeRouter = {
 		if (index === 0) return;
 		index -= 1;
 		page.state = entries[index];
+		// like a browser: the pop is announced, which settles `expectPop()` instead of leaving its timer pending
+		window.dispatchEvent(new PopStateEvent('popstate'));
 	},
 	/** A real navigation (`goto`, a link): a new entry whose state is empty. */
 	navigate() {

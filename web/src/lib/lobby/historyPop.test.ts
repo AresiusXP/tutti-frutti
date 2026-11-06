@@ -42,4 +42,20 @@ describe('historySettled', () => {
 		await vi.advanceTimersByTimeAsync(0);
 		expect(done).toBe(true);
 	});
+
+	it('survives the window disappearing while its timer is pending (environment torn down)', async () => {
+		const target = window;
+		const remove = vi.spyOn(target, 'removeEventListener');
+		expectPop();
+		vi.stubGlobal('window', undefined);
+		try {
+			let done = false;
+			void historySettled().then(() => (done = true));
+			await vi.advanceTimersByTimeAsync(500);
+			expect(done).toBe(true);
+			expect(remove).toHaveBeenCalledWith('popstate', expect.any(Function));
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
 });
