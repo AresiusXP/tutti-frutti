@@ -15,6 +15,15 @@
   "constraints": {
     "npm": "<12"
   },
+  "schedule": ["* 0-5 * * 1"],
+  "updateNotScheduled": false,
+  "minimumReleaseAge": "3 days",
+  "minimumReleaseAgeBehaviour": "timestamp-optional",
+  "prConcurrentLimit": 15,
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": ["security"]
+  },
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": ["before 6am on monday"]
@@ -57,6 +66,12 @@
       "groupName": "android dependencies"
     },
     {
+      "description": "The JDK that runs Gradle (java-version in ci-android.yml and release-android.yml) moves with Gradle and the Android Gradle Plugin: a JDK bump alone fails against an older Gradle (Gradle 8.11 cannot run on JDK 25). It is therefore grouped with the android dependencies.",
+      "matchManagers": ["github-actions"],
+      "matchDepNames": ["java-jdk"],
+      "groupName": "android dependencies"
+    },
+    {
       "matchManagers": ["helm-values"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "helm values images"
@@ -69,6 +84,13 @@
     {
       "description": "Node major: the build image (web/Dockerfile), setup-node in the workflows and @types/node (which must match the Node major in use) change together in one PR",
       "matchPackageNames": ["node", "@types/node"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "node runtime"
+    },
+    {
+      "description": "Node major, setup-node's node-version in the workflows: Renovate sees it as dep `node` of the package actions/node-versions, so the rule above (which matches packageName) misses it and it got its own PR. Matching the dep name puts it in the same PR as the Dockerfile and @types/node.",
+      "matchManagers": ["github-actions"],
+      "matchDepNames": ["node"],
       "matchUpdateTypes": ["major"],
       "groupName": "node runtime"
     },

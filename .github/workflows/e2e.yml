@@ -15,6 +15,8 @@ on:
       - "docker-compose.yml"
       - "deploy/**"
       - ".github/workflows/e2e.yml"
+      # README-only changes cannot change the stack (the only Markdown files there are READMEs)
+      - "!**/*.md"
 
 concurrency:
   group: e2e-${{ github.ref }}

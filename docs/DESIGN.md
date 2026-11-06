@@ -789,7 +789,10 @@ docs/                  this file
 * **Pull requests** (path-filtered): `ci-server` (vet, staticcheck, race tests,
   build, tygo drift), `ci-web` (svelte-check, lint, vitest, build), `ci-helm`
   (lint, template, kubeconform), `e2e` (Playwright against the compose stack; also
-  manual).
+  manual). Each workflow's job has a distinct name (`Web`, `Server`, `Android`, `Helm`),
+  so the checks of a PR can be told apart, and the web, server and helm
+  jobs have a `timeout-minutes` of about 3x their usual runtime. There is no branch
+  protection, hence no required check names to keep in sync.
 * **One version for everything** (server + web share the WS protocol).
   `release-please` opens a release PR from conventional commits; it bumps
   `helm/tutti-frutti/Chart.yaml` (`version` + `appVersion`). Merging the release
@@ -818,6 +821,18 @@ docs/                  this file
   maintenance because of `@tailwindcss/oxide-wasm32-wasi`. Lift the constraint when a Renovate
   lockfile-maintenance run on `web/` succeeds with npm 12. A run needs ~15 minutes and is
   started by hand with `kubectl create job --from=cronjob/renovate -n renovate`.
+  Renovate noise and security (`renovate.json`): regular updates are only created on Monday
+  before 06:00 (`schedule`; Renovate's timezone, UTC unless set), with
+  `updateNotScheduled: false` so open PRs are not re-pushed, and e2e not re-run, every day.
+  A release must be 3 days old (`minimumReleaseAge`, `timestamp-optional` so registries
+  without release timestamps are not blocked) and at most 15 PRs are open
+  (`prConcurrentLimit`; blocked majors must not starve the weekly lock-file maintenance PR).
+  Security fixes skip all three: Renovate ignores the schedule and the concurrency limit for
+  `vulnerabilityAlerts` PRs and their `minimumReleaseAge` defaults to none. They come from
+  GitHub's Dependabot alerts (alerts only; Dependabot security updates stay off so there are
+  no duplicate PRs) and from osv.dev (`osvVulnerabilityAlerts`, direct npm, Go and
+  Gradle/Maven dependencies), and carry the `security` label. The Node major is one PR
+  ("node runtime": `web/Dockerfile`, `@types/node` and the `node-version` of `setup-node`).
 * GitHub flow, squash merges, conventional commits.
 
 ## 9. Phases
