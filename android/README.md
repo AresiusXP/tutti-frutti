@@ -36,17 +36,17 @@ android/
     audit-manifest.mjs (+ test)     fails on drift of the MERGED manifest
     fixtures/merged-release.xml     a real merged release manifest, input of the audit test
   version-code.txt                  the versionCode (one integer)
-  gradlew, gradle/wrapper/          Gradle 8.11.1 wrapper (checked in)
+  gradlew, gradle/wrapper/          Gradle 9.8.2 wrapper (checked in)
 ```
 
 ## Pinned toolchain
 
 | Component | Version |
 |---|---|
-| JDK | 17 (Temurin) |
-| Gradle | 8.11.1 (`gradle/wrapper`, `distributionSha256Sum` set) |
-| Android Gradle Plugin | 8.9.1 (`build.gradle`) |
-| Build-tools | the AGP 8.9.1 default, 35.0.0 (downloaded on demand) |
+| JDK (runs Gradle) | 25 (Temurin); AGP 9.5 requires 17 or newer; the app is still compiled to Java 17 |
+| Gradle | 9.8.2 (`gradle/wrapper`; no `distributionSha256Sum`, see "Open points" in `docs/ANDROID.md`) |
+| Android Gradle Plugin | 9.5.1 (`build.gradle`) |
+| Build-tools | the AGP 9.5.1 default, 36.0.0 (downloaded on demand) |
 | compileSdk / targetSdk / minSdk | 36 / 36 / 29 |
 | `com.google.androidbrowserhelper:androidbrowserhelper` | 2.7.4 |
 | `junit:junit` (tests) | 4.13.2 |
@@ -87,9 +87,9 @@ Intentional deviations from the template:
 
 | Area | Deviation | Why |
 |---|---|---|
-| Gradle wrapper | Official 8.11.1 wrapper generated with `gradle wrapper --gradle-version 8.11.1` (jar sha256 `2db75c40782f5e8ba1fc278a5574bab070adccb2d21ca5a6e5ed840888448046`, matches Gradle's published checksum) and `distributionSha256Sum` added | The jar inside Bubblewrap 1.27.0 (sha256 `3dc39ad6…`) does not match 8.11.1's published wrapper checksum |
+| Gradle wrapper | Official 9.8.2 wrapper generated with `gradle wrapper --gradle-version 9.8.2` (jar sha256 `3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98`, matches Gradle's published checksum); `distributionSha256Sum` is NOT set (hosted Renovate cannot maintain it) | The jar inside Bubblewrap 1.27.0 (sha256 `3dc39ad6…`) does not match 8.11.1's published wrapper checksum |
 | Repositories / plugins | `settings.gradle` declares `google()` + `mavenCentral()` with `FAIL_ON_PROJECT_REPOS`; AGP via the `plugins` block; no `jcenter()`, no `clean` task | jcenter is shut down; one place to audit repositories |
-| `app/build.gradle` | `compileSdk`/`minSdk`/`targetSdk` DSL, Java 17 (template: 1.8), `buildConfig` for `HOST_NAME`, `manifestPlaceholders` for the host | Single source of truth for the host (manifest, launch URL, asset statements, validator) |
+| `app/build.gradle` | `compileSdk`/`minSdk`/`targetSdk` DSL with `=` assignments (Gradle 10 ready), Java 17 (template: 1.8), `buildConfig` for `HOST_NAME`, `manifestPlaceholders` for the host | Single source of truth for the host (manifest, launch URL, asset statements, validator) |
 | Versions | `versionName` from `helm/tutti-frutti/Chart.yaml` `appVersion`, `versionCode` from `version-code.txt`; the build fails with a clear message otherwise | One website version; Play needs a monotonic integer |
 | Signing | Release signed only from `ANDROID_UPLOAD_*` environment variables; unsigned when none is set, error when only some are | No secret on disk or in the repo |
 | Lint | `lint { checkReleaseBuilds true; abortOnError true }` (template: `checkReleaseBuilds false`) | Lint must run on release |

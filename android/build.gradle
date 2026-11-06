@@ -1,5 +1,6 @@
 // Top-level build file. Toolchain pins (see README.md and docs/ANDROID.md):
-//   Android Gradle Plugin 8.9.1, Gradle 8.11.1 (gradle/wrapper), JDK 17.
+//   Android Gradle Plugin 9.5.1, Gradle 9.8.2 (gradle/wrapper), JDK 25 (runs Gradle; the app
+//   still compiles to Java 17, see compileOptions in app/build.gradle).
 plugins {
     id 'com.android.application' version '9.5.1' apply false
 }
