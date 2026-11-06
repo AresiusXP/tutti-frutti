@@ -146,7 +146,7 @@ func TestUpgradeNotAWebSocketRequest(t *testing.T) {
 }
 
 func TestUpgradeRateLimit(t *testing.T) {
-	e := newEnv(t, nil)
+	e := newEnv(t, manyGuestSockets)
 	for i := 0; i < 20; i++ {
 		c, _, err := e.tryDial()
 		if err != nil {
@@ -173,7 +173,7 @@ func TestUpgradeRateLimit(t *testing.T) {
 
 func TestUpgradeRateLimitIsPerClientIP(t *testing.T) {
 	t.Run("X-Forwarded-For ignored by default", func(t *testing.T) {
-		e := newEnv(t, nil)
+		e := newEnv(t, manyGuestSockets)
 		for i := 0; i < 20; i++ {
 			c, _, err := e.tryDial(forwardedFor("9.9.9." + string(rune('0'+i%10))))
 			if err != nil {
@@ -186,7 +186,7 @@ func TestUpgradeRateLimitIsPerClientIP(t *testing.T) {
 		}
 	})
 	t.Run("trusted proxy: rightmost entry decides", func(t *testing.T) {
-		e := newEnv(t, func(d *Deps) { d.TrustForwardedFor = true })
+		e := newEnv(t, func(d *Deps) { manyGuestSockets(d); d.TrustForwardedFor = true })
 		for i := 0; i < 20; i++ {
 			c, _, err := e.tryDial(forwardedFor("6.6.6." + string(rune('0'+i%10)) + ", 198.51.100.7"))
 			if err != nil {
@@ -205,6 +205,7 @@ func TestUpgradeRateLimitIsPerClientIP(t *testing.T) {
 	})
 	t.Run("client IP header: the edge's value beats the proxy chain", func(t *testing.T) {
 		e := newEnv(t, func(d *Deps) {
+			manyGuestSockets(d)
 			d.TrustForwardedFor = true
 			d.ClientIPHeader = "CF-Connecting-IP"
 		})
