@@ -95,6 +95,24 @@ func (c *ManualClock) Pending() int {
 	return len(c.timers)
 }
 
+// NextDeadline returns the deadline of the earliest pending timer. It lets a
+// test step the clock from timer to timer and let the code under test settle in
+// between, instead of jumping over several deadlines at once.
+func (c *ManualClock) NextDeadline() (time.Time, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var next *manualTimer
+	for _, t := range c.timers {
+		if next == nil || t.before(next) {
+			next = t
+		}
+	}
+	if next == nil {
+		return time.Time{}, false
+	}
+	return next.when, true
+}
+
 func (c *ManualClock) advanceTo(target time.Time) {
 	for {
 		c.mu.Lock()

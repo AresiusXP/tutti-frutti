@@ -270,18 +270,32 @@ func (s *stack) flush() {
 	}
 }
 
-// advance moves the ManualClock and lets the rooms catch up with it. A
-// ManualClock never fires a timer on its own, not even one created for an
-// instant that has already passed; a room that handles a wake-up after the
-// clock moved (the 5 s periodic snapshot, say) may arm such a timer, so after
-// the move the due timers are fired again until the rooms are quiet.
+// advance moves the ManualClock by d, one timer at a time, and lets the rooms
+// settle before each step. A room arms its timer after it broadcasts a state
+// (a client can see the state before the timer exists) and measures the delay
+// from one clock reading before it registers the timer with the clock: a clock
+// that moves in between shifts the deadline and the timer is silently lost. So
+// the clock never moves while a room is still working: every step waits for
+// the rooms to drain their mailboxes, then jumps to the next deadline (or to
+// the target) and fires what is due. A ManualClock never fires a timer on its
+// own, not even one that is already overdue; the loop goes on until no timer
+// is due and the target is reached.
 func (s *stack) advance(d time.Duration) {
-	s.clock.Advance(d)
-	for range 3 {
+	s.t.Helper()
+	target := s.clock.Now().Add(d)
+	for range 100_000 {
 		s.flush()
-		s.clock.Advance(0)
+		if next, ok := s.clock.NextDeadline(); ok && !next.After(target) {
+			s.clock.Advance(next.Sub(s.clock.Now()))
+			continue
+		}
+		if s.clock.Now().Before(target) {
+			s.clock.Advance(target.Sub(s.clock.Now()))
+			continue
+		}
+		return
 	}
-	s.flush()
+	s.t.Fatalf("advance(%v): the rooms keep arming due timers", d)
 }
 
 // shutdownHub drains the hub like main.go does on SIGTERM (final snapshots,

@@ -181,3 +181,23 @@ func TestManualClockBlockedCallbackDoesNotStallAdvance(t *testing.T) {
 	close(release)
 	<-finished
 }
+
+func TestManualClockNextDeadline(t *testing.T) {
+	c := NewManualClock(t0)
+	if _, ok := c.NextDeadline(); ok {
+		t.Fatal("NextDeadline() with no timer reported one")
+	}
+	late := c.AfterFunc(time.Minute, func() {})
+	c.AfterFunc(10*time.Second, func() {})
+	if got, ok := c.NextDeadline(); !ok || !got.Equal(t0.Add(10*time.Second)) {
+		t.Fatalf("NextDeadline() = %v, %v; want %v", got, ok, t0.Add(10*time.Second))
+	}
+	c.Advance(10 * time.Second)
+	if got, ok := c.NextDeadline(); !ok || !got.Equal(t0.Add(time.Minute)) {
+		t.Fatalf("after the first fired, NextDeadline() = %v, %v; want %v", got, ok, t0.Add(time.Minute))
+	}
+	late.Stop()
+	if _, ok := c.NextDeadline(); ok {
+		t.Fatal("NextDeadline() after the last timer stopped reported one")
+	}
+}
