@@ -11,9 +11,11 @@ const POP_TIMEOUT_MS = 400;
 
 export function expectPop(): void {
 	if (typeof window === 'undefined') return;
+	// the timer can outlive the environment (test teardown): never reach for the global `window` from it
+	const target = window;
 	const pending = new Promise<void>((resolve) => {
 		const done = () => {
-			window.removeEventListener('popstate', done);
+			target.removeEventListener('popstate', done);
 			clearTimeout(timer);
 			// the router's own listener already ran: let its (synchronous part of the) navigation start first
 			setTimeout(() => {
@@ -22,7 +24,7 @@ export function expectPop(): void {
 			}, 0);
 		};
 		const timer = setTimeout(done, POP_TIMEOUT_MS);
-		window.addEventListener('popstate', done);
+		target.addEventListener('popstate', done);
 	});
 	popping = pending;
 }
