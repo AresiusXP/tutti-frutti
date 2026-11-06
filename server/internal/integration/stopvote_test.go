@@ -535,12 +535,24 @@ func TestStopVoteFramesBeforeTheJoinAndRateLimit(t *testing.T) {
 
 	// And they spend the connection's tokens like the others: the burst runs
 	// out, then the socket is closed with 1008 and rate_limited.
+	// The frames go one at a time, each waiting for its answer (an error, the
+	// lobby has no round): the server closes a client that lets more than
+	// SendQueueSize frames pile up unread, and a burst of ClientBurst
+	// refusals sent at once can do that before the rate limit is reached.
 	host.join(code)
-	m := host.mark()
+	limited := false
 	for range protocol.ClientBurst + 5 {
-		_ = host.trySend(game.CmdAskStop, nil)
+		m := host.mark()
+		host.send(game.CmdAskStop, nil)
+		f := host.waitSince(m, "the answer to ask_stop", func(f frame) bool { return f.Err != nil })
+		if f.Err.Code == protocol.ErrRateLimited {
+			limited = true
+			break
+		}
 	}
-	host.waitSince(m, "rate_limited", isError(protocol.ErrRateLimited))
+	if !limited {
+		t.Fatalf("no rate_limited after %d frames", protocol.ClientBurst+5)
+	}
 	host.expectClose(protocol.ClosePolicy)
 }
 
