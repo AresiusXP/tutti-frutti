@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import Button from '$lib/components/Button.svelte';
-	import Screen from '$lib/components/Screen.svelte';
-	import type { RoomSession } from '$lib/game/session';
-	import { catalog } from '$lib/lobby/catalog.svelte';
-	import PlayerList from '$lib/lobby/PlayerList.svelte';
-	import QrSheet from '$lib/lobby/QrSheet.svelte';
-	import RoomHeader from '$lib/lobby/RoomHeader.svelte';
-	import SettingsEditor from '$lib/lobby/SettingsEditor.svelte';
-	import SettingsSummary from '$lib/lobby/SettingsSummary.svelte';
-	import Sheet from '$lib/lobby/Sheet.svelte';
-	import { createSettingsSync } from '$lib/lobby/sync.svelte';
-	import { m } from '$lib/paraglide/messages';
+	import Button from '#lib/components/Button.svelte';
+	import Screen from '#lib/components/Screen.svelte';
+	import type { RoomSession } from '#lib/game/session.ts';
+	import { catalog } from '#lib/lobby/catalog.svelte.ts';
+	import PlayerList from '#lib/lobby/PlayerList.svelte';
+	import QrSheet from '#lib/lobby/QrSheet.svelte';
+	import RoomHeader from '#lib/lobby/RoomHeader.svelte';
+	import SettingsEditor from '#lib/lobby/SettingsEditor.svelte';
+	import SettingsSummary from '#lib/lobby/SettingsSummary.svelte';
+	import Sheet from '#lib/lobby/Sheet.svelte';
+	import { createSettingsSync } from '#lib/lobby/sync.svelte.ts';
+	import { m } from '#lib/paraglide/messages.js';
 
 	/**
 	 * The lobby (design §6.2): the huge room code with Share / QR, the players,

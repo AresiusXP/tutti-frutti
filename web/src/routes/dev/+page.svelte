@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import type { FakeSession } from '$lib/game/fake.svelte';
-	import { i18n } from '$lib/i18n.svelte';
-	import RoomScreen from '$lib/screens/RoomScreen.svelte';
+	import type { FakeSession } from '#lib/game/fake.svelte.ts';
+	import { i18n } from '#lib/i18n.svelte.ts';
+	import RoomScreen from '#lib/screens/RoomScreen.svelte';
 	import type { PageProps } from './$types';
 
 	/**

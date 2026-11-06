@@ -1,7 +1,7 @@
-import { FakeSession } from '$lib/game/fake.svelte';
-import { makeRound, makeSettings, makeStopVote, makeView, player } from '$lib/game/fixtures';
-import { labelsFor } from '$lib/lobby/fixtures';
-import type { CategoryRef, Phase, Player, RoundView, View } from '$lib/protocol';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { makeRound, makeSettings, makeStopVote, makeView, player } from '#lib/game/fixtures.ts';
+import { labelsFor } from '#lib/lobby/fixtures.ts';
+import type { CategoryRef, Phase, Player, RoundView, View } from '#lib/protocol/index.ts';
 import type { Scenario } from './scenarios';
 
 /**

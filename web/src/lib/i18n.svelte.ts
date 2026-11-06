@@ -5,7 +5,7 @@ import {
 	overwriteGetLocale,
 	setLocale,
 	type Locale
-} from '$lib/paraglide/runtime';
+} from '#lib/paraglide/runtime.js';
 
 /**
  * Reactive locale for the SPA. Paraglide resolves the initial locale with its

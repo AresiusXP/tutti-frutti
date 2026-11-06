@@ -1,5 +1,5 @@
-import { AVATAR_COLORS, DEFAULT_AVATAR, type Avatar as UiAvatar } from '$lib/avatar';
-import type { Avatar as WireAvatar } from '$lib/protocol';
+import { AVATAR_COLORS, DEFAULT_AVATAR, type Avatar as UiAvatar } from '#lib/avatar.ts';
+import type { Avatar as WireAvatar } from '#lib/protocol/index.ts';
 
 /**
  * The server stores any short colour string; the UI knows the six palette ids.

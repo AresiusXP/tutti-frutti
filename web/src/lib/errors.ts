@@ -1,4 +1,4 @@
-import { m } from '$lib/paraglide/messages';
+import { m } from '#lib/paraglide/messages.js';
 
 /**
  * Every code the UI can be told about: engine `Code*`, protocol `Err*` and REST `ErrCode*`, the

@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import { errorMessage } from '$lib/errors';
-	import type { RoomSession } from '$lib/game/session';
-	import Sheet from '$lib/lobby/Sheet.svelte';
-	import { historySettled } from '$lib/lobby/historyPop';
-	import { m } from '$lib/paraglide/messages';
+	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
+	import Button from '#lib/components/Button.svelte';
+	import { errorMessage } from '#lib/errors.ts';
+	import type { RoomSession } from '#lib/game/session.ts';
+	import Sheet from '#lib/lobby/Sheet.svelte';
+	import { historySettled } from '#lib/lobby/historyPop.ts';
+	import { m } from '#lib/paraglide/messages.js';
 	import {
 		ReportKindAIVerdict,
 		ReportKindAnswer,
 		ReportKindCustomLabel,
 		ReportKindPlayer
-	} from '$lib/protocol/api';
-	import { toasts } from '$lib/toast.svelte';
+	} from '#lib/protocol/api.ts';
+	import { toasts } from '#lib/toast.svelte.ts';
 	import type { SafetyApi } from './api';
 	import { blocks as sharedBlocks, type BlocksStore } from './blocks.svelte';
 	import type { SafetyRequest } from './context';

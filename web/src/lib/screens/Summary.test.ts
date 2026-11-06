@@ -2,9 +2,9 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeSession } from '$lib/game/fake.svelte';
-import { i18n } from '$lib/i18n.svelte';
-import { reviewView, vote, type ReviewOptions } from '$lib/review/fixtures';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import { reviewView, vote, type ReviewOptions } from '#lib/review/fixtures.ts';
 import Summary from './Summary.svelte';
 
 const rejectCaro = [vote('p2', 'p3', 3), vote('p4', 'p3', 3)];

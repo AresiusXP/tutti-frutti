@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { accountErrorMessage } from './errors';
 import { averagePoints, winRate } from './stats';
 import { STATS } from './account.testkit';
-import { i18n } from '$lib/i18n.svelte';
+import { i18n } from '#lib/i18n.svelte.ts';
 
 describe('derived stats', () => {
 	it('win rate is a rounded whole percentage', () => {

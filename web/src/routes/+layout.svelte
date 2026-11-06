@@ -1,13 +1,13 @@
 <script lang="ts">
 	import '../app.css';
-	import { startAndroidContext } from '$lib/android/context';
-	import OfflineBanner from '$lib/components/OfflineBanner.svelte';
-	import Toasts from '$lib/components/Toasts.svelte';
-	import UpdatePrompt from '$lib/components/UpdatePrompt.svelte';
-	import TermsGate from '$lib/safety/TermsGate.svelte';
-	import { BRAND } from '$lib/brand';
-	import { i18n } from '$lib/i18n.svelte';
-	import { m } from '$lib/paraglide/messages';
+	import { startAndroidContext } from '#lib/android/context.ts';
+	import OfflineBanner from '#lib/components/OfflineBanner.svelte';
+	import Toasts from '#lib/components/Toasts.svelte';
+	import UpdatePrompt from '#lib/components/UpdatePrompt.svelte';
+	import TermsGate from '#lib/safety/TermsGate.svelte';
+	import { BRAND } from '#lib/brand.ts';
+	import { i18n } from '#lib/i18n.svelte.ts';
+	import { m } from '#lib/paraglide/messages.js';
 
 	let { children } = $props();
 

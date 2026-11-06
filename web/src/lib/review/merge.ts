@@ -8,7 +8,7 @@
  * obviously invalid proposal (`invalid_merge`, `already_same`,
  * `proposal_exists`).
  */
-import type { ProposalView, RoundResult } from '$lib/protocol';
+import type { ProposalView, RoundResult } from '#lib/protocol/index.ts';
 import { answerGroups } from './groups';
 
 export type MergeState =

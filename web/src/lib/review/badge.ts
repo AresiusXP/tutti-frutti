@@ -1,4 +1,4 @@
-import type { Cell } from '$lib/protocol';
+import type { Cell } from '#lib/protocol/index.ts';
 
 export type BadgeKind =
 	'unique' | 'shared' | 'zero' | 'wrong_letter' | 'rejected' | 'empty' | 'pending';

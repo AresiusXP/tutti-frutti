@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ClosedReason } from '$lib/game/session';
-import { i18n } from '$lib/i18n.svelte';
+import type { ClosedReason } from '#lib/game/session.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
 import {
 	FakeWorker,
 	installFakeServiceWorker,
 	restoreFakeServiceWorker
-} from '$lib/pwa/sw.testkit';
-import { RELOAD_STAMP_KEY, resetUpdateForTests } from '$lib/pwa/update.svelte';
+} from '#lib/pwa/sw.testkit.ts';
+import { RELOAD_STAMP_KEY, resetUpdateForTests } from '#lib/pwa/update.svelte.ts';
 import ClosedScreen from './ClosedScreen.svelte';
 
 describe('ClosedScreen', () => {

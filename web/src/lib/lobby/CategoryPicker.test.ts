@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fieldProblems } from '$lib/a11y.testkit';
-import { makeSettings } from '$lib/game/fixtures';
-import { i18n } from '$lib/i18n.svelte';
-import type { CategoryRef, Settings } from '$lib/protocol';
+import { fieldProblems } from '#lib/a11y.testkit.ts';
+import { makeSettings } from '#lib/game/fixtures.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import type { CategoryRef, Settings } from '#lib/protocol/index.ts';
 import { catalog } from './catalog.svelte';
 import CategoryPicker from './CategoryPicker.svelte';
 import { fixtureFetch, labelsFor } from './fixtures';

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, type RoomInfo } from '$lib/api';
-import { i18n } from '$lib/i18n.svelte';
+import { ApiError, type RoomInfo } from '#lib/api.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
 import { RECENT_ROOM_KEY, RECENT_ROOM_TTL_MS, rememberRecentRoom } from './recent';
 import ResumeCard from './ResumeCard.svelte';
 

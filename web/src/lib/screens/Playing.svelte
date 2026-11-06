@@ -1,21 +1,21 @@
 <script lang="ts">
 	import { onMount, tick, untrack } from 'svelte';
-	import Screen from '$lib/components/Screen.svelte';
-	import type { RoomSession } from '$lib/game/session';
-	import { m } from '$lib/paraglide/messages';
-	import AnswerField from '$lib/play/AnswerField.svelte';
-	import BastaSplash from '$lib/play/BastaSplash.svelte';
-	import GraceBanner from '$lib/play/GraceBanner.svelte';
-	import PlayHeader from '$lib/play/PlayHeader.svelte';
-	import StopConfirmSheet from '$lib/play/StopConfirmSheet.svelte';
-	import StopVotePrompt from '$lib/play/StopVotePrompt.svelte';
-	import StopWaitBanner from '$lib/play/StopWaitBanner.svelte';
-	import { fieldStatus } from '$lib/play/answer';
-	import { AnswerDrafts, DEBOUNCE_MS, GRACE_DEBOUNCE_MS } from '$lib/play/drafts.svelte';
-	import { OnceCommand } from '$lib/play/once.svelte';
-	import { badgeAvatar, playerProgress } from '$lib/play/progress';
-	import { roundLabel } from '$lib/play/round';
-	import { STOP_VOTE_SECONDS, stopVoteInfo } from '$lib/play/stopvote';
+	import Screen from '#lib/components/Screen.svelte';
+	import type { RoomSession } from '#lib/game/session.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import AnswerField from '#lib/play/AnswerField.svelte';
+	import BastaSplash from '#lib/play/BastaSplash.svelte';
+	import GraceBanner from '#lib/play/GraceBanner.svelte';
+	import PlayHeader from '#lib/play/PlayHeader.svelte';
+	import StopConfirmSheet from '#lib/play/StopConfirmSheet.svelte';
+	import StopVotePrompt from '#lib/play/StopVotePrompt.svelte';
+	import StopWaitBanner from '#lib/play/StopWaitBanner.svelte';
+	import { fieldStatus } from '#lib/play/answer.ts';
+	import { AnswerDrafts, DEBOUNCE_MS, GRACE_DEBOUNCE_MS } from '#lib/play/drafts.svelte.ts';
+	import { OnceCommand } from '#lib/play/once.svelte.ts';
+	import { badgeAvatar, playerProgress } from '#lib/play/progress.ts';
+	import { roundLabel } from '#lib/play/round.ts';
+	import { STOP_VOTE_SECONDS, stopVoteInfo } from '#lib/play/stopvote.ts';
 	import {
 		GRACE_MS,
 		SPLASH_MS,
@@ -25,10 +25,10 @@
 		secondsLeft,
 		splashStillRelevant,
 		timerTone
-	} from '$lib/play/time';
-	import { createWakeLock } from '$lib/play/wakelock';
-	import SafetyButton from '$lib/safety/SafetyButton.svelte';
-	import { toasts } from '$lib/toast.svelte';
+	} from '#lib/play/time.ts';
+	import { createWakeLock } from '#lib/play/wakelock.ts';
+	import SafetyButton from '#lib/safety/SafetyButton.svelte';
+	import { toasts } from '#lib/toast.svelte.ts';
 
 	let { session }: { session: RoomSession } = $props();
 

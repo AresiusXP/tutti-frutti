@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fieldProblems, headingOnes, labelNameMismatches } from '$lib/a11y.testkit';
-import { FakeSession } from '$lib/game/fake.svelte';
-import { makeRound, makeSettings, makeView, player } from '$lib/game/fixtures';
-import { i18n } from '$lib/i18n.svelte';
-import { reviewView, type ReviewOptions } from '$lib/review/fixtures';
-import RoomScreen from '$lib/screens/RoomScreen.svelte';
-import type { View } from '$lib/protocol';
-import { toasts } from '$lib/toast.svelte';
+import { fieldProblems, headingOnes, labelNameMismatches } from '#lib/a11y.testkit.ts';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { makeRound, makeSettings, makeView, player } from '#lib/game/fixtures.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import { reviewView, type ReviewOptions } from '#lib/review/fixtures.ts';
+import RoomScreen from '#lib/screens/RoomScreen.svelte';
+import type { View } from '#lib/protocol/index.ts';
+import { toasts } from '#lib/toast.svelte.ts';
 import { safetyApi } from './api';
 
 /**

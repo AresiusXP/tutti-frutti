@@ -1,5 +1,5 @@
-import { FakeSession } from '$lib/game/fake.svelte';
-import { makeView } from '$lib/game/fixtures';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { makeView } from '#lib/game/fixtures.ts';
 import type { Scenario } from './scenarios';
 
 export const scenarios: Record<string, Scenario> = {

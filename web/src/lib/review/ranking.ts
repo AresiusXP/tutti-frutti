@@ -1,4 +1,4 @@
-import type { Player, RoundResult } from '$lib/protocol';
+import type { Player, RoundResult } from '#lib/protocol/index.ts';
 
 export interface RankRow {
 	player: Player;

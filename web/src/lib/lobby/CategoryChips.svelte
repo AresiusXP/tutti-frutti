@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { m } from '$lib/paraglide/messages';
-	import type { CategoryRef } from '$lib/protocol';
-	import SafetyButton from '$lib/safety/SafetyButton.svelte';
+	import { m } from '#lib/paraglide/messages.js';
+	import type { CategoryRef } from '#lib/protocol/index.ts';
+	import SafetyButton from '#lib/safety/SafetyButton.svelte';
 
 	/**
 	 * The selected categories, in game order, as small read-only chips (custom ones marked ✏️ and, for

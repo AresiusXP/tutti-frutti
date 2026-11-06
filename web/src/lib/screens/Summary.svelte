@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
-	import Button from '$lib/components/Button.svelte';
-	import Screen from '$lib/components/Screen.svelte';
-	import type { RoomSession } from '$lib/game/session';
-	import { m } from '$lib/paraglide/messages';
-	import ConfirmBar from '$lib/review/ConfirmBar.svelte';
-	import RankRow from '$lib/review/RankRow.svelte';
-	import { buildRanking } from '$lib/review/ranking';
-	import { lastRoundReason } from '$lib/review/rounds';
+	import Button from '#lib/components/Button.svelte';
+	import Screen from '#lib/components/Screen.svelte';
+	import type { RoomSession } from '#lib/game/session.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import ConfirmBar from '#lib/review/ConfirmBar.svelte';
+	import RankRow from '#lib/review/RankRow.svelte';
+	import { buildRanking } from '#lib/review/ranking.ts';
+	import { lastRoundReason } from '#lib/review/rounds.ts';
 
 	/**
 	 * Round summary: players ranked by running total with this round's points

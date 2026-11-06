@@ -1,4 +1,4 @@
-import type { Lang, Listing } from '$lib/protocol';
+import type { Lang, Listing } from '#lib/protocol/index.ts';
 
 export type CatalogState =
 	{ status: 'loading' } | { status: 'ready'; listing: Listing } | { status: 'error' };

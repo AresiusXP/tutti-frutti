@@ -5,7 +5,14 @@
  *   const v = makeView({ youId: 'p1', hostId: 'p1', players: [player('p1','Ana'), player('p2','Beto')] });
  *   const playing = makeView({ phase: 'playing', round: makeRound({ letter: 'F' }) });
  */
-import type { Phase, Player, RoundView, Settings, StopVoteView, View } from '$lib/protocol';
+import type {
+	Phase,
+	Player,
+	RoundView,
+	Settings,
+	StopVoteView,
+	View
+} from '#lib/protocol/index.ts';
 
 export const DEFAULT_CATEGORY_IDS = ['nombre', 'pais', 'animal', 'comida', 'color', 'marca'];
 export const DEFAULT_CATEGORY_LABELS = ['Nombre', 'País', 'Animal', 'Comida', 'Color', 'Marca'];

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { BRAND } from '$lib/brand';
+	import { BRAND } from '#lib/brand.ts';
 
 	const words = BRAND.split(' ');
 	const colors = ['text-banana', 'text-strawberry', 'text-lime', 'text-tangerine'];

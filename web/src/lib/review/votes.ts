@@ -8,7 +8,7 @@
  *     author's vote on their own answer never does;
  *   - a merge proposal needs `yes * 2 > electorate`; the proposer is a yes.
  */
-import type { ProposalView, RejectVote } from '$lib/protocol';
+import type { ProposalView, RejectVote } from '#lib/protocol/index.ts';
 
 /** Smallest number of yes votes that is a strict majority of `voters`. */
 export function majority(voters: number): number {

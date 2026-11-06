@@ -4,8 +4,8 @@
  * header the server checks on unsafe methods. Failures are the shared typed
  * `ApiError` (status 0 = no response); responses are validated, never trusted.
  */
-import { ApiError } from '$lib/api';
-import { parseTerms } from '$lib/safety/api';
+import { ApiError } from '#lib/api.ts';
+import { parseTerms } from '#lib/safety/api.ts';
 import type { Me, SavedProfile, SessionInfo, Stats } from './types';
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;

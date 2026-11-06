@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError, type RoomInfo } from '$lib/api';
+import { ApiError, type RoomInfo } from '#lib/api.ts';
 import type { RecentRoom } from './recent';
 import { verdictOf } from './verdict';
 

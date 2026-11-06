@@ -19,7 +19,7 @@ import {
 	ReportReasonSpam,
 	ReportReasonViolence,
 	type ReportRequest
-} from '$lib/protocol/api';
+} from '#lib/protocol/api.ts';
 
 export const MAX_COMMENT = 280;
 export const MAX_OBSERVED = 200;

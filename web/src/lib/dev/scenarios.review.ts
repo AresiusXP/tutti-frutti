@@ -4,9 +4,9 @@
  * `<name>-en` / `<name>-nl` with an English / Dutch lobby (answers and category
  * labels in that language); the UI language is chosen separately with `&lang=`.
  */
-import { ReviewDemoSession } from '$lib/review/demo';
-import { reviewState, vote, type ReviewOptions } from '$lib/review/fixtures';
-import type { Lang } from '$lib/protocol';
+import { ReviewDemoSession } from '#lib/review/demo.ts';
+import { reviewState, vote, type ReviewOptions } from '#lib/review/fixtures.ts';
+import type { Lang } from '#lib/protocol/index.ts';
 import type { Scenario } from './scenarios';
 
 const COMIDA = 3;

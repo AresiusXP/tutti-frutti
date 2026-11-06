@@ -1,6 +1,6 @@
 # Tutti Frutti — web client
 
-SvelteKit 2 + Svelte 5 (runes) + TypeScript (strict) + Tailwind CSS v4, built with
+SvelteKit 3 + Svelte 5 (runes) + TypeScript (strict) + Tailwind CSS v4, built with
 `@sveltejs/adapter-static` as a pure client-side SPA (`ssr = false`, fallback
 `index.html`) and shipped as an installable PWA. See `../docs/DESIGN.md`.
 
@@ -213,12 +213,12 @@ src/lib/account/fake.svelte.ts   FakeAccount: scriptable double for component te
 src/lib/account/account.testkit.ts  routable fake fetch, fake event targets, memory profile
 ```
 
-- **Using it:** `import { account } from '$lib/account'`; call `account.init()` on mount (idempotent) and read
+- **Using it:** `import { account } from '#lib/account'`; call `account.init()` on mount (idempotent) and read
   `account.status | googleEnabled | loggedIn | user | stats` in templates. `account.login('/')` /
   `account.login('/KT7P')` navigate away to Google; `logout()`, `deleteAccount()` and `loadStats()` return
   `{ ok: true } | { ok: false, code }` and show errors with `accountErrorMessage(code)`.
 - **Tests:** logic with a fake `fetch` (`rig()` in `account.testkit.ts`); screens with
-  `vi.mock('$lib/account', …)` returning a `FakeAccount` (see `src/routes/stats/page.test.ts`). The store tests
+  `vi.mock('#lib/account', …)` returning a `FakeAccount` (see `src/routes/stats/page.test.ts`). The store tests
   need `// @vitest-environment jsdom`: in the node environment Svelte compiles for SSR and `$effect` does nothing.
 - **Without a server:** in `npm run dev`, intercept the API in the browser (Playwright
   `page.route('**/api/**', …)`) answering `/api/session` `{guest:true, googleEnabled:true, loggedIn:true}`,
@@ -290,7 +290,7 @@ confirmation sheet, opened by itself), `stopvote-waiting` (asker, 1 of 3 yes), `
   duplicates). English never contains `¡¿ñáéíóúü`; Dutch never contains `¡¿ñ`; neither says "basta"
   (they say only "Stop!"). The test also fails on a Dutch value that is a copy of the English/Spanish
   text, unless the key is in its small allowlist (`Offline`, `Host`, `QR`, `Podium`, `Letter {letter}`, ...).
-- Use them as `import { m } from '$lib/paraglide/messages'` → `m.create_game()`.
+- Use them as `import { m } from '#lib/paraglide/messages'` → `m.create_game()`.
   Call them inside templates or `$derived(...)` so they update when the language changes.
 - Locale resolution (no URL prefixes, it is a static SPA): `localStorage` (`tf.locale`)
   → the browser's preferred language (`es*` → `es`, `en*` → `en`, `nl*` → `nl`, i.e. `nl-NL` and
@@ -300,7 +300,7 @@ confirmation sheet, opened by itself), `stopvote-waiting` (asker, 1 of 3 yes), `
   unknown stored value is ignored (falls through to the browser language). Paraglide persists the
   language it resolved on the first visit, so later visits keep it even if the browser language changes
   (only the ES/EN/NL switch changes it). Switch language with
-  `i18n.set('en')` from `$lib/i18n.svelte` (it persists the choice, keeps `<html lang>` in
+  `i18n.set('en')` from `#lib/i18n.svelte` (it persists the choice, keeps `<html lang>` in
   sync and re-renders without a page reload) — not with Paraglide's `setLocale` directly.
 - Compiler options are shared by Vite and the `npm run i18n` script in `paraglide.config.js`;
   the inlang message-format plugin is loaded from `node_modules` (no network needed to build).
@@ -391,7 +391,10 @@ characters, `ß`-style Unicode expansions) is ignored and the already typed valu
 
 ## PWA
 
-`@vite-pwa/sveltekit`, `registerType: 'prompt'`, Workbox `generateSW`. `src/lib/pwa/update.svelte.ts`
+`@vite-pwa/sveltekit` 2 (`withPwa(kit, pwa)` in `vite.config.ts`, which also loads the `sveltekit()` plugin; the Kit options
+live there too, there is no `svelte.config.js`), `registerType: 'prompt'`, Workbox `generateSW`. `globStrict` is off because the
+plugin always adds a `prerendered/**` pattern and an SPA prerenders nothing; `src/lib/pwa.test.ts` (run after `npm run build` in CI)
+fails when `build/` has no `sw.js`, Workbox runtime or manifest. `src/lib/pwa/update.svelte.ts`
 registers the service worker (through `virtual:pwa-register`) and is the only code that applies an update and
 reloads; `UpdatePrompt.svelte` and the "new version" closed screen both use it. The localized
 "Nueva versión disponible → Recargar" banner shows when a new version waits: it waits until the player clicks (no
@@ -440,7 +443,7 @@ Every response carries a strict Content-Security-Policy (no `unsafe-inline`/`uns
 `Permissions-Policy`, COOP/CORP `same-origin`, `X-Frame-Options`, `nosniff`, `Referrer-Policy` and, on
 https requests only, HSTS. The policy is in `nginx-security-headers.conf`; the hashes of the shell's
 inline bootstrap script and static `style` attributes are generated at build time (`scripts/csp.mjs`, run
-by `svelte.config.js` after `adapter-static`, written to `.svelte-kit/nginx/csp-hashes.conf` and copied
+by `vite.config.ts` after `adapter-static`, written to `.svelte-kit/nginx/csp-hashes.conf` and copied
 into the image). **`npm run build` fails** when the shell or a template gains inline code the policy
 would block (an inline `<script>`, an event-handler attribute, a static `style="…"`): use external files
 and Svelte's `style:prop={…}` directive (CSSOM, not restricted). `src/lib/security.test.ts` covers the

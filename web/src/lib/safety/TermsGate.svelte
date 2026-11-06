@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { errorMessage } from '$lib/errors';
-	import { i18n } from '$lib/i18n.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import Sheet from '$lib/lobby/Sheet.svelte';
-	import { m } from '$lib/paraglide/messages';
+	import { errorMessage } from '#lib/errors.ts';
+	import { i18n } from '#lib/i18n.svelte.ts';
+	import Button from '#lib/components/Button.svelte';
+	import Sheet from '#lib/lobby/Sheet.svelte';
+	import { m } from '#lib/paraglide/messages.js';
 	import { terms as shared, type TermsStore } from './terms.svelte';
 
 	/**

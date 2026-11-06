@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { m } from '$lib/paraglide/messages';
-	import type { Settings } from '$lib/protocol';
+	import { m } from '#lib/paraglide/messages.js';
+	import type { Settings } from '#lib/protocol/index.ts';
 	import CategoryChips from './CategoryChips.svelte';
 	import { MAX_CATEGORIES } from './labels';
 	import { playableLetters } from './letters';

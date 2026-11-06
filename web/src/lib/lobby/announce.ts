@@ -1,4 +1,4 @@
-import type { Player } from '$lib/protocol';
+import type { Player } from '#lib/protocol/index.ts';
 
 export interface PlayerChanges {
 	joined: string[];

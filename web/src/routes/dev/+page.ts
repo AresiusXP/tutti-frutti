@@ -11,7 +11,7 @@ import type { PageLoad } from './$types';
  */
 export const load: PageLoad = async () => {
 	if (import.meta.env.DEV) {
-		const { scenarios } = await import('$lib/dev/scenarios');
+		const { scenarios } = await import('#lib/dev/scenarios.ts');
 		return { scenarios };
 	}
 	redirect(307, resolve('/'));

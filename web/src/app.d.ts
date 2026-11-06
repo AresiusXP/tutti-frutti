@@ -5,7 +5,7 @@ declare global {
 		// interface Locals {}
 		// interface PageData {}
 		interface PageState {
-			/** Modal sheets open, one history entry each (`$lib/lobby/sheetBack.ts`). */
+			/** Modal sheets open, one history entry each (`#lib/lobby/sheetBack.ts`). */
 			tfSheet?: number;
 		}
 		// interface Platform {}

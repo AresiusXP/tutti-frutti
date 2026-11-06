@@ -1,6 +1,6 @@
-import { FakeSession } from '$lib/game/fake.svelte';
-import { makeRound, makeSettings, makeView, player } from '$lib/game/fixtures';
-import { reviewView } from '$lib/review/fixtures';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { makeRound, makeSettings, makeView, player } from '#lib/game/fixtures.ts';
+import { reviewView } from '#lib/review/fixtures.ts';
 import type { Scenario } from './scenarios';
 
 /**

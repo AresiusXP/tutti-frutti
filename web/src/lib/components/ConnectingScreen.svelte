@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import Screen from '$lib/components/Screen.svelte';
-	import { m } from '$lib/paraglide/messages';
+	import Screen from '#lib/components/Screen.svelte';
+	import { m } from '#lib/paraglide/messages.js';
 
 	/**
 	 * First connection in progress. Nothing is drawn for the first 300 ms so a

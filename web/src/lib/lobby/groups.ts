@@ -1,4 +1,4 @@
-import { m } from '$lib/paraglide/messages';
+import { m } from '#lib/paraglide/messages.js';
 
 /** Picker group titles follow the UI language (`lobby_group_<id>`); an unknown group shows its id. */
 const TITLES: Record<string, () => string> = {

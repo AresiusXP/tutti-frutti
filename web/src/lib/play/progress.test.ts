@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeRound, makeSettings, makeView, player } from '$lib/game/fixtures';
+import { makeRound, makeSettings, makeView, player } from '#lib/game/fixtures.ts';
 import { badgeAvatar, playerProgress } from './progress';
 
 function view() {

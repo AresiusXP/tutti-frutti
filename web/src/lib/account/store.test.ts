@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { i18n } from '$lib/i18n.svelte';
+import { i18n } from '#lib/i18n.svelte.ts';
 import { PROFILE_SAVE_DEBOUNCE_MS, SAVE_FAILURES_BEFORE_TOAST } from './store.svelte';
 import {
 	ME,

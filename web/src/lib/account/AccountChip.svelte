@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { account } from '$lib/account';
-	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
-	import { m } from '$lib/paraglide/messages';
-	import { profile } from '$lib/profile.svelte';
+	import { account } from '#lib/account/index.ts';
+	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
+	import { m } from '#lib/paraglide/messages.js';
+	import { profile } from '#lib/profile.svelte.ts';
 
 	/** Who is signed in (saved avatar + Google display name). Renders nothing for a guest. */
 	const name = $derived(account.user?.name || m.account_fallback_name());

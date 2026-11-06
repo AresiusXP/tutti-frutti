@@ -1,4 +1,4 @@
-import type { SessionError } from '$lib/game/session';
+import type { SessionError } from '#lib/game/session.ts';
 
 /**
  * Guard that makes a command impossible to fire twice (STOP, BASTA).

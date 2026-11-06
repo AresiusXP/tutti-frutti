@@ -1,6 +1,6 @@
 /**
  * A stand-in for SvelteKit's router, for tests of code that uses shallow routing: `page.state`
- * (reactive) plus a tiny browser history that `pushState` and `history.back()` move through.
+ * (reactive) plus a tiny browser history that `goto(…, { shallow: true })` and `history.back()` move through.
  * Wire it with `vi.mock('$app/navigation', ...)`, `vi.mock('$app/state', ...)` and
  * `vi.spyOn(history, 'back').mockImplementation(fakeRouter.back)`.
  */

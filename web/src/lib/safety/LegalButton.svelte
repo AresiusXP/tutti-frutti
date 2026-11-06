@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { m } from '$lib/paraglide/messages';
+	import { m } from '#lib/paraglide/messages.js';
 	import LegalSheet from './LegalSheet.svelte';
 
 	/** The small round button of Home's header that opens the legal / safety sheet. */

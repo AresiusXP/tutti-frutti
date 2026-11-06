@@ -1,6 +1,6 @@
 <script lang="ts">
-	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
-	import { m } from '$lib/paraglide/messages';
+	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
+	import { m } from '#lib/paraglide/messages.js';
 	import type { ProgressEntry } from './progress';
 
 	let { entries, size = 28 }: { entries: ProgressEntry[]; size?: number } = $props();

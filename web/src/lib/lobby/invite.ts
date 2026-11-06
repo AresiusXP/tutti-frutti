@@ -1,5 +1,5 @@
-import { BRAND } from '$lib/brand';
-import { m } from '$lib/paraglide/messages';
+import { BRAND } from '#lib/brand.ts';
+import { m } from '#lib/paraglide/messages.js';
 
 /** The link a friend opens to join: `https://<host>/<CODE>`. */
 export function inviteUrl(code: string, origin: string = location.origin): string {

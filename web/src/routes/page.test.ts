@@ -2,17 +2,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { goto, replaceState } from '$app/navigation';
-import { account } from '$lib/account';
-import type { FakeAccount } from '$lib/account/fake.svelte';
-import { fieldProblems, headingOnes } from '$lib/a11y.testkit';
-import { ApiError, api, type RoomInfo } from '$lib/api';
-import { hasRoomMark, clearRoomMark } from '$lib/game/roomMark';
-import { i18n } from '$lib/i18n.svelte';
-import { profile } from '$lib/profile.svelte';
-import { terms } from '$lib/safety/terms.svelte';
-import { TERMS_OK } from '$lib/safety/safety.testkit';
-import { toasts } from '$lib/toast.svelte';
+import { goto } from '$app/navigation';
+import { account } from '#lib/account/index.ts';
+import type { FakeAccount } from '#lib/account/fake.svelte.ts';
+import { fieldProblems, headingOnes } from '#lib/a11y.testkit.ts';
+import { ApiError, api, type RoomInfo } from '#lib/api.ts';
+import { hasRoomMark, clearRoomMark } from '#lib/game/roomMark.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import { profile } from '#lib/profile.svelte.ts';
+import { terms } from '#lib/safety/terms.svelte.ts';
+import { TERMS_OK } from '#lib/safety/safety.testkit.ts';
+import { toasts } from '#lib/toast.svelte.ts';
 import Home from './+page.svelte';
 
 const route = vi.hoisted(() => ({ url: new URL('http://localhost/'), state: {} }));
@@ -22,19 +22,30 @@ vi.mock('$app/navigation', async () => {
 	const { onMount } = await import('svelte');
 	return {
 		goto: vi.fn(() => Promise.resolve()),
-		replaceState: vi.fn(),
-		afterNavigate: (callback: () => void) => onMount(() => callback())
+		afterNavigate: (callback: (nav: { shallow: boolean; type: string }) => void) =>
+			onMount(() => callback({ shallow: false, type: 'enter' }))
 	};
 });
 vi.mock('$app/state', () => ({ page: route }));
-vi.mock('$lib/account', async (importOriginal) => {
-	const { FakeAccount } = await import('$lib/account/fake.svelte');
-	return { ...(await importOriginal<typeof import('$lib/account')>()), account: new FakeAccount() };
+vi.mock('#lib/account/index.ts', async (importOriginal) => {
+	const { FakeAccount } = await import('#lib/account/fake.svelte.ts');
+
+	return {
+		...(await importOriginal<typeof import('#lib/account/index.ts')>()),
+		account: new FakeAccount()
+	};
 });
-vi.mock('$lib/api', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/api')>()),
-	api: { createRoom: vi.fn(), getRoom: vi.fn(), ensureSession: vi.fn() }
+vi.mock('#lib/api.ts', async (importOriginal) => ({
+	...(await importOriginal<typeof import('#lib/api.ts')>()),
+	api: {
+		createRoom: vi.fn(),
+		getRoom: vi.fn(),
+		ensureSession: vi.fn()
+	}
 }));
+
+/** The `goto` options that replace the history entry in place (what `replaceState` was). */
+const cleaned = (state: object) => ({ shallow: true, replace: true, state });
 
 const info = (over: Partial<RoomInfo> = {}): RoomInfo => ({
 	code: 'KT7P',
@@ -79,7 +90,6 @@ describe('Home actions', () => {
 		fake.reset();
 		route.url = new URL('http://localhost/');
 		vi.mocked(goto).mockClear();
-		vi.mocked(replaceState).mockClear();
 		vi.mocked(api.createRoom).mockReset();
 		vi.mocked(api.getRoom).mockReset();
 	});
@@ -420,15 +430,15 @@ describe('Home actions', () => {
 				route.url = new URL(`http://localhost/?login=${reason}`);
 				render(Home);
 				expect(toastTexts()).toEqual([text]);
-				expect(replaceState).toHaveBeenCalledTimes(1);
-				expect(replaceState).toHaveBeenCalledWith('/', route.state);
+				expect(goto).toHaveBeenCalledTimes(1);
+				expect(goto).toHaveBeenCalledWith('/', cleaned(route.state));
 			}
 		);
 
 		it('keeps every other query parameter and the hash', () => {
 			route.url = new URL('http://localhost/?x=1&login=failed&y=2#top');
 			render(Home);
-			expect(replaceState).toHaveBeenCalledWith('/?x=1&y=2#top', route.state);
+			expect(goto).toHaveBeenCalledWith('/?x=1&y=2#top', cleaned(route.state));
 		});
 
 		it.each(['', '?login=', '?login=pwned', '?login=FAILED', '?other=1'])(
@@ -437,7 +447,7 @@ describe('Home actions', () => {
 				route.url = new URL(`http://localhost/${query}`);
 				render(Home);
 				expect(toastTexts()).toEqual([]);
-				expect(replaceState).not.toHaveBeenCalled();
+				expect(goto).not.toHaveBeenCalled();
 			}
 		);
 	});

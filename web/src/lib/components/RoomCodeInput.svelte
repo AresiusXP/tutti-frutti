@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { m } from '$lib/paraglide/messages';
+	import { m } from '#lib/paraglide/messages.js';
 	import {
 		ROOM_CODE_LENGTH,
 		backspaceAt,
@@ -8,7 +8,7 @@
 		normalizePastedCode,
 		typeIntoBox,
 		type CodeEdit
-	} from '$lib/roomCode';
+	} from '#lib/roomCode.ts';
 
 	let {
 		value = $bindable(''),

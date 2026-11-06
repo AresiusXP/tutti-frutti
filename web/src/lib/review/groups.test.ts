@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { View } from '$lib/protocol';
+import type { View } from '#lib/protocol/index.ts';
 import { reviewView, vote } from './fixtures';
 import { answerGroups } from './groups';
 

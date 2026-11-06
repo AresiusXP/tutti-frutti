@@ -1,8 +1,13 @@
-import { makeSettings } from '$lib/game/fixtures';
-import { catalog } from '$lib/lobby/catalog.svelte';
-import { fixtureFetch, labelsFor, type FixtureFetchOptions } from '$lib/lobby/fixtures';
-import { lobbyView, players, ServerLikeSession, type ServerLikeOptions } from '$lib/lobby/testing';
-import type { CategoryRef, Settings } from '$lib/protocol';
+import { makeSettings } from '#lib/game/fixtures.ts';
+import { catalog } from '#lib/lobby/catalog.svelte.ts';
+import { fixtureFetch, labelsFor, type FixtureFetchOptions } from '#lib/lobby/fixtures.ts';
+import {
+	lobbyView,
+	players,
+	ServerLikeSession,
+	type ServerLikeOptions
+} from '#lib/lobby/testing.ts';
+import type { CategoryRef, Settings } from '#lib/protocol/index.ts';
 import type { Scenario } from './scenarios';
 
 /**

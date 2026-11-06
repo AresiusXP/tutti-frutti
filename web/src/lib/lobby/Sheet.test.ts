@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { i18n } from '$lib/i18n.svelte';
+import { i18n } from '#lib/i18n.svelte.ts';
 import { fakeRouter } from './router.testkit.svelte';
 import SheetHarness from './SheetHarness.svelte';
 
-const router = vi.hoisted(() => ({ pushState: vi.fn() }));
-vi.mock('$app/navigation', () => ({ pushState: router.pushState }));
+const router = vi.hoisted(() => ({ goto: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: router.goto }));
 vi.mock('$app/state', async () => ({ page: (await import('./router.testkit.svelte')).page }));
 
 describe('Sheet and the Back button', () => {
@@ -17,7 +17,12 @@ describe('Sheet and the Back button', () => {
 		i18n.set('es');
 		fakeRouter.reset();
 		onclosed.mockClear();
-		router.pushState.mockReset().mockImplementation(fakeRouter.pushState);
+		router.goto
+			.mockReset()
+			.mockImplementation((url: string, opts: { state: { tfSheet?: number } }) => {
+				fakeRouter.pushState(url, opts.state);
+				return Promise.resolve();
+			});
 		back = vi.spyOn(history, 'back').mockImplementation(fakeRouter.back);
 	});
 	afterEach(() => vi.restoreAllMocks());
@@ -29,11 +34,11 @@ describe('Sheet and the Back button', () => {
 
 	it('opening pushes exactly one entry for the same URL', async () => {
 		render(SheetHarness, { onclosed });
-		expect(router.pushState).not.toHaveBeenCalled();
+		expect(router.goto).not.toHaveBeenCalled();
 		await open();
 		expect(dialogs()).toHaveLength(1);
-		expect(router.pushState).toHaveBeenCalledOnce();
-		expect(router.pushState).toHaveBeenCalledWith('', { tfSheet: 1 });
+		expect(router.goto).toHaveBeenCalledOnce();
+		expect(router.goto).toHaveBeenCalledWith('', { shallow: true, state: { tfSheet: 1 } });
 		expect(fakeRouter.depth).toBe(1);
 	});
 
@@ -71,7 +76,7 @@ describe('Sheet and the Back button', () => {
 		fakeRouter.back();
 		await vi.waitFor(() => expect(dialogs()).toHaveLength(0));
 		expect(fakeRouter.depth).toBe(0);
-		expect(router.pushState).toHaveBeenCalledTimes(2);
+		expect(router.goto).toHaveBeenCalledTimes(2);
 	});
 
 	it('a real navigation closes it without popping anything (the entry is no longer ours)', async () => {
@@ -88,7 +93,7 @@ describe('Sheet and the Back button', () => {
 		await open();
 		await open('open inner');
 		expect(dialogs()).toHaveLength(2);
-		expect(router.pushState).toHaveBeenLastCalledWith('', { tfSheet: 2 });
+		expect(router.goto).toHaveBeenLastCalledWith('', { shallow: true, state: { tfSheet: 2 } });
 
 		fakeRouter.back();
 		await vi.waitFor(() => expect(dialogs()).toHaveLength(1));

@@ -3,23 +3,23 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
-import { FakeSession } from '$lib/game/fake.svelte';
-import { makeView } from '$lib/game/fixtures';
-import { clearRoomMark, markRoom } from '$lib/game/roomMark';
-import type { ClosedReason } from '$lib/game/session';
-import { i18n } from '$lib/i18n.svelte';
-import { profile } from '$lib/profile.svelte';
-import { RECENT_ROOM_KEY, loadRecentRoom, rememberRecentRoom } from '$lib/resume/recent';
-import { safetyApi } from '$lib/safety/api';
-import { blocks } from '$lib/safety/blocks.svelte';
-import { TERMS_OK } from '$lib/safety/safety.testkit';
-import { terms } from '$lib/safety/terms.svelte';
-import { toasts } from '$lib/toast.svelte';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { makeView } from '#lib/game/fixtures.ts';
+import { clearRoomMark, markRoom } from '#lib/game/roomMark.ts';
+import type { ClosedReason } from '#lib/game/session.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import { profile } from '#lib/profile.svelte.ts';
+import { RECENT_ROOM_KEY, loadRecentRoom, rememberRecentRoom } from '#lib/resume/recent.ts';
+import { safetyApi } from '#lib/safety/api.ts';
+import { blocks } from '#lib/safety/blocks.svelte.ts';
+import { TERMS_OK } from '#lib/safety/safety.testkit.ts';
+import { terms } from '#lib/safety/terms.svelte.ts';
+import { toasts } from '#lib/toast.svelte.ts';
 import RoomRoute from './RoomRoute.svelte';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }));
-vi.mock('$lib/api', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/api')>()),
+vi.mock('#lib/api.ts', async (importOriginal) => ({
+	...(await importOriginal<typeof import('#lib/api.ts')>()),
 	api: {
 		getRoom: vi.fn(() =>
 			Promise.resolve({
@@ -33,7 +33,7 @@ vi.mock('$lib/api', async (importOriginal) => ({
 		)
 	}
 }));
-vi.mock('$lib/screens/RoomScreen.svelte', async () => ({
+vi.mock('#lib/screens/RoomScreen.svelte', async () => ({
 	default: (await import('./RoomScreenStub.svelte')).default
 }));
 

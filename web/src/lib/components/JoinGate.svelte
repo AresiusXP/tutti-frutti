@@ -1,20 +1,20 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { account } from '$lib/account';
-	import AccountChip from '$lib/account/AccountChip.svelte';
-	import GoogleButton from '$lib/account/GoogleButton.svelte';
-	import { ApiError, api, type RoomInfo } from '$lib/api';
-	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
-	import AvatarPicker from '$lib/components/AvatarPicker.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import LanguageSwitch from '$lib/components/LanguageSwitch.svelte';
-	import Screen from '$lib/components/Screen.svelte';
-	import Wordmark from '$lib/components/Wordmark.svelte';
-	import { capNickname, NICKNAME_MAX, normalizeNickname } from '$lib/nickname';
-	import { errorMessage } from '$lib/errors';
-	import { m } from '$lib/paraglide/messages';
-	import { profile } from '$lib/profile.svelte';
+	import { account } from '#lib/account/index.ts';
+	import AccountChip from '#lib/account/AccountChip.svelte';
+	import GoogleButton from '#lib/account/GoogleButton.svelte';
+	import { ApiError, api, type RoomInfo } from '#lib/api.ts';
+	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
+	import AvatarPicker from '#lib/components/AvatarPicker.svelte';
+	import Button from '#lib/components/Button.svelte';
+	import LanguageSwitch from '#lib/components/LanguageSwitch.svelte';
+	import Screen from '#lib/components/Screen.svelte';
+	import Wordmark from '#lib/components/Wordmark.svelte';
+	import { capNickname, NICKNAME_MAX, normalizeNickname } from '#lib/nickname.ts';
+	import { errorMessage } from '#lib/errors.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import { profile } from '#lib/profile.svelte.ts';
 
 	/**
 	 * What a visitor sees when opening an invite link (`/KT7P`) in a tab that

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { RoomSession } from '$lib/game/session';
+	import type { RoomSession } from '#lib/game/session.ts';
 	import { provideSafety, type SafetyRequest } from './context';
 	import SafetySheet from './SafetySheet.svelte';
 	import { canTarget } from './targets';

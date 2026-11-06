@@ -2,10 +2,10 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FakeSession } from '$lib/game/fake.svelte';
-import { makeRound, makeSettings, makeView, player } from '$lib/game/fixtures';
-import { i18n } from '$lib/i18n.svelte';
-import type { Player, View } from '$lib/protocol';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { makeRound, makeSettings, makeView, player } from '#lib/game/fixtures.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import type { Player, View } from '#lib/protocol/index.ts';
 import Letter from './Letter.svelte';
 
 interface Setup {

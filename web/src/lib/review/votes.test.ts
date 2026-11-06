@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ProposalView, RejectVote } from '$lib/protocol';
+import type { ProposalView, RejectVote } from '#lib/protocol/index.ts';
 import { majority, mergeTally, rejectTally } from './votes';
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `p${i + 1}`);

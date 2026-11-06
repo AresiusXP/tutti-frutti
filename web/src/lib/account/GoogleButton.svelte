@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { account } from '$lib/account';
-	import { m } from '$lib/paraglide/messages';
+	import { account } from '#lib/account/index.ts';
+	import { m } from '#lib/paraglide/messages.js';
 
 	/**
 	 * "Sign in with Google": a real full-page navigation (`account.login`). `returnTo` is `/` or

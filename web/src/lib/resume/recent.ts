@@ -11,7 +11,7 @@
  * a room from a recycled code; it is not a credential (the join still needs the code and the guest cookie).
  * Every function tolerates corrupt data and unavailable storage and never throws.
  */
-import { isCompleteRoomCode } from '$lib/roomCode';
+import { isCompleteRoomCode } from '#lib/roomCode.ts';
 
 export const RECENT_ROOM_KEY = 'tf.recentRoom';
 export const RECENT_ROOM_TTL_MS = 24 * 60 * 60 * 1000;

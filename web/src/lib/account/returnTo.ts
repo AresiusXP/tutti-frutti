@@ -1,4 +1,4 @@
-import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from '$lib/roomCode';
+import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from '#lib/roomCode.ts';
 
 /** `/` or `/<ROOMCODE>`: the only places the OAuth callback may send the user back to. */
 export type ReturnTo = '/' | `/${string}`;

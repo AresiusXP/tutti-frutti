@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack, type Snippet } from 'svelte';
-	import { m } from '$lib/paraglide/messages';
+	import { m } from '#lib/paraglide/messages.js';
 	import { claimBack, type BackClaim } from './sheetBack';
 	import { enterStack, isTopSheet, leaveStack } from './sheetStack';
 

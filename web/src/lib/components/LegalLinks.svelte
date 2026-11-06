@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { i18n } from '$lib/i18n.svelte';
-	import { m } from '$lib/paraglide/messages';
+	import { i18n } from '#lib/i18n.svelte.ts';
+	import { m } from '#lib/paraglide/messages.js';
 
 	/**
 	 * Links to the static legal pages (`static/privacy.html`, `terms.html`, `delete-account.html`, served by

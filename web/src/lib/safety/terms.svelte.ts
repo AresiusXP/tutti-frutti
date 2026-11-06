@@ -14,11 +14,11 @@
  * An unknown state (the session could not be loaded) never blocks the client: the server fails
  * closed for every upload, and its `terms_required` answer comes back here (`run`, the room route).
  */
-import { createAccountApi } from '$lib/account/api';
-import { ApiError } from '$lib/api';
-import { i18n } from '$lib/i18n.svelte';
-import { historySettled } from '$lib/lobby/historyPop';
-import type { TermsStatus } from '$lib/protocol/api';
+import { createAccountApi } from '#lib/account/api.ts';
+import { ApiError } from '#lib/api.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import { historySettled } from '#lib/lobby/historyPop.ts';
+import type { TermsStatus } from '#lib/protocol/api.ts';
 import { tick } from 'svelte';
 import { type SafetyApi, safetyApi } from './api';
 

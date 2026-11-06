@@ -9,10 +9,10 @@ import type {
 	Lang,
 	PublicRoomsResponse,
 	RoomInfo
-} from '$lib/protocol';
-export type { CreateRoomRequest, RoomInfo } from '$lib/protocol';
+} from '#lib/protocol/index.ts';
+export type { CreateRoomRequest, RoomInfo } from '#lib/protocol/index.ts';
 
-/** Codes the UI knows how to explain (see `$lib/errors`); anything else is `unknown`. */
+/** Codes the UI knows how to explain (see `#lib/errors`); anything else is `unknown`. */
 export type ApiErrorCode =
 	| 'room_not_found'
 	| 'server_busy'
@@ -67,7 +67,7 @@ const STATUS_CODES: Record<number, string> = {
 	504: 'server_busy'
 };
 
-/** Builds the typed error of a non-2xx answer (shared with `$lib/safety/api`). */
+/** Builds the typed error of a non-2xx answer (shared with `#lib/safety/api.ts`). */
 export async function failure(res: Response): Promise<ApiError> {
 	let code = '';
 	try {

@@ -813,9 +813,12 @@ docs/                  this file
   `web/Dockerfile`), Go 1.27 (`server/go.mod` is what `setup-go` reads; the
   `server/Dockerfile` image matches) and Postgres 18 (= production, bumped by hand).
   Majors that cannot work yet are disabled in `packageRules` with the blocker and
-  the condition to retry in their `description`: SvelteKit 3 / adapter-static 4 /
-  vite-plugin-pwa 2 (wait for `@vite-pwa/sveltekit` for Kit 3), TypeScript 7 (wait
-  for `typescript-eslint` and `svelte-check`). Renovate is held on **npm 11**
+  the condition to retry in their `description`: TypeScript 7 (wait for
+  `typescript-eslint` and `svelte-check`). SvelteKit, adapter-static and
+  `@vite-pwa/sveltekit` are one Renovate group (`sveltekit toolchain`): they only work together, and
+  a major PR of the group must still build a service worker (`web/src/lib/pwa.test.ts` fails the CI
+  build step when `build/` has none). The web app runs on SvelteKit 3 (its configuration lives in
+  `vite.config.ts`, `$lib` is the `#lib` subpath import of `package.json`). Renovate is held on **npm 11**
   (`constraints.npm: "<12"`): npm 12 refuses to fetch registry tarballs of packages with
   bundled dependencies (`EALLOWREMOTE`, `allow-remote` defaults to none), which breaks lockfile
   maintenance because of `@tailwindcss/oxide-wasm32-wasi`. Lift the constraint when a Renovate
@@ -1145,7 +1148,7 @@ Code: `lib/account/` (store, REST client, types, `GoogleButton`, `AccountChip`, 
   two-button row *Mis estadísticas* (→ `/stats`) | *Cerrar sesión* (`loggedIn`), or nothing (`!googleEnabled`: no dead
   link). The signed-in identity is a chip (avatar + Google name) on the left of the ES/EN/NL row, which is empty
   otherwise, so the layout is identical at 390×844 and 360×740. `?login=failed|cancelled` ⇒ a translated toast, then the
-  parameter is removed with `replaceState` (from `afterNavigate`, so the router is ready; other params and the hash stay).
+  parameter is removed with a shallow `goto(…, { shallow: true, replace: true })` (from `afterNavigate`, so the router is ready; other params and the hash stay).
   The "G" is a stroked SVG path: no external image, font or Google artwork.
 * **Invite gate:** a guest sees a compact "Iniciar sesión" pill in the top row (`returnTo=/<CODE>`, so the friend comes
   straight back to the same invite); a signed-in user sees the chip and the saved nickname/avatar prefilled.
@@ -1160,7 +1163,7 @@ Code: `lib/account/` (store, REST client, types, `GoogleButton`, `AccountChip`, 
   stats are erased for good; confirming sends `DELETE /api/me`, goes Home and toasts. A failure stays in the dialog with
   the reason; an expired session closes it.
 * **Tests:** the store with a routable fake `fetch` (`account.testkit.ts`), components with `FakeAccount` through
-  `vi.mock('$lib/account')`. Rune effects only run under `// @vitest-environment jsdom` (the node environment compiles
+  `vi.mock('#lib/account/index.ts')`. Rune effects only run under `// @vitest-environment jsdom` (the node environment compiles
   for SSR, where `$effect` is a no-op): the store tests need it for the sync.
 * **Limits / decisions:** `returnTo` cannot be `/stats` (server allow-list); the local profile is not cleared on
   sign-out or deletion; there is no account recovery UI beyond sign-in again.
@@ -1412,7 +1415,7 @@ base-uri 'self'; form-action 'self'; frame-ancestors 'none'  [; upgrade-insecure
   `innerHTML` templates), COEP (not needed, would break cross-origin embeds we do not have).
 
 **Hash flow (header and meta can never disagree).** There is no `<meta http-equiv>` CSP: the nginx header is the
-only policy (the build fails if `index.html` carries one). `svelte.config.js` wraps `adapter-static`; right after it
+only policy (the build fails if `index.html` carries one). `vite.config.ts` wraps `adapter-static`; right after it
 writes `build/`, `scripts/csp.mjs` reads `build/index.html` and the client bundle and writes
 `.svelte-kit/nginx/csp-hashes.conf` (two `map`s: `$tf_script_hashes`, `$tf_style_attr_hashes`), which the
 Dockerfile copies next to the snippet (`RUN nginx -t` then validates the whole config at image build). The script
@@ -1504,7 +1507,7 @@ Three things make that dependable:
   problem is a recoverable sentence in a polite `role="status"` line next to the 56 px button (`messages/pwa/`).
   *Checks*: hourly while open, plus when the page returns to the foreground or the device goes online, throttled to once
   per 15 minutes (the browser also checks on every navigation and the Android app's Chrome engine on every launch).
-* *No surprise reload mid-game.* The plugin's `controlling` listener (`vite-plugin-pwa` `register.js`) reloads EVERY open tab
+* *No surprise reload mid-game.* The plugin's `controlling` listener (the register code of `@vite-pwa/sveltekit`, `virtual:pwa-register`) reloads EVERY open tab
   that saw the update as soon as the new worker takes control (`controllerchange` reaches every tab the old worker
   controlled, with or without `clientsClaim`), i.e. a tab in the middle of a round would be reloaded because another tab
   accepted the update (verified in Chromium with two tabs). `registerSW` is therefore given `onNeedReload`, which replaces
@@ -1515,7 +1518,7 @@ Three things make that dependable:
   window gets a 404, and SvelteKit's navigation error path then compares `_app/version.json` and does a full page load, which
   the new worker answers with the new shell (read in `@sveltejs/kit` `client.js`; not exercised in a browser).
 * *Android Back and modal sheets* (`web/src/lib/lobby/Sheet.svelte`, `sheetBack.ts`). A sheet that opens pushes one history
-  entry with SvelteKit's shallow routing (`pushState('', { tfSheet: depth })`, same URL; `App.PageState.tfSheet`); Back, which is also the
+  entry with SvelteKit's shallow routing (`goto('', { shallow: true, state: { tfSheet: depth } })`, same URL; `App.PageState.tfSheet`); Back, which is also the
   Android system Back, pops it and the sheet closes (it never leaves the room and no `leave` is sent). A sheet closed by its
   button, Escape or the backdrop pops its own entry with `history.back()` only when it is still the newest one, so the history
   does not grow; a real navigation closes the sheets without popping. Stacked sheets close one per Back (the state is a

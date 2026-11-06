@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError } from '$lib/api';
+import { ApiError } from '#lib/api.ts';
 import { createAccountApi } from './api';
 import {
 	ME,

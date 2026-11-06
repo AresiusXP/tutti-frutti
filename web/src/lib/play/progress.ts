@@ -1,5 +1,5 @@
-import type { Avatar as WireAvatar, View } from '$lib/protocol';
-import type { Avatar } from '$lib/avatar';
+import type { Avatar as WireAvatar, View } from '#lib/protocol/index.ts';
+import type { Avatar } from '#lib/avatar.ts';
 
 export interface ProgressEntry {
 	id: string;

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
-	import { m } from '$lib/paraglide/messages';
-	import type { Player } from '$lib/protocol';
-	import SafetyButton from '$lib/safety/SafetyButton.svelte';
+	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
+	import { m } from '#lib/paraglide/messages.js';
+	import type { Player } from '#lib/protocol/index.ts';
+	import SafetyButton from '#lib/safety/SafetyButton.svelte';
 	import { diffPlayers } from './announce';
 	import { uiAvatar } from './avatar';
 

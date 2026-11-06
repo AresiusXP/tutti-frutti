@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { colorHex } from '$lib/avatar';
+	import { colorHex } from '#lib/avatar.ts';
 
 	/** Accepts the local profile avatar and the wire `Avatar` (colour is a palette id, anything else falls back). */
 	let { avatar, size = 56 }: { avatar: { emoji: string; color: string }; size?: number } = $props();

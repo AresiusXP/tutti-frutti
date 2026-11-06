@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
-	import Button from '$lib/components/Button.svelte';
-	import Screen from '$lib/components/Screen.svelte';
-	import { errorMessage } from '$lib/errors';
-	import type { ClosedReason } from '$lib/game/session';
-	import { m } from '$lib/paraglide/messages';
-	import { updateErrorText } from '$lib/pwa/errors';
-	import { applyUpdate, checkForUpdate, update } from '$lib/pwa/update.svelte';
+	import Button from '#lib/components/Button.svelte';
+	import Screen from '#lib/components/Screen.svelte';
+	import { errorMessage } from '#lib/errors.ts';
+	import type { ClosedReason } from '#lib/game/session.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import { updateErrorText } from '#lib/pwa/errors.ts';
+	import { applyUpdate, checkForUpdate, update } from '#lib/pwa/update.svelte.ts';
 
 	/**
 	 * A session that ended for good. Every reason explains what happened and
 	 * always offers the way Home; `replaced` and `join_rejected` also offer a
 	 * second try (`onretry`), `unsupported_version` the update (`onreload`:
-	 * the new version takes over, then the page reloads; see `$lib/pwa/update.svelte`).
+	 * the new version takes over, then the page reloads; see `#lib/pwa/update.svelte.ts`).
 	 */
 	let {
 		reason,

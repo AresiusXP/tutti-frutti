@@ -2,13 +2,13 @@
 import { render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FakeSession } from '$lib/game/fake.svelte';
-import { makeView } from '$lib/game/fixtures';
-import { markRoom } from '$lib/game/roomMark';
-import type { Phase } from '$lib/protocol';
-import { profile } from '$lib/profile.svelte';
-import { installFakeServiceWorker, restoreFakeServiceWorker } from '$lib/pwa/sw.testkit';
-import { resetUpdateForTests, startUpdates } from '$lib/pwa/update.svelte';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { makeView } from '#lib/game/fixtures.ts';
+import { markRoom } from '#lib/game/roomMark.ts';
+import type { Phase } from '#lib/protocol/index.ts';
+import { profile } from '#lib/profile.svelte.ts';
+import { installFakeServiceWorker, restoreFakeServiceWorker } from '#lib/pwa/sw.testkit.ts';
+import { resetUpdateForTests, startUpdates } from '#lib/pwa/update.svelte.ts';
 import RoomRoute from './RoomRoute.svelte';
 
 const plugin = vi.hoisted(() => ({ onNeedReload: undefined as (() => void) | undefined }));
@@ -19,7 +19,7 @@ vi.mock('virtual:pwa-register', () => ({
 	}
 }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }));
-vi.mock('$lib/screens/RoomScreen.svelte', async () => ({
+vi.mock('#lib/screens/RoomScreen.svelte', async () => ({
 	default: (await import('./RoomScreenStub.svelte')).default
 }));
 
