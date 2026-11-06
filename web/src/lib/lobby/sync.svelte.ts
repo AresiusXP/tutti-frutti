@@ -1,6 +1,6 @@
 import { onDestroy, untrack } from 'svelte';
-import type { RoomSession } from '$lib/game/session';
-import type { Settings } from '$lib/protocol';
+import type { RoomSession } from '#lib/game/session.ts';
+import type { Settings } from '#lib/protocol/index.ts';
 import { sameSettings } from './settings';
 
 /** How long an unconfirmed edit is shown before the screen goes back to the server's value. */

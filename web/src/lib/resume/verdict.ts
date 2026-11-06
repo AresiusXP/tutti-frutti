@@ -1,4 +1,4 @@
-import { ApiError, type RoomInfo } from '$lib/api';
+import { ApiError, type RoomInfo } from '#lib/api.ts';
 import type { RecentRoom } from './recent';
 
 /**

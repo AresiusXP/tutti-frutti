@@ -4,7 +4,7 @@
  * screens can be tried by hand. It is NOT used by the component tests, which
  * assert the exact commands sent.
  */
-import { FakeSession } from '$lib/game/fake.svelte';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
 import {
 	buildReviewView,
 	endGame as finishGame,

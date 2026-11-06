@@ -1,6 +1,6 @@
 <script lang="ts">
-	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
-	import { m } from '$lib/paraglide/messages';
+	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
+	import { m } from '#lib/paraglide/messages.js';
 	import { avatarOf } from './players';
 	import type { PodiumPlace } from './podium';
 

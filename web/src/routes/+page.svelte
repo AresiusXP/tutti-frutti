@@ -1,31 +1,31 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { afterNavigate, goto, replaceState } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { account, accountErrorMessage } from '$lib/account';
-	import AccountChip from '$lib/account/AccountChip.svelte';
-	import GoogleButton from '$lib/account/GoogleButton.svelte';
-	import LegalLinks from '$lib/components/LegalLinks.svelte';
-	import SupportLink from '$lib/components/SupportLink.svelte';
-	import { ApiError, api, type RoomInfo } from '$lib/api';
-	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
-	import AvatarPicker from '$lib/components/AvatarPicker.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import LanguageSwitch from '$lib/components/LanguageSwitch.svelte';
-	import RoomCodeInput from '$lib/components/RoomCodeInput.svelte';
-	import Wordmark from '$lib/components/Wordmark.svelte';
-	import { errorMessage } from '$lib/errors';
-	import { markRoom } from '$lib/game/roomMark';
-	import { i18n } from '$lib/i18n.svelte';
-	import { capNickname, NICKNAME_MAX, normalizeNickname } from '$lib/nickname';
-	import { m } from '$lib/paraglide/messages';
-	import { profile } from '$lib/profile.svelte';
-	import ResumeCard from '$lib/resume/ResumeCard.svelte';
-	import { isCompleteRoomCode } from '$lib/roomCode';
-	import LegalButton from '$lib/safety/LegalButton.svelte';
-	import { DECLINED, terms } from '$lib/safety/terms.svelte';
-	import { toasts } from '$lib/toast.svelte';
+	import { account, accountErrorMessage } from '#lib/account/index.ts';
+	import AccountChip from '#lib/account/AccountChip.svelte';
+	import GoogleButton from '#lib/account/GoogleButton.svelte';
+	import LegalLinks from '#lib/components/LegalLinks.svelte';
+	import SupportLink from '#lib/components/SupportLink.svelte';
+	import { ApiError, api, type RoomInfo } from '#lib/api.ts';
+	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
+	import AvatarPicker from '#lib/components/AvatarPicker.svelte';
+	import Button from '#lib/components/Button.svelte';
+	import LanguageSwitch from '#lib/components/LanguageSwitch.svelte';
+	import RoomCodeInput from '#lib/components/RoomCodeInput.svelte';
+	import Wordmark from '#lib/components/Wordmark.svelte';
+	import { errorMessage } from '#lib/errors.ts';
+	import { markRoom } from '#lib/game/roomMark.ts';
+	import { i18n } from '#lib/i18n.svelte.ts';
+	import { capNickname, NICKNAME_MAX, normalizeNickname } from '#lib/nickname.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import { profile } from '#lib/profile.svelte.ts';
+	import ResumeCard from '#lib/resume/ResumeCard.svelte';
+	import { isCompleteRoomCode } from '#lib/roomCode.ts';
+	import LegalButton from '#lib/safety/LegalButton.svelte';
+	import { DECLINED, terms } from '#lib/safety/terms.svelte.ts';
+	import { toasts } from '#lib/toast.svelte.ts';
 
 	let draft = $state(profile.nickname);
 	let code = $state('');
@@ -55,15 +55,21 @@
 
 	// `/?login=failed|cancelled`: the OAuth callback could not sign the user in. Say so once, then
 	// clean the URL (the router is only ready after the first navigation).
-	afterNavigate(() => {
+	afterNavigate(({ shallow, type }) => {
+		if (shallow && type === 'goto') return;
+
 		visibility = page.url.searchParams.get('visibility') === 'public' ? 'public' : 'private';
 		const reason = page.url.searchParams.get('login');
 		if (reason !== 'failed' && reason !== 'cancelled') return;
 		toasts.show(reason === 'failed' ? m.account_login_failed() : m.account_login_cancelled());
-		const rest = new URL(page.url);
+		const rest = new URL(page.url.href);
 		rest.searchParams.delete('login');
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved path plus the remaining query/hash
-		replaceState(resolve('/') + rest.search + rest.hash, page.state);
+		goto(resolve('/') + rest.search + rest.hash, {
+			shallow: true,
+			replace: true,
+			state: page.state
+		});
 	});
 
 	async function signOut() {
@@ -197,6 +203,7 @@
 
 	<section class="mt-auto flex flex-col gap-2 tall:gap-3">
 		<ResumeCard onresume={resume} onshown={() => (resumeShown = true)} />
+
 		<div class="grid grid-cols-2 items-center gap-2">
 			<div
 				role="group"
@@ -212,9 +219,8 @@
 						class="h-12 rounded-xl text-sm font-bold {visibility === option
 							? 'bg-night-3 text-banana'
 							: 'text-cream-muted'}"
+						>{option === 'private' ? m.rooms_private() : m.rooms_public()}</button
 					>
-						{option === 'private' ? m.rooms_private() : m.rooms_public()}
-					</button>
 				{/each}
 			</div>
 			<Button

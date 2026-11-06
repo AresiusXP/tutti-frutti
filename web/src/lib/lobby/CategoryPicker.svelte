@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import Button from '$lib/components/Button.svelte';
-	import { m } from '$lib/paraglide/messages';
-	import type { Lang, Listing, Settings } from '$lib/protocol';
+	import Button from '#lib/components/Button.svelte';
+	import { m } from '#lib/paraglide/messages.js';
+	import type { Lang, Listing, Settings } from '#lib/protocol/index.ts';
 	import { catalog } from './catalog.svelte';
 	import { groupTitle } from './groups';
 	import {

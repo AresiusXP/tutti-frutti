@@ -1,5 +1,5 @@
-import { ApiError, api, type Api } from '$lib/api';
-import type { Lang, PublicRoom } from '$lib/protocol';
+import { ApiError, api, type Api } from '#lib/api.ts';
+import type { Lang, PublicRoom } from '#lib/protocol/index.ts';
 
 /** A single visible-page poller. Cancelled requests never publish results or reset cooldowns. */
 export class RoomBrowser {

@@ -2,9 +2,9 @@
 import { cleanup, render } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { scenarios } from '$lib/dev/scenarios';
-import { i18n } from '$lib/i18n.svelte';
-import RoomScreen from '$lib/screens/RoomScreen.svelte';
+import { scenarios } from '#lib/dev/scenarios.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import RoomScreen from '#lib/screens/RoomScreen.svelte';
 import { fieldProblems, headingOnes, labelNameMismatches } from './a11y.testkit';
 
 /**

@@ -8,7 +8,7 @@
  *   await user.click(screen.getByRole('button', { name: /empezar/i }));
  *   expect(session.sent).toContainEqual({ cmd: 'startGame', args: [] });
  */
-import type { Event as GameEvent, Player, Settings, View } from '$lib/protocol';
+import type { Event as GameEvent, Player, Settings, View } from '#lib/protocol/index.ts';
 import type {
 	ClosedReason,
 	ConnectionStatus,

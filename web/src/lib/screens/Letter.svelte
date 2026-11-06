@@ -1,13 +1,13 @@
 <script lang="ts">
-	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
-	import Screen from '$lib/components/Screen.svelte';
-	import type { RoomSession } from '$lib/game/session';
-	import { m } from '$lib/paraglide/messages';
-	import LetterSpinner from '$lib/play/LetterSpinner.svelte';
-	import { OnceCommand } from '$lib/play/once.svelte';
-	import { badgeAvatar } from '$lib/play/progress';
-	import { roundLabel } from '$lib/play/round';
-	import SafetyButton from '$lib/safety/SafetyButton.svelte';
+	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
+	import Screen from '#lib/components/Screen.svelte';
+	import type { RoomSession } from '#lib/game/session.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import LetterSpinner from '#lib/play/LetterSpinner.svelte';
+	import { OnceCommand } from '#lib/play/once.svelte.ts';
+	import { badgeAvatar } from '#lib/play/progress.ts';
+	import { roundLabel } from '#lib/play/round.ts';
+	import SafetyButton from '#lib/safety/SafetyButton.svelte';
 
 	let { session }: { session: RoomSession } = $props();
 

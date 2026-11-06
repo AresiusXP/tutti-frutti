@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { RoomSession } from '$lib/game/session';
-	import SafetyHost from '$lib/safety/SafetyHost.svelte';
+	import type { RoomSession } from '#lib/game/session.ts';
+	import SafetyHost from '#lib/safety/SafetyHost.svelte';
 	import Final from './Final.svelte';
 	import Letter from './Letter.svelte';
 	import Lobby from './Lobby.svelte';

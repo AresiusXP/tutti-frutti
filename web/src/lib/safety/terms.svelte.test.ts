@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { i18n } from '$lib/i18n.svelte';
+import { i18n } from '#lib/i18n.svelte.ts';
 import { DECLINED, TermsStore } from './terms.svelte';
 import { apiError, deferred, FakeSafetyApi, TERMS_DUE, TERMS_OK } from './safety.testkit';
 

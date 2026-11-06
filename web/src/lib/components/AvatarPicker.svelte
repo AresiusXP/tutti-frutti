@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { AVATAR_COLORS, AVATAR_EMOJIS, type Avatar } from '$lib/avatar';
-	import { m } from '$lib/paraglide/messages';
+	import { AVATAR_COLORS, AVATAR_EMOJIS, type Avatar } from '#lib/avatar.ts';
+	import { m } from '#lib/paraglide/messages.js';
 
 	let {
 		avatar,

@@ -1,9 +1,9 @@
 /**
  * Thin, injectable pieces of the WebSocket transport: the minimal socket the
  * session needs (so tests can fake it), URL building and frame encoding.
- * The wire format lives in `$lib/protocol` (generated from Go).
+ * The wire format lives in `#lib/protocol/index.ts` (generated from Go).
  */
-import { Version, type Envelope } from '$lib/protocol';
+import { Version, type Envelope } from '#lib/protocol/index.ts';
 
 /** `WebSocket.OPEN`, spelled out so Node (tests) does not need the DOM global. */
 export const WS_OPEN = 1;

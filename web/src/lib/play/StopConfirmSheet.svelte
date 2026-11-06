@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Sheet from '$lib/lobby/Sheet.svelte';
-	import { m } from '$lib/paraglide/messages';
+	import Sheet from '#lib/lobby/Sheet.svelte';
+	import { m } from '#lib/paraglide/messages.js';
 
 	interface Props {
 		letter: string;

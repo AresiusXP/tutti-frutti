@@ -2,22 +2,22 @@
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import ClosedScreen from '$lib/components/ClosedScreen.svelte';
-	import ConnectingScreen from '$lib/components/ConnectingScreen.svelte';
-	import ConnectionBanner from '$lib/components/ConnectionBanner.svelte';
-	import JoinGate from '$lib/components/JoinGate.svelte';
-	import { errorMessage } from '$lib/errors';
-	import { WsRoomSession } from '$lib/game/client.svelte';
-	import { clearRoomMark, hasRoomMark, markRoom } from '$lib/game/roomMark';
-	import { historySettled } from '$lib/lobby/historyPop';
-	import type { RoomSession } from '$lib/game/session';
-	import { profile } from '$lib/profile.svelte';
-	import { holdReload } from '$lib/pwa/update.svelte';
-	import { clearRecentRoom, loadRecentRoom, rememberRecentRoom } from '$lib/resume/recent';
-	import { blocks } from '$lib/safety/blocks.svelte';
-	import { terms } from '$lib/safety/terms.svelte';
-	import RoomScreen from '$lib/screens/RoomScreen.svelte';
-	import { toasts } from '$lib/toast.svelte';
+	import ClosedScreen from '#lib/components/ClosedScreen.svelte';
+	import ConnectingScreen from '#lib/components/ConnectingScreen.svelte';
+	import ConnectionBanner from '#lib/components/ConnectionBanner.svelte';
+	import JoinGate from '#lib/components/JoinGate.svelte';
+	import { errorMessage } from '#lib/errors.ts';
+	import { WsRoomSession } from '#lib/game/client.svelte.ts';
+	import { clearRoomMark, hasRoomMark, markRoom } from '#lib/game/roomMark.ts';
+	import { historySettled } from '#lib/lobby/historyPop.ts';
+	import type { RoomSession } from '#lib/game/session.ts';
+	import { profile } from '#lib/profile.svelte.ts';
+	import { holdReload } from '#lib/pwa/update.svelte.ts';
+	import { clearRecentRoom, loadRecentRoom, rememberRecentRoom } from '#lib/resume/recent.ts';
+	import { blocks } from '#lib/safety/blocks.svelte.ts';
+	import { terms } from '#lib/safety/terms.svelte.ts';
+	import RoomScreen from '#lib/screens/RoomScreen.svelte';
+	import { toasts } from '#lib/toast.svelte.ts';
 
 	/**
 	 * Shell of a room: gate -> connecting -> the phase screen (+ reconnect

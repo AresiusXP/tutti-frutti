@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { RoomSession } from '$lib/game/session';
-	import { m } from '$lib/paraglide/messages';
+	import type { RoomSession } from '#lib/game/session.ts';
+	import { m } from '#lib/paraglide/messages.js';
 
 	/**
 	 * "Reconectando…" pill over the last known screen while the socket is down

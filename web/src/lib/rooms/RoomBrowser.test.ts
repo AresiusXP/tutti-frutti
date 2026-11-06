@@ -2,18 +2,18 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
-import { ApiError, api } from '$lib/api';
-import { clearRoomMark, hasRoomMark } from '$lib/game/roomMark';
-import { i18n } from '$lib/i18n.svelte';
-import { profile } from '$lib/profile.svelte';
-import { terms } from '$lib/safety/terms.svelte';
-import { TERMS_DUE, TERMS_OK } from '$lib/safety/safety.testkit';
-import { toasts } from '$lib/toast.svelte';
+import { ApiError, api } from '#lib/api.ts';
+import { clearRoomMark, hasRoomMark } from '#lib/game/roomMark.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import { profile } from '#lib/profile.svelte.ts';
+import { terms } from '#lib/safety/terms.svelte.ts';
+import { TERMS_DUE, TERMS_OK } from '#lib/safety/safety.testkit.ts';
+import { toasts } from '#lib/toast.svelte.ts';
 import RoomBrowser from './RoomBrowser.svelte';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(() => Promise.resolve()) }));
-vi.mock('$lib/api', async (original) => ({
-	...(await original<typeof import('$lib/api')>()),
+vi.mock('#lib/api.ts', async (original) => ({
+	...(await original<typeof import('#lib/api.ts')>()),
 	api: { listRooms: vi.fn(), getRoom: vi.fn() }
 }));
 const room = {

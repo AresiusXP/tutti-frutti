@@ -1,4 +1,4 @@
-import type { View } from '$lib/protocol';
+import type { View } from '#lib/protocol/index.ts';
 import { parseDeadline } from './time';
 
 /** How long a vote to stop stays open (`game.StopVoteDuration`); the server sends the real `endsAt`. */

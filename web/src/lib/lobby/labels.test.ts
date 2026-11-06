@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { Lang, Listing } from '$lib/protocol';
+import type { Lang, Listing } from '#lib/protocol/index.ts';
 import {
 	builtinIndex,
 	checkCustom,

@@ -1,4 +1,4 @@
-import { m } from '$lib/paraglide/messages';
+import { m } from '#lib/paraglide/messages.js';
 import type { UpdateError } from './update.svelte';
 
 /** The translated sentence for an update problem. */

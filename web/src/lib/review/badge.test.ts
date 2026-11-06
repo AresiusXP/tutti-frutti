@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Cell } from '$lib/protocol';
+import type { Cell } from '#lib/protocol/index.ts';
 import { classifyCell } from './badge';
 
 const cell = (over: Partial<Cell>): Cell => ({

@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { isAndroidApp } from '$lib/android/context';
-	import Button from '$lib/components/Button.svelte';
-	import Screen from '$lib/components/Screen.svelte';
-	import SupportLink from '$lib/components/SupportLink.svelte';
-	import type { RoomSession } from '$lib/game/session';
-	import { i18n } from '$lib/i18n.svelte';
-	import { m } from '$lib/paraglide/messages';
-	import Confetti from '$lib/review/Confetti.svelte';
-	import { joinNames } from '$lib/review/players';
-	import Podium from '$lib/review/Podium.svelte';
-	import { buildPodium } from '$lib/review/podium';
-	import RankRow from '$lib/review/RankRow.svelte';
-	import { buildHistory } from '$lib/review/ranking';
-	import RoundHistory from '$lib/review/RoundHistory.svelte';
+	import { isAndroidApp } from '#lib/android/context.ts';
+	import Button from '#lib/components/Button.svelte';
+	import Screen from '#lib/components/Screen.svelte';
+	import SupportLink from '#lib/components/SupportLink.svelte';
+	import type { RoomSession } from '#lib/game/session.ts';
+	import { i18n } from '#lib/i18n.svelte.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import Confetti from '#lib/review/Confetti.svelte';
+	import { joinNames } from '#lib/review/players.ts';
+	import Podium from '#lib/review/Podium.svelte';
+	import { buildPodium } from '#lib/review/podium.ts';
+	import RankRow from '#lib/review/RankRow.svelte';
+	import { buildHistory } from '#lib/review/ranking.ts';
+	import RoundHistory from '#lib/review/RoundHistory.svelte';
 
 	/**
 	 * Final: podium of the winners (ties share a step), the full ranking and an

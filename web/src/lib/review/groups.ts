@@ -4,7 +4,7 @@
  * text, plus the pairs of passed merge proposals (transitively). Only valid
  * answers take part.
  */
-import type { ProposalView, RoundResult } from '$lib/protocol';
+import type { ProposalView, RoundResult } from '#lib/protocol/index.ts';
 
 class Sets {
 	#parent = new Map<string, string>();

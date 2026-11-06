@@ -11,7 +11,7 @@
 // (Styles set from JS through the CSSOM, i.e. Svelte's `style:` directive and `el.style.x = …`,
 // are not restricted by CSP and are not scanned.)
 //
-// Used by svelte.config.js (runs after adapter-static on every `npm run build`) and by
+// Used by vite.config.ts (runs after adapter-static on every `npm run build`) and by
 // `node scripts/csp.mjs [build-dir] [out.conf]`.
 import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';

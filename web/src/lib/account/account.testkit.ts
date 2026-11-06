@@ -1,7 +1,7 @@
 /** Test doubles for the account feature: a routable fake `fetch`, event targets and a memory profile. */
 import { vi } from 'vitest';
-import { type StorageLike, ProfileStore } from '$lib/profile.svelte';
-import { TermsStore } from '$lib/safety/terms.svelte';
+import { type StorageLike, ProfileStore } from '#lib/profile.svelte.ts';
+import { TermsStore } from '#lib/safety/terms.svelte.ts';
 import { AccountStore, type AccountDeps } from './store.svelte';
 
 export const json = (body: unknown, status = 200, headers: Record<string, string> = {}): Response =>

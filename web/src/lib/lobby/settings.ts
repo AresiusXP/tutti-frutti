@@ -1,4 +1,4 @@
-import type { CategoryRef, Lang, Settings } from '$lib/protocol';
+import type { CategoryRef, Lang, Settings } from '#lib/protocol/index.ts';
 import { MAX_CATEGORIES, MIN_CATEGORIES } from './labels';
 import { clampRounds } from './letters';
 

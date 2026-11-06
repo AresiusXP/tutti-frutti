@@ -1,4 +1,4 @@
-import type { Lang, Listing } from '$lib/protocol';
+import type { Lang, Listing } from '#lib/protocol/index.ts';
 
 /** Limits shared with the server (`server/internal/game/lang.go`; a test guards the values). */
 export const MIN_CATEGORIES = 3;

@@ -1,4 +1,4 @@
-import type { Lang } from '$lib/protocol';
+import type { Lang } from '#lib/protocol/index.ts';
 
 /**
  * Alphabets and hard letters per lobby language. They MIRROR

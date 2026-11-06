@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Version } from '$lib/protocol';
+import { Version } from '#lib/protocol/index.ts';
 import { decodeFrame, encodeFrame, wsUrl } from './transport';
 
 describe('wsUrl', () => {

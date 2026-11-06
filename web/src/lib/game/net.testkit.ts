@@ -3,7 +3,7 @@
  * `fetch` and a harness that wires them into `WsRoomSession`. Not a test file.
  */
 import { vi } from 'vitest';
-import { Version, type Envelope, type View } from '$lib/protocol';
+import { Version, type Envelope, type View } from '#lib/protocol/index.ts';
 import { makeView, player } from './fixtures';
 import { WsRoomSession, type SessionDeps } from './client.svelte';
 import type { SocketLike } from './transport';

@@ -1,4 +1,4 @@
-import type { CategoryRef, Listing } from '$lib/protocol';
+import type { CategoryRef, Listing } from '#lib/protocol/index.ts';
 import { MAX_CATEGORIES, MIN_CATEGORIES } from './labels';
 
 /** Source of randomness in [0, 1) (inject a fake one in tests). */

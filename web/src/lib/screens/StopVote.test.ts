@@ -2,11 +2,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FakeSession } from '$lib/game/fake.svelte';
-import { makeRound, makeSettings, makeStopVote, makeView, player } from '$lib/game/fixtures';
-import { i18n } from '$lib/i18n.svelte';
-import type { Phase, Player, StopVoteView, View } from '$lib/protocol';
-import { toasts } from '$lib/toast.svelte';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { makeRound, makeSettings, makeStopVote, makeView, player } from '#lib/game/fixtures.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import type { Phase, Player, StopVoteView, View } from '#lib/protocol/index.ts';
+import { toasts } from '#lib/toast.svelte.ts';
 import Playing from './Playing.svelte';
 
 const NOW = Date.parse('2026-05-01T12:00:00Z');

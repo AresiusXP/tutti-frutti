@@ -1,4 +1,4 @@
-import { m } from '$lib/paraglide/messages';
+import { m } from '#lib/paraglide/messages.js';
 
 const MESSAGES: Record<string, () => string> = {
 	unauthorized: () => m.account_err_unauthorized(),

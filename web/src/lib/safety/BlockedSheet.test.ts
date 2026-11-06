@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fieldProblems, labelNameMismatches } from '$lib/a11y.testkit';
-import { i18n } from '$lib/i18n.svelte';
-import { toasts } from '$lib/toast.svelte';
+import { fieldProblems, labelNameMismatches } from '#lib/a11y.testkit.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import { toasts } from '#lib/toast.svelte.ts';
 import BlockedSheet from './BlockedSheet.svelte';
 import { BlocksStore } from './blocks.svelte';
 import { apiError, deferred, FakeSafetyApi } from './safety.testkit';

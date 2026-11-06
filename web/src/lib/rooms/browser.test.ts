@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, type Api } from '$lib/api';
-import type { PublicRoomsResponse } from '$lib/protocol';
+import { ApiError, type Api } from '#lib/api.ts';
+import type { PublicRoomsResponse } from '#lib/protocol/index.ts';
 import { RoomBrowser } from './browser.svelte';
 
 const room = {

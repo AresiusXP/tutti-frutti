@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeSettings } from '$lib/game/fixtures';
+import { makeSettings } from '#lib/game/fixtures.ts';
 import {
 	addBuiltin,
 	addCustom,

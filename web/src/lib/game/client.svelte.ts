@@ -9,12 +9,12 @@
  * It never gives up on 502/503/504/network errors: the server is a single
  * replica and every deploy leaves a gap of a few seconds. Only the close
  * codes 4001-4005, an unknown room and a refused join are final.
- * See `$lib/game/session.ts` for the contract and docs/DESIGN.md (9a, 9b).
+ * See `#lib/game/session.ts` for the contract and docs/DESIGN.md (9a, 9b).
  */
 /* eslint-disable svelte/prefer-svelte-reactivity -- the Maps below are private bookkeeping the UI never reads */
-import { ApiError, createApi, type Api } from '$lib/api';
-import type { Avatar } from '$lib/avatar';
-import { profile as profileStore } from '$lib/profile.svelte';
+import { ApiError, createApi, type Api } from '#lib/api.ts';
+import type { Avatar } from '#lib/avatar.ts';
+import { profile as profileStore } from '#lib/profile.svelte.ts';
 import {
 	CloseKicked,
 	CloseLeft,
@@ -75,7 +75,7 @@ import {
 	type VoteMerge,
 	type VoteReject,
 	type VoteStop
-} from '$lib/protocol';
+} from '#lib/protocol/index.ts';
 import { Backoff } from './backoff';
 import type {
 	ClosedReason,

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { isAndroidApp } from '$lib/android/context';
-	import { m } from '$lib/paraglide/messages';
-	import { supportLink } from '$lib/support/support';
+	import { isAndroidApp } from '#lib/android/context.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import { supportLink } from '#lib/support/support.ts';
 
 	/**
 	 * The "support the game" link: a plain outbound link, no widget and no script, so the CSP and the

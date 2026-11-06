@@ -1,7 +1,7 @@
 <script lang="ts">
-	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
-	import type { Avatar } from '$lib/avatar';
-	import { m } from '$lib/paraglide/messages';
+	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
+	import type { Avatar } from '#lib/avatar.ts';
+	import { m } from '#lib/paraglide/messages.js';
 
 	interface Props {
 		/** Who called Basta; absent when the time limit expired. */

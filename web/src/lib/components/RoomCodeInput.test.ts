@@ -2,8 +2,8 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fieldProblems } from '$lib/a11y.testkit';
-import { i18n } from '$lib/i18n.svelte';
+import { fieldProblems } from '#lib/a11y.testkit.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
 import RoomCodeInput from './RoomCodeInput.svelte';
 
 const boxes = () => screen.getAllByRole<HTMLInputElement>('textbox');

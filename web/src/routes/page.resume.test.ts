@@ -2,16 +2,16 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
-import { account } from '$lib/account';
-import type { FakeAccount } from '$lib/account/fake.svelte';
-import { ApiError, api, type RoomInfo } from '$lib/api';
-import { clearRoomMark, hasRoomMark } from '$lib/game/roomMark';
-import { i18n } from '$lib/i18n.svelte';
-import { profile } from '$lib/profile.svelte';
-import { RECENT_ROOM_KEY, rememberRecentRoom } from '$lib/resume/recent';
-import { TERMS_OK } from '$lib/safety/safety.testkit';
-import { terms } from '$lib/safety/terms.svelte';
-import { toasts } from '$lib/toast.svelte';
+import { account } from '#lib/account/index.ts';
+import type { FakeAccount } from '#lib/account/fake.svelte.ts';
+import { ApiError, api, type RoomInfo } from '#lib/api.ts';
+import { clearRoomMark, hasRoomMark } from '#lib/game/roomMark.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import { profile } from '#lib/profile.svelte.ts';
+import { RECENT_ROOM_KEY, rememberRecentRoom } from '#lib/resume/recent.ts';
+import { TERMS_OK } from '#lib/safety/safety.testkit.ts';
+import { terms } from '#lib/safety/terms.svelte.ts';
+import { toasts } from '#lib/toast.svelte.ts';
 import Home from './+page.svelte';
 
 const route = vi.hoisted(() => ({ url: new URL('http://localhost/'), state: {} }));
@@ -21,16 +21,20 @@ vi.mock('$app/navigation', async () => {
 	return {
 		goto: vi.fn(() => Promise.resolve()),
 		replaceState: vi.fn(),
-		afterNavigate: (callback: () => void) => onMount(() => callback())
+		afterNavigate: (callback: (nav: { shallow: boolean; type: string }) => void) =>
+			onMount(() => callback({ shallow: false, type: 'enter' }))
 	};
 });
 vi.mock('$app/state', () => ({ page: route }));
-vi.mock('$lib/account', async (importOriginal) => {
-	const { FakeAccount } = await import('$lib/account/fake.svelte');
-	return { ...(await importOriginal<typeof import('$lib/account')>()), account: new FakeAccount() };
+vi.mock('#lib/account/index.ts', async (importOriginal) => {
+	const { FakeAccount } = await import('#lib/account/fake.svelte.ts');
+	return {
+		...(await importOriginal<typeof import('#lib/account/index.ts')>()),
+		account: new FakeAccount()
+	};
 });
-vi.mock('$lib/api', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/api')>()),
+vi.mock('#lib/api.ts', async (importOriginal) => ({
+	...(await importOriginal<typeof import('#lib/api.ts')>()),
 	api: { createRoom: vi.fn(), getRoom: vi.fn(), ensureSession: vi.fn() }
 }));
 

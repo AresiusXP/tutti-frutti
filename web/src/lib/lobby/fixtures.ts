@@ -3,7 +3,7 @@
  * `server/internal/catalog/categories.json` (copied to `categories.fixture.json`;
  * a test fails when they drift) served the way `GET /api/categories?lang=` does.
  */
-import type { Category, CategoryRef, Lang, Listing } from '$lib/protocol';
+import type { Category, CategoryRef, Lang, Listing } from '#lib/protocol/index.ts';
 import { LANGS } from './letters';
 import raw from './categories.fixture.json';
 

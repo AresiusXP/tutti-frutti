@@ -6,7 +6,7 @@
  *
  * None of these needs the terms to be accepted (reporting and blocking must always work).
  */
-import { ApiError, failure } from '$lib/api';
+import { ApiError, failure } from '#lib/api.ts';
 import type {
 	AcceptTermsRequest,
 	BlockedPlayer,
@@ -15,7 +15,7 @@ import type {
 	ReportRequest,
 	ReportResponse,
 	TermsStatus
-} from '$lib/protocol/api';
+} from '#lib/protocol/api.ts';
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 

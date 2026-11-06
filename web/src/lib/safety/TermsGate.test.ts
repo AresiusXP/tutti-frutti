@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { fieldProblems, labelNameMismatches } from '$lib/a11y.testkit';
-import { i18n } from '$lib/i18n.svelte';
+import { fieldProblems, labelNameMismatches } from '#lib/a11y.testkit.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
 import { apiError, FakeSafetyApi, TERMS_DUE, TERMS_OK } from './safety.testkit';
 import TermsGate from './TermsGate.svelte';
 import { TermsStore } from './terms.svelte';

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CmdSetAnswer, PingInterval, Version, type View } from '$lib/protocol';
+import { CmdSetAnswer, PingInterval, Version, type View } from '#lib/protocol/index.ts';
 import {
 	ANSWER_GAP_MS,
 	CONNECT_TIMEOUT_MS,

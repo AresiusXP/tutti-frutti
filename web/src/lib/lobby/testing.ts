@@ -3,9 +3,9 @@
  * like the server for settings and kicks (applies them to the view, optionally
  * after a delay, or refuses them).
  */
-import { FakeSession } from '$lib/game/fake.svelte';
-import { makeView, player } from '$lib/game/fixtures';
-import type { Player, Settings, View } from '$lib/protocol';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { makeView, player } from '#lib/game/fixtures.ts';
+import type { Player, Settings, View } from '#lib/protocol/index.ts';
 import { labelsFor } from './fixtures';
 
 export interface ServerLikeOptions {

@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fieldProblems, labelNameMismatches } from '$lib/a11y.testkit';
-import { i18n } from '$lib/i18n.svelte';
-import { FakeSession } from '$lib/game/fake.svelte';
-import { makeView, player } from '$lib/game/fixtures';
-import { toasts } from '$lib/toast.svelte';
+import { fieldProblems, labelNameMismatches } from '#lib/a11y.testkit.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { makeView, player } from '#lib/game/fixtures.ts';
+import { toasts } from '#lib/toast.svelte.ts';
 import { BlocksStore } from './blocks.svelte';
 import type { SafetyRequest } from './context';
 import { apiError, deferred, FakeSafetyApi } from './safety.testkit';

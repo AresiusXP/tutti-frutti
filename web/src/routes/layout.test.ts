@@ -2,19 +2,19 @@
 import { render } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { isAndroidApp } from '$lib/android/context';
+import { isAndroidApp } from '#lib/android/context.ts';
 import Layout from './+layout.svelte';
 
-vi.mock('$lib/components/OfflineBanner.svelte', async () => ({
+vi.mock('#lib/components/OfflineBanner.svelte', async () => ({
 	default: (await import('./LayoutStub.svelte')).default
 }));
-vi.mock('$lib/components/Toasts.svelte', async () => ({
+vi.mock('#lib/components/Toasts.svelte', async () => ({
 	default: (await import('./LayoutStub.svelte')).default
 }));
-vi.mock('$lib/components/UpdatePrompt.svelte', async () => ({
+vi.mock('#lib/components/UpdatePrompt.svelte', async () => ({
 	default: (await import('./LayoutStub.svelte')).default
 }));
-vi.mock('$lib/safety/TermsGate.svelte', async () => ({
+vi.mock('#lib/safety/TermsGate.svelte', async () => ({
 	default: (await import('./LayoutStub.svelte')).default
 }));
 

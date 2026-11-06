@@ -1,8 +1,8 @@
 <script lang="ts">
-	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
-	import { m } from '$lib/paraglide/messages';
-	import type { AIVerdict, Cell, Player } from '$lib/protocol';
-	import SafetyButton from '$lib/safety/SafetyButton.svelte';
+	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
+	import { m } from '#lib/paraglide/messages.js';
+	import type { AIVerdict, Cell, Player } from '#lib/protocol/index.ts';
+	import SafetyButton from '#lib/safety/SafetyButton.svelte';
 	import { classifyCell } from './badge';
 	import type { MergeUi } from './merge';
 	import { avatarOf } from './players';

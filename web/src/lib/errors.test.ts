@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import * as protocol from '$lib/protocol';
+import * as protocol from '#lib/protocol/index.ts';
 import { errorMessage, KNOWN_ERROR_CODES } from './errors';
 import { i18n } from './i18n.svelte';
 import { m } from './paraglide/messages';

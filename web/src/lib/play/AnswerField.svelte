@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { m } from '$lib/paraglide/messages';
-	import SafetyButton from '$lib/safety/SafetyButton.svelte';
+	import { m } from '#lib/paraglide/messages.js';
+	import SafetyButton from '#lib/safety/SafetyButton.svelte';
 	import { MAX_ANSWER_LEN, type FieldStatus } from './answer';
 
 	interface Props {

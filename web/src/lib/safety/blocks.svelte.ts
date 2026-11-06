@@ -8,8 +8,8 @@
  * socket may close (4005/4002/4004) before or after the HTTP answer, and either way the room route
  * must go Home quietly instead of showing "you were kicked".
  */
-import { ApiError } from '$lib/api';
-import type { BlockedPlayer } from '$lib/protocol/api';
+import { ApiError } from '#lib/api.ts';
+import type { BlockedPlayer } from '#lib/protocol/api.ts';
 import { type SafetyApi, safetyApi } from './api';
 
 export type BlockOutcome = { ok: true; leftRooms: string[] } | { ok: false; code: string };

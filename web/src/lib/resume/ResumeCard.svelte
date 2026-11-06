@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type RoomInfo } from '$lib/api';
-	import { m } from '$lib/paraglide/messages';
+	import { api, type RoomInfo } from '#lib/api.ts';
+	import { m } from '#lib/paraglide/messages.js';
 	import { clearRecentRoom, loadRecentRoom, type RecentRoom } from './recent';
 	import { verdictOf } from './verdict';
 

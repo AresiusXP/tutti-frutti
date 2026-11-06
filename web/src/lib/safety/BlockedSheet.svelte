@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import Button from '$lib/components/Button.svelte';
-	import { errorMessage } from '$lib/errors';
-	import Sheet from '$lib/lobby/Sheet.svelte';
-	import { m } from '$lib/paraglide/messages';
-	import { toasts } from '$lib/toast.svelte';
+	import Button from '#lib/components/Button.svelte';
+	import { errorMessage } from '#lib/errors.ts';
+	import Sheet from '#lib/lobby/Sheet.svelte';
+	import { m } from '#lib/paraglide/messages.js';
+	import { toasts } from '#lib/toast.svelte.ts';
 	import { blocks as sharedBlocks, type BlocksStore } from './blocks.svelte';
 
 	/**

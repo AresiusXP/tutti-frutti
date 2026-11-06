@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { m } from '$lib/paraglide/messages';
+	import { m } from '#lib/paraglide/messages.js';
 	import type { CellBadge } from './badge';
 
 	/** Points pill of one answer: 10 unique = lime, 5 shared = banana, 0 = grey; nothing for empty answers. */

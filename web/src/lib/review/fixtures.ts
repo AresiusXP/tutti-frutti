@@ -6,7 +6,7 @@
  * the engine (`scoring.go` + `review.go`), so every scenario is internally
  * consistent and the demo session can react to votes like the server does.
  */
-import { DEFAULT_CATEGORY_IDS, makeSettings, makeView, player } from '$lib/game/fixtures';
+import { DEFAULT_CATEGORY_IDS, makeSettings, makeView, player } from '#lib/game/fixtures.ts';
 import type {
 	AIVerdict,
 	Lang,
@@ -17,7 +17,7 @@ import type {
 	RoundResult,
 	RoundView,
 	View
-} from '$lib/protocol';
+} from '#lib/protocol/index.ts';
 import { rejectTally } from './votes';
 
 /** Fixture-only simulation of the server electorate. */

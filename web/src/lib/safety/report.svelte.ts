@@ -3,7 +3,7 @@
  * (the answer may have been lost on the way, the server may have been busy) uses the same key, so the
  * server ends up with exactly one report. Success is only ever claimed after the server answered 200/201.
  */
-import { ApiError } from '$lib/api';
+import { ApiError } from '#lib/api.ts';
 import type { SafetyApi } from './api';
 import { safetyApi } from './api';
 import {

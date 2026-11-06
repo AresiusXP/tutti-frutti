@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { m } from '$lib/paraglide/messages';
+	import { m } from '#lib/paraglide/messages.js';
 	import ProgressStrip from './ProgressStrip.svelte';
 	import type { ProgressEntry } from './progress';
 	import type { TimerTone } from './time';

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import AvatarBadge from '$lib/components/AvatarBadge.svelte';
-	import { m } from '$lib/paraglide/messages';
-	import type { Cell } from '$lib/protocol';
-	import SafetyButton from '$lib/safety/SafetyButton.svelte';
+	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
+	import { m } from '#lib/paraglide/messages.js';
+	import type { Cell } from '#lib/protocol/index.ts';
+	import SafetyButton from '#lib/safety/SafetyButton.svelte';
 	import { classifyCell } from './badge';
 	import { avatarOf } from './players';
 	import PointsBadge from './PointsBadge.svelte';

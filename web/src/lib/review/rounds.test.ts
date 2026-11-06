@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { player } from '$lib/game/fixtures';
+import { player } from '#lib/game/fixtures.ts';
 import { availableLetters, lastRoundReason } from './rounds';
 import { avatarOf, joinNames, playerName } from './players';
 

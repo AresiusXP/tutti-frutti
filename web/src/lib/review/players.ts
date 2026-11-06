@@ -1,5 +1,5 @@
-import type { Player } from '$lib/protocol';
-import type { Avatar } from '$lib/avatar';
+import type { Player } from '#lib/protocol/index.ts';
+import type { Avatar } from '#lib/avatar.ts';
 
 /** The protocol avatar (`color` is a free string) as the `AvatarBadge` type. */
 export function avatarOf(player: Pick<Player, 'avatar'>): Avatar {

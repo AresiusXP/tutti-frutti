@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Button from '$lib/components/Button.svelte';
-	import { m } from '$lib/paraglide/messages';
+	import Button from '#lib/components/Button.svelte';
+	import { m } from '#lib/paraglide/messages.js';
 	import { inviteUrl } from './invite';
 	import QrCode from './QrCode.svelte';
 	import Sheet from './Sheet.svelte';

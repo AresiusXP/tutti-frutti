@@ -1,7 +1,7 @@
 <script lang="ts">
-	import LegalLinks from '$lib/components/LegalLinks.svelte';
-	import Sheet from '$lib/lobby/Sheet.svelte';
-	import { m } from '$lib/paraglide/messages';
+	import LegalLinks from '#lib/components/LegalLinks.svelte';
+	import Sheet from '#lib/lobby/Sheet.svelte';
+	import { m } from '#lib/paraglide/messages.js';
 	import BlockedSheet from './BlockedSheet.svelte';
 
 	/**

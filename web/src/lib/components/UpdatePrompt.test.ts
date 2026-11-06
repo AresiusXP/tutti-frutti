@@ -2,13 +2,13 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { i18n } from '$lib/i18n.svelte';
+import { i18n } from '#lib/i18n.svelte.ts';
 import {
 	FakeWorker,
 	installFakeServiceWorker,
 	restoreFakeServiceWorker
-} from '$lib/pwa/sw.testkit';
-import { resetUpdateForTests, update } from '$lib/pwa/update.svelte';
+} from '#lib/pwa/sw.testkit.ts';
+import { resetUpdateForTests, update } from '#lib/pwa/update.svelte.ts';
 import UpdatePrompt from './UpdatePrompt.svelte';
 
 const plugin = vi.hoisted(() => ({ registerSW: vi.fn() }));

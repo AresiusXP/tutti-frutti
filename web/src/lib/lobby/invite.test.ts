@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { i18n } from '$lib/i18n.svelte';
+import { i18n } from '#lib/i18n.svelte.ts';
 import { copyText, inviteUrl, shareInvite } from './invite';
 
 function setNavigator(props: { share?: unknown; clipboard?: unknown }) {

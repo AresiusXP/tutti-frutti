@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -114,41 +114,56 @@ describe('service worker policy', () => {
 		expect(config).toMatch(/handler:\s*'NetworkOnly'/);
 	});
 
+	// a build that lost the PWA plugin (the old @vite-pwa/sveltekit/Kit mismatch) ships an app without a worker
+	it.runIf(existsSync(join(root, 'build', 'index.html')))(
+		'the build ships the service worker, its Workbox runtime and the manifest',
+		() => {
+			expect(existsSync(join(root, 'build', 'sw.js'))).toBe(true);
+			expect(readdirSync(join(root, 'build')).some((f) => /^workbox-.+\.js$/.test(f))).toBe(true);
+			expect(existsSync(join(root, 'build', 'manifest.webmanifest'))).toBe(true);
+		}
+	);
+
 	describe.runIf(existsSync(join(root, 'build', 'sw.js')))('the built sw.js', () => {
 		const sw = existsSync(join(root, 'build', 'sw.js')) ? read('build/sw.js') : '';
 
 		it('skips waiting only when the page asks for it', () => {
 			expect([...sw.matchAll(/skipWaiting\(\)/g)]).toHaveLength(1);
-			expect(sw).toMatch(/"SKIP_WAITING"===[^;]*\.type&&self\.skipWaiting\(\)/);
+			expect(sw).toMatch(/\.type===[`"]SKIP_WAITING[`"]&&self\.skipWaiting\(\)/);
 			expect(sw).not.toContain('clientsClaim');
-			expect(sw).toContain('cleanupOutdatedCaches');
+			// the build is minified (`cleanupOutdatedCaches()` is a bare call): it runs between the
+			// precache (`precacheAndRoute(...)`) and the navigation route (`registerRoute(new NavigationRoute(...))`)
+			expect(sw).toMatch(/\}\),\w+\(\),\w+\(new \w+\(/);
 		});
 
 		it('precaches the shell but neither the backend, nor screenshots, nor the preview image, nor itself', () => {
-			const urls = [...sw.matchAll(/\{url:"([^"]+)"/g)].map((m) => m[1]);
+			const urls = [...sw.matchAll(/\{url:[`"]([^`"]+)[`"]/g)].map((m) => m[1]);
 			expect(urls).toContain('index.html');
 			expect(urls).toContain('manifest.webmanifest');
 			expect(
 				urls.filter((u) => /^(?:api|ws|healthz)|screenshots|og-image|^sw\.js|^workbox-/.test(u))
 			).toEqual([]);
 			expect(sw).toMatch(/denylist:\[\/\^\\\/\(\?:api\|ws\|healthz\|readyz\|metrics\)/);
-			expect(sw).toContain('NetworkOnly');
+			// the backend namespace gets a route of its own, answered by `new NetworkOnly()` (minified)
+			expect(sw).toMatch(
+				/RegExp\(`[^`]*\(\?:api\|ws\|healthz\|readyz\|metrics\)[^`]*`,``\),new \w+,`GET`\)/
+			);
 		});
 
 		it('leaves /.well-known/ to the network: not precached, not an SPA fallback', () => {
-			const urls = [...sw.matchAll(/\{url:"([^"]+)"/g)].map((m) => m[1]);
+			const urls = [...sw.matchAll(/\{url:[`"]([^`"]+)[`"]/g)].map((m) => m[1]);
 			expect(urls.filter((u) => /well-known|assetlinks/.test(u))).toEqual([]);
 			expect(sw).toMatch(/denylist:\[[^\]]*\/\^\\\/\\\.well-known\(\?:\\\/\|\$\)\//);
 		});
 
 		it('leaves the static privacy policy to the network: not precached, not an SPA fallback', () => {
-			const urls = [...sw.matchAll(/\{url:"([^"]+)"/g)].map((m) => m[1]);
+			const urls = [...sw.matchAll(/\{url:[`"]([^`"]+)[`"]/g)].map((m) => m[1]);
 			expect(urls.filter((u) => /^privacy/.test(u))).toEqual([]);
 			expect(sw).toMatch(/denylist:\[[^\]]*\/\^\\\/privacy\(\?:\\\/\|\\\.html\)\?\$\//);
 		});
 
 		it('leaves the static terms and account-deletion pages to the network too', () => {
-			const urls = [...sw.matchAll(/\{url:"([^"]+)"/g)].map((m) => m[1]);
+			const urls = [...sw.matchAll(/\{url:[`"]([^`"]+)[`"]/g)].map((m) => m[1]);
 			expect(urls.filter((u) => /^(?:terms|delete-account)/.test(u))).toEqual([]);
 			expect(sw).toMatch(
 				/denylist:\[[^\]]*\/\^\\\/\(\?:terms\|delete-account\)\(\?:\\\/\|\\\.html\)\?\$\//

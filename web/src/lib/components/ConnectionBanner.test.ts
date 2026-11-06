@@ -2,9 +2,9 @@
 import { render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeSession } from '$lib/game/fake.svelte';
-import { makeView } from '$lib/game/fixtures';
-import { i18n } from '$lib/i18n.svelte';
+import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { makeView } from '#lib/game/fixtures.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
 import ConnectionBanner from './ConnectionBanner.svelte';
 
 describe('ConnectionBanner', () => {

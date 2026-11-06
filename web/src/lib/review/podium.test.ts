@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { player } from '$lib/game/fixtures';
-import type { Player, RoundResult } from '$lib/protocol';
+import { player } from '#lib/game/fixtures.ts';
+import type { Player, RoundResult } from '#lib/protocol/index.ts';
 import { buildPodium } from './podium';
 
 const p = (id: string, total: number, over: Partial<Player> = {}) =>

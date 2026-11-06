@@ -2,7 +2,7 @@
 // src/lib/pwa.test.ts). Colours: --color-night in src/app.css = <meta name="theme-color"> in
 // src/app.html = theme_color/background_color here (a test keeps them in sync), so neither the
 // splash screen nor the first paint flashes another colour.
-import type { ManifestOptions } from 'vite-plugin-pwa';
+import type { ManifestOptions } from '@unplugin-pwa/core';
 import { BRAND } from '../src/lib/brand.ts';
 import screenshots from './screenshots.json' with { type: 'json' };
 

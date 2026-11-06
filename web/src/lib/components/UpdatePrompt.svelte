@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { m } from '$lib/paraglide/messages';
-	import { applyUpdate, startUpdates, update } from '$lib/pwa/update.svelte';
-	import { updateErrorText } from '$lib/pwa/errors';
+	import { m } from '#lib/paraglide/messages.js';
+	import { applyUpdate, startUpdates, update } from '#lib/pwa/update.svelte.ts';
+	import { updateErrorText } from '#lib/pwa/errors.ts';
 
 	onMount(() => startUpdates());
 </script>

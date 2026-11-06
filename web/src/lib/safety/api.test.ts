@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { ApiError } from '$lib/api';
-import { FakeServer, empty, json } from '$lib/account/account.testkit';
+import { ApiError } from '#lib/api.ts';
+import { FakeServer, empty, json } from '#lib/account/account.testkit.ts';
 import { createSafetyApi, parseTerms } from './api';
 import { TERMS_DUE, TERMS_OK } from './safety.testkit';
 

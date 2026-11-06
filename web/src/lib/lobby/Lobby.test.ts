@@ -2,12 +2,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { flushSync, tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { labelNameMismatches } from '$lib/a11y.testkit';
-import { makeSettings } from '$lib/game/fixtures';
-import { i18n } from '$lib/i18n.svelte';
-import type { Settings } from '$lib/protocol';
-import Lobby from '$lib/screens/Lobby.svelte';
-import { toasts } from '$lib/toast.svelte';
+import { labelNameMismatches } from '#lib/a11y.testkit.ts';
+import { makeSettings } from '#lib/game/fixtures.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import type { Settings } from '#lib/protocol/index.ts';
+import Lobby from '#lib/screens/Lobby.svelte';
+import { toasts } from '#lib/toast.svelte.ts';
 import { catalog } from './catalog.svelte';
 import { fixtureFetch, labelsFor } from './fixtures';
 import { PENDING_MS } from './sync.svelte';

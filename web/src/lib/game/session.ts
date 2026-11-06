@@ -1,16 +1,16 @@
 /**
  * The contract between the room screens and the network layer.
  *
- * Screens (`$lib/screens/*.svelte`) receive a `RoomSession` and never touch
+ * Screens (`#lib/screens/*.svelte`) receive a `RoomSession` and never touch
  * WebSockets, cookies or the protocol envelope. The real implementation lives
- * in `$lib/game/client.svelte.ts` (WebSocket, reconnect, join); tests and the
- * dev playground use `FakeSession` from `$lib/game/fake.svelte.ts`.
+ * in `#lib/game/client.svelte.ts` (WebSocket, reconnect, join); tests and the
+ * dev playground use `FakeSession` from `#lib/game/fake.svelte.ts`.
  *
  * Every property below is REACTIVE (Svelte 5 runes): read it inside
  * `$derived`/templates and the UI follows. Commands never throw: a rejected
  * command (not host, wrong phase, ...) arrives later through `lastError`.
  */
-import type { Event as GameEvent, Player, Settings, View } from '$lib/protocol';
+import type { Event as GameEvent, Player, Settings, View } from '#lib/protocol/index.ts';
 
 export type ConnectionStatus =
 	/** First connection in progress (before the first state arrived). */

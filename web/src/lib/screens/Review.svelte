@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import Button from '$lib/components/Button.svelte';
-	import Screen from '$lib/components/Screen.svelte';
-	import type { RoomSession } from '$lib/game/session';
-	import { m } from '$lib/paraglide/messages';
-	import AnswerCard from '$lib/review/AnswerCard.svelte';
-	import CategoryStrip from '$lib/review/CategoryStrip.svelte';
-	import ConfirmBar from '$lib/review/ConfirmBar.svelte';
-	import { answerGroups } from '$lib/review/groups';
+	import Button from '#lib/components/Button.svelte';
+	import Screen from '#lib/components/Screen.svelte';
+	import type { RoomSession } from '#lib/game/session.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import AnswerCard from '#lib/review/AnswerCard.svelte';
+	import CategoryStrip from '#lib/review/CategoryStrip.svelte';
+	import ConfirmBar from '#lib/review/ConfirmBar.svelte';
+	import { answerGroups } from '#lib/review/groups.ts';
 	import {
 		firstPickable,
 		MERGE_IDLE,
@@ -18,11 +18,11 @@
 		type MergeContext,
 		type MergeState,
 		type MergeUi
-	} from '$lib/review/merge';
-	import { playerName } from '$lib/review/players';
-	import ProposalCard from '$lib/review/ProposalCard.svelte';
-	import { toasts } from '$lib/toast.svelte';
-	import { mergeTally, rejectTally } from '$lib/review/votes';
+	} from '#lib/review/merge.ts';
+	import { playerName } from '#lib/review/players.ts';
+	import ProposalCard from '#lib/review/ProposalCard.svelte';
+	import { toasts } from '#lib/toast.svelte.ts';
+	import { mergeTally, rejectTally } from '#lib/review/votes.ts';
 
 	/**
 	 * Review: everybody sees the same category (the host moves it with ◀ ▶,

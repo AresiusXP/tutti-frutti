@@ -2,17 +2,17 @@
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { ApiError, api } from '$lib/api';
-	import Button from '$lib/components/Button.svelte';
-	import LanguageSwitch from '$lib/components/LanguageSwitch.svelte';
-	import Screen from '$lib/components/Screen.svelte';
-	import { errorMessage } from '$lib/errors';
-	import { clearRoomMark, markRoom } from '$lib/game/roomMark';
-	import { i18n } from '$lib/i18n.svelte';
-	import { m } from '$lib/paraglide/messages';
-	import { profile } from '$lib/profile.svelte';
-	import { terms } from '$lib/safety/terms.svelte';
-	import { toasts } from '$lib/toast.svelte';
+	import { ApiError, api } from '#lib/api.ts';
+	import Button from '#lib/components/Button.svelte';
+	import LanguageSwitch from '#lib/components/LanguageSwitch.svelte';
+	import Screen from '#lib/components/Screen.svelte';
+	import { errorMessage } from '#lib/errors.ts';
+	import { clearRoomMark, markRoom } from '#lib/game/roomMark.ts';
+	import { i18n } from '#lib/i18n.svelte.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import { profile } from '#lib/profile.svelte.ts';
+	import { terms } from '#lib/safety/terms.svelte.ts';
+	import { toasts } from '#lib/toast.svelte.ts';
 	import { RoomBrowser } from './browser.svelte';
 
 	const browser = new RoomBrowser(untrack(() => i18n.locale));

@@ -5,8 +5,8 @@
  * no letter is left to play. The alphabets and hard-letter lists mirror
  * `lang.go` (the tables live in `lobby/letters.ts`, which a test checks against it).
  */
-import { ALPHABETS, HARD_LETTERS } from '$lib/lobby/letters';
-import type { Lang, Settings } from '$lib/protocol';
+import { ALPHABETS, HARD_LETTERS } from '#lib/lobby/letters.ts';
+import type { Lang, Settings } from '#lib/protocol/index.ts';
 
 /** Letters that can still be played: the alphabet without the used (and, if asked, the hard) ones. */
 export function availableLetters(

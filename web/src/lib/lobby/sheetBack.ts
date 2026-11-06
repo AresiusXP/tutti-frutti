@@ -1,4 +1,4 @@
-import { pushState } from '$app/navigation';
+import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import { expectPop } from './historyPop';
 
@@ -23,21 +23,43 @@ export interface BackClaim {
 	release(): void;
 }
 
-/** `null` without a router (unit tests, static render): the sheet then simply has no Back handling. */
+/** Without a router (unit tests, static render) `goto` rejects: the claim then never goes away and never pops, so the sheet simply has no Back handling. */
 export function claimBack(): BackClaim | null {
-	let depth: number;
+	const depth = depthNow() + 1;
+	// `goto` applies the state asynchronously: until the entry is seen, nothing is "gone" (nor poppable)
+	let seen = false;
+	let retried = false;
+	let pushed: Promise<void>;
 	try {
-		depth = depthNow() + 1;
-		pushState('', { [KEY]: depth });
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- same URL: only the history state changes
+		pushed = goto('', { shallow: true, state: { [KEY]: depth } });
 	} catch {
 		return null;
 	}
+	// no router (not started, static render): the sheet has no Back handling, as if there were no claim
+	pushed.catch(() => {});
+	const observe = () => {
+		const now = depthNow();
+		if (now >= depth) seen = true;
+		return now;
+	};
 	return {
 		get gone() {
-			return depthNow() < depth;
+			const now = observe();
+			return seen && now < depth;
 		},
 		release() {
-			if (depthNow() !== depth) return;
+			if (observe() !== depth) {
+				// closed before the entry landed: pop it as soon as it has
+				if (!seen && !retried) {
+					retried = true;
+					void pushed.then(
+						() => this.release(),
+						() => {}
+					);
+				}
+				return;
+			}
 			expectPop();
 			history.back();
 		}

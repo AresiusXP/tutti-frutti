@@ -3,16 +3,19 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
-import { account, type Outcome } from '$lib/account';
-import type { FakeAccount } from '$lib/account/fake.svelte';
-import { i18n } from '$lib/i18n.svelte';
-import { toasts } from '$lib/toast.svelte';
+import { account, type Outcome } from '#lib/account/index.ts';
+import type { FakeAccount } from '#lib/account/fake.svelte.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
+import { toasts } from '#lib/toast.svelte.ts';
 import Stats from './+page.svelte';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(() => Promise.resolve()) }));
-vi.mock('$lib/account', async (importOriginal) => {
-	const { FakeAccount } = await import('$lib/account/fake.svelte');
-	return { ...(await importOriginal<typeof import('$lib/account')>()), account: new FakeAccount() };
+vi.mock('#lib/account/index.ts', async (importOriginal) => {
+	const { FakeAccount } = await import('#lib/account/fake.svelte.ts');
+	return {
+		...(await importOriginal<typeof import('#lib/account/index.ts')>()),
+		account: new FakeAccount()
+	};
 });
 
 const fake = account as unknown as FakeAccount;

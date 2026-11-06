@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { m } from '$lib/paraglide/messages';
+	import { m } from '#lib/paraglide/messages.js';
 	import type { HistoryRound } from './ranking';
 
 	/** Expandable per-round history: every round with the totals of its players, best first. */

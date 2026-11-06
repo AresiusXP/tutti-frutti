@@ -1,6 +1,6 @@
 /** Test doubles for the safety layer: terms fixtures and a scriptable `SafetyApi`. */
 import { vi } from 'vitest';
-import { ApiError } from '$lib/api';
+import { ApiError } from '#lib/api.ts';
 import type {
 	AcceptTermsRequest,
 	BlockedPlayer,
@@ -9,7 +9,7 @@ import type {
 	ReportRequest,
 	ReportResponse,
 	TermsStatus
-} from '$lib/protocol/api';
+} from '#lib/protocol/api.ts';
 import type { SafetyApi } from './api';
 
 export const TERMS_OK: TermsStatus = {

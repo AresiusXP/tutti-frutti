@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AVATAR_COLORS, AVATAR_EMOJIS } from '$lib/avatar';
-import { i18n } from '$lib/i18n.svelte';
+import { AVATAR_COLORS, AVATAR_EMOJIS } from '#lib/avatar.ts';
+import { i18n } from '#lib/i18n.svelte.ts';
 import AvatarPicker from './AvatarPicker.svelte';
 
 describe('AvatarPicker', () => {

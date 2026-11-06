@@ -102,16 +102,14 @@
       "enabled": false
     },
     {
-      "description": "BLOCKED (SvelteKit 3 toolchain): @sveltejs/kit 3, @sveltejs/adapter-static 4 and vite-plugin-pwa 2 only work together, and @vite-pwa/sveltekit 1.1.0 (the PWA/service worker plugin, peer @sveltejs/kit ^1.3.1 || ^2.0.1, depends on vite-plugin-pwa ^1.2.0) supports none of them: npm ci fails with ERESOLVE, and forcing it builds an app WITHOUT a service worker (vite-pwa/sveltekit#111). Kit 3 also needs a config migration (svelte.config.js, $lib alias). Retry when `npm view @vite-pwa/sveltekit peerDependencies` lists @sveltejs/kit ^3 and its vite-plugin-pwa dependency is ^2: then enable this rule so the three arrive in one PR.",
+      "description": "SvelteKit toolchain: @sveltejs/kit, @sveltejs/adapter-static (its peer is the Kit major) and @vite-pwa/sveltekit (the PWA/service worker plugin, peer @sveltejs/kit) only work together, so a major of any of them arrives in one PR. Check that the build still emits a service worker: `npm run build`, then `npx vitest run src/lib/pwa.test.ts src/lib/security.test.ts` (see web/README.md, PWA). Kit majors also change the configuration (Kit 3: no svelte.config.js, `#lib` instead of `$lib`).",
       "matchPackageNames": [
         "@sveltejs/kit",
         "@sveltejs/adapter-static",
-        "@vite-pwa/sveltekit",
-        "vite-plugin-pwa"
+        "@vite-pwa/sveltekit"
       ],
       "matchUpdateTypes": ["major"],
-      "groupName": "sveltekit toolchain",
-      "enabled": false
+      "groupName": "sveltekit toolchain"
     },
     {
       "description": "BLOCKED (TypeScript 7 is the native compiler and ships no JavaScript API): typescript-eslint refuses it (peer typescript >=4.8.4 <6.1.0, throws 'does not support TS 7.0'), svelte-check 4 (peer ^5 || ^6) only runs it as an alias next to TypeScript 6 with --tsgo, and @sveltejs/kit peers ^5.3.3 || ^6. Retry when `npm view typescript-eslint peerDependencies` and `npm view svelte-check peerDependencies` accept typescript 7.",

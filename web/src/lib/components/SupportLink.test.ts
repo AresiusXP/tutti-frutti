@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { i18n } from '$lib/i18n.svelte';
-import { SUPPORT_ARGENTINA, SUPPORT_DEFAULT } from '$lib/support/support';
+import { i18n } from '#lib/i18n.svelte.ts';
+import { SUPPORT_ARGENTINA, SUPPORT_DEFAULT } from '#lib/support/support.ts';
 import SupportLink from './SupportLink.svelte';
 
 const device = (timeZone: string, languages: string[]) => {

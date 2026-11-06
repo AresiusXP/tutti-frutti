@@ -1,11 +1,11 @@
 /**
  * Wire types of the Phase 4 account REST API (`/api/session`, `/api/me`,
  * `/api/me/profile`, `/api/me/stats`). They are GENERATED from the Go structs
- * (`go tool tygo generate` → `$lib/protocol/api.ts`, never edited by hand); the
+ * (`go tool tygo generate` → `#lib/protocol/api.ts`, never edited by hand); the
  * names below are the ones the account feature uses.
  */
-import type { Avatar } from '$lib/protocol';
-import type { Profile, SessionInfo, Stats, UserInfo } from '$lib/protocol/api';
+import type { Avatar } from '#lib/protocol/index.ts';
+import type { Profile, SessionInfo, Stats, UserInfo } from '#lib/protocol/api.ts';
 
 export type { SessionInfo, Stats };
 

@@ -22,12 +22,12 @@
  *    nagged; the sync resumes by itself once the terms are accepted (never a retry loop).
  */
 import { untrack } from 'svelte';
-import { ApiError } from '$lib/api';
-import { isAvatar } from '$lib/avatar';
-import { m } from '$lib/paraglide/messages';
-import { type ProfileStore, profile as sharedProfile } from '$lib/profile.svelte';
-import { type TermsStore, terms as sharedTerms } from '$lib/safety/terms.svelte';
-import { toasts } from '$lib/toast.svelte';
+import { ApiError } from '#lib/api.ts';
+import { isAvatar } from '#lib/avatar.ts';
+import { m } from '#lib/paraglide/messages.js';
+import { type ProfileStore, profile as sharedProfile } from '#lib/profile.svelte.ts';
+import { type TermsStore, terms as sharedTerms } from '#lib/safety/terms.svelte.ts';
+import { toasts } from '#lib/toast.svelte.ts';
 import { type AccountApi, createAccountApi } from './api';
 import { loginPath } from './returnTo';
 import { OK, type Outcome, type SavedProfile, type Stats } from './types';

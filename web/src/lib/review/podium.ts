@@ -1,4 +1,4 @@
-import type { View } from '$lib/protocol';
+import type { View } from '#lib/protocol/index.ts';
 import { buildRanking, type RankRow } from './ranking';
 
 export interface PodiumPlace {

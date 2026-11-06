@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { m } from '$lib/paraglide/messages';
+	import { m } from '#lib/paraglide/messages.js';
 	import BlockedSheet from './BlockedSheet.svelte';
 
 	/** The "Blocked players" entry (Home, My stats): a text button that opens the list sheet. */

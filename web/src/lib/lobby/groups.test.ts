@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { i18n } from '$lib/i18n.svelte';
+import { i18n } from '#lib/i18n.svelte.ts';
 import { listingFor } from './fixtures';
 import { groupTitle } from './groups';
 

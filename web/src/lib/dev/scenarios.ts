@@ -5,7 +5,7 @@
  * returns a ready `FakeSession`. Add scenarios in YOUR OWN file so parallel work
  * never collides; they are picked up automatically.
  */
-import type { FakeSession } from '$lib/game/fake.svelte';
+import type { FakeSession } from '#lib/game/fake.svelte.ts';
 
 export type Scenario = () => FakeSession;
 
