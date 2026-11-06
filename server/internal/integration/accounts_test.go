@@ -231,21 +231,30 @@ func (f *flakyBackend) lastRecord() store.GameRecord {
 // persistedOf decodes the saved snapshot of a room, accounts included.
 func persistedOf(t *testing.T, st store.Store, code string) room.Persisted {
 	t.Helper()
+	p, ok := findPersisted(t, st, code)
+	if !ok {
+		t.Fatalf("no snapshot of room %s", code)
+	}
+	return p
+}
+
+// findPersisted is persistedOf for a room whose first snapshot may not have been
+// saved yet (snapshots are written asynchronously): ok is false then.
+func findPersisted(t *testing.T, st store.Store, code string) (p room.Persisted, ok bool) {
+	t.Helper()
 	snaps, err := st.LoadAll(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, sn := range snaps {
 		if sn.Code == code {
-			var p room.Persisted
 			if err := json.Unmarshal(sn.State, &p); err != nil {
 				t.Fatal(err)
 			}
-			return p
+			return p, true
 		}
 	}
-	t.Fatalf("no snapshot of room %s", code)
-	return room.Persisted{}
+	return room.Persisted{}, false
 }
 
 // playSecondRound plays round 2 of a two-round game from the round summary of

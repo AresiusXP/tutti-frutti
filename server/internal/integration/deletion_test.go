@@ -89,9 +89,11 @@ func TestDeletingAnAccountWhileAGameIsOn(t *testing.T) {
 		}
 
 		// The open socket lost the account by the time the response arrived: its
-		// next question is refused, and its state says so.
-		tb.wantCmdError(0, protocol.ErrLoginRequired, game.CmdAskJudge, game.AskJudge{Category: 1})
+		// next question is refused, and its state says so. The state frame is
+		// written by the socket's own goroutine, so it may still be in flight; wait
+		// for it first, or cmd would take it for the reply to the question.
 		st := tb.seats[0].c.waitState("canJudge revoked", func(st *protocol.State) bool { return !st.CanJudge })
+		tb.wantCmdError(0, protocol.ErrLoginRequired, game.CmdAskJudge, game.AskJudge{Category: 1})
 		if got := j.calls.Load(); got != 1 {
 			t.Errorf("the judge was asked %d times, the second by a deleted account", got)
 		}
@@ -128,8 +130,8 @@ func TestDeletingAnAccountWhileAGameIsOn(t *testing.T) {
 			t.Error("a socket opened with the copied cookie can ask the AI judge")
 		}
 		eventually(t, "the thief's room in the snapshots", func() bool {
-			p := persistedOf(t, s.store, code2)
-			return bytes.Contains(p.Game, []byte("Thief"))
+			p, ok := findPersisted(t, s.store, code2)
+			return ok && bytes.Contains(p.Game, []byte("Thief"))
 		})
 		if p := persistedOf(t, s.store, code2); len(p.Users) != 0 || len(p.Accounts) != 0 {
 			t.Errorf("the copied cookie linked a seat to an account: users %v accounts %v", p.Users, p.Accounts)
