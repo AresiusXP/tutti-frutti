@@ -149,6 +149,8 @@ test('accepting is remembered: after a reload and for the next create or join th
 
 	await test.step('Home after a reload: creating again goes straight through', async () => {
 		await dani.page.goto('/');
+		// a reload while the app still loads its lazy chunks aborts them: a "failed request" for the guard
+		await dani.page.waitForLoadState('networkidle');
 		await dani.page.reload();
 		await expect(dani.home.nickname).toBeVisible();
 		await app.beforeRoomCreation();
