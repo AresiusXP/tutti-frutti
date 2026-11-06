@@ -23,8 +23,10 @@ permissions:
   contents: read
 
 jobs:
-  ci:
+  web:
+    name: Web
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: web

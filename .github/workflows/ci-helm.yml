@@ -42,8 +42,10 @@ env:
   PROMETHEUS_SHA256: f665c6da19eb7ba399c915d30c7d9793c9b417bf8a749b504bc470678631478d
 
 jobs:
-  ci:
+  helm:
+    name: Helm
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Checkout repository
