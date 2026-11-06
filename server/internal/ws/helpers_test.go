@@ -188,6 +188,13 @@ func newEnv(t *testing.T, tweak func(*Deps), hooks ...func(*Handler)) *env {
 	return &env{t: t, srv: srv, rooms: rooms, guests: guests, reg: reg, logs: logs, cookie: c, id: id, h: hh}
 }
 
+// manyGuestSockets lifts the per-guest socket cap for tests that dial one guest
+// many times in a row to exercise the per-IP upgrade bucket. A client's
+// CloseNow returns before the server has freed the slot, so with the default
+// cap (4) such a loop would sometimes be refused with 429 too_many_connections
+// instead of reaching the bucket.
+func manyGuestSockets(d *Deps) { d.MaxConnsPerGuest = 100 }
+
 func (e *env) url() string { return "ws" + strings.TrimPrefix(e.srv.URL, "http") }
 
 type dialOpt func(h http.Header)

@@ -50,7 +50,7 @@ func TestRejectedRequestsDoNotConsumeTheUpgradeQuota(t *testing.T) {
 		{"bad key", 400, func(r *http.Request) { r.Header.Set("Sec-WebSocket-Key", "short") }},
 	}
 
-	e := newEnv(t, nil) // burst 20 per IP, frozen clock: nothing ever refills
+	e := newEnv(t, manyGuestSockets) // burst 20 per IP, frozen clock: nothing ever refills
 	for round := 0; round < 12; round++ {
 		for _, rej := range rejections {
 			rec := httptest.NewRecorder()
