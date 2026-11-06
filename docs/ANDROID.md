@@ -101,18 +101,18 @@ server already received survives, **text typed but not sent can be lost** when t
 
 ## 4. Local setup
 
-Requirements: JDK 17 (Temurin), the Android SDK, Node 24 (scripts only).
+Requirements: JDK 25 (Temurin; AGP 9.5 needs 17 or newer, CI uses 25), the Android SDK, Node 24 (scripts only).
 
 ```bash
-# JDK 17 (macOS example; any Temurin 17 works)
-brew install --cask temurin@17
-export JAVA_HOME="$(/usr/libexec/java_home -v 17)"
+# JDK 25 (macOS example; any Temurin 17+ runs the build, CI uses 25)
+brew install --cask temurin@25
+export JAVA_HOME="$(/usr/libexec/java_home -v 25)"
 
 # Android SDK command-line tools: unzip commandlinetools-<os>_latest.zip from
 # https://developer.android.com/studio#command-tools into $ANDROID_HOME/cmdline-tools/latest
 export ANDROID_HOME="$HOME/Library/Android/sdk"        # or any directory you own
 yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
-"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"
+"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
 ```
 
 Alternatively install Android Studio and open `android/`. If `ANDROID_HOME` is not set, put
@@ -359,4 +359,12 @@ tapped in other apps.
 * No themed (monochrome) adaptive icon layer (lint warning `MonochromeLauncherIcon`).
 * Renovate only proposes version bumps: it does not know Play's yearly target-API requirement, so the `targetSdk`
   deadline is on the owner's yearly checklist (section 14).
-* The wrapper jar is checked in; CI validates it against Gradle's published checksums on every run.
+* The wrapper jar is checked in; CI validates it against Gradle's published checksums on every run
+  (`gradle/actions/wrapper-validation`). `distributionSha256Sum` is deliberately **not** set in
+  `gradle/wrapper/gradle-wrapper.properties`: the hosted Mend Renovate cannot run the Gradle wrapper (`gradleWrapper`
+  is not in `allowedUnsafeExecutions`), so it cannot refresh the hash and every wrapper bump failed with
+  "Verification of Gradle distribution failed!". Trade-off: the downloaded distribution zip is no longer
+  hash-pinned (it is fetched over HTTPS from `services.gradle.org`, and the wrapper jar that fetches it is still
+  validated). To pin it again, set `distributionSha256Sum` from <https://gradle.org/release-checksums/> in the
+  same PR as the Gradle bump (or let a self-hosted Renovate run the wrapper).
+* The JDK in CI (25) only runs Gradle; the shell is compiled to Java 17 (`compileOptions` in `app/build.gradle`).

@@ -56,7 +56,7 @@ go tool tygo generate
 npm ci && npm run check && npm run lint && npm run test && npm run build
 # helm
 helm lint helm/tutti-frutti && helm template t helm/tutti-frutti
-# android/ (JDK 17 + Android SDK; see docs/ANDROID.md)
+# android/ (JDK 25 + Android SDK; see docs/ANDROID.md)
 ./gradlew testDebugUnitTest lintRelease assembleDebug bundleRelease && node --test scripts/*.test.mjs
 # everything locally
 docker compose up --build

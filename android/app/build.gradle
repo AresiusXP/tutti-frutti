@@ -98,15 +98,15 @@ if (signingPresent && signingPresent.size() != signingVariables.size()) {
 def signAsUploadKey = signingPresent.size() == signingVariables.size()
 
 android {
-    compileSdk 36
-    namespace twaManifest.applicationId
+    compileSdk = 36
+    namespace = twaManifest.applicationId
 
     defaultConfig {
-        applicationId twaManifest.applicationId
-        minSdk 29
-        targetSdk 36
-        versionCode readVersionCode()
-        versionName readVersionName()
+        applicationId = twaManifest.applicationId
+        minSdk = 29
+        targetSdk = 36
+        versionCode = readVersionCode()
+        versionName = readVersionName()
 
         // The hostname feeds the intent-filter (merged into the manifest as a literal).
         manifestPlaceholders = [hostName: twaManifest.hostName]
@@ -149,39 +149,39 @@ android {
     }
 
     buildFeatures {
-        buildConfig true
-        resValues true
+        buildConfig = true
+        resValues = true
     }
 
     signingConfigs {
         if (signAsUploadKey) {
             upload {
-                storeFile file(signingValues['ANDROID_UPLOAD_KEYSTORE_PATH'])
-                storePassword signingValues['ANDROID_UPLOAD_KEYSTORE_PASSWORD']
-                keyAlias signingValues['ANDROID_UPLOAD_KEY_ALIAS']
-                keyPassword signingValues['ANDROID_UPLOAD_KEY_PASSWORD']
+                storeFile = file(signingValues['ANDROID_UPLOAD_KEYSTORE_PATH'])
+                storePassword = signingValues['ANDROID_UPLOAD_KEYSTORE_PASSWORD']
+                keyAlias = signingValues['ANDROID_UPLOAD_KEY_ALIAS']
+                keyPassword = signingValues['ANDROID_UPLOAD_KEY_PASSWORD']
             }
         }
     }
 
     buildTypes {
         release {
-            minifyEnabled true
+            minifyEnabled = true
             if (signAsUploadKey) {
-                signingConfig signingConfigs.upload
+                signingConfig = signingConfigs.upload
             }
         }
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     lint {
         // Lint also runs on release builds (do not set checkReleaseBuilds false).
-        checkReleaseBuilds true
-        abortOnError true
+        checkReleaseBuilds = true
+        abortOnError = true
     }
 }
 
