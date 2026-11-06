@@ -66,6 +66,12 @@
       "groupName": "android dependencies"
     },
     {
+      "description": "The JDK that runs Gradle (java-version in ci-android.yml and release-android.yml) moves with Gradle and the Android Gradle Plugin: a JDK bump alone fails against an older Gradle (Gradle 8.11 cannot run on JDK 25). It is therefore grouped with the android dependencies.",
+      "matchManagers": ["github-actions"],
+      "matchDepNames": ["java-jdk"],
+      "groupName": "android dependencies"
+    },
+    {
       "matchManagers": ["helm-values"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "helm values images"
