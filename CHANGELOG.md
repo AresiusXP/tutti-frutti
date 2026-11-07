@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.1](https://github.com/AresiusXP/tutti-frutti/compare/v1.8.0...v1.8.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **deps:** bump go-jose, fast-uri and serialize-javascript past their advisories ([#51](https://github.com/AresiusXP/tutti-frutti/issues/51)) ([6de6bc2](https://github.com/AresiusXP/tutti-frutti/commit/6de6bc2ee98776f02734d3d81a0f498be08554c1))
+* **deps:** update module github.com/jackc/pgx/v5 to v5.12.0 ([#40](https://github.com/AresiusXP/tutti-frutti/issues/40)) ([5fdada5](https://github.com/AresiusXP/tutti-frutti/commit/5fdada5adb864115bb47406e86f427472dc45acb))
+* **web:** keep historyPop timer from touching a torn-down window ([#45](https://github.com/AresiusXP/tutti-frutti/issues/45)) ([48f97b8](https://github.com/AresiusXP/tutti-frutti/commit/48f97b85d2ad2d024425fd0f91660ebde2728161))
+
 ## [1.8.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.7.1...v1.8.0) (2026-11-02)
 
 
