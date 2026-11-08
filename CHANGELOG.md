@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.2](https://github.com/AresiusXP/tutti-frutti/compare/v1.8.1...v1.8.2) (2026-11-08)
+
+
+### Bug Fixes
+
+* **android:** ship versionCode 3 and explain a stale versionCode ([c62783a](https://github.com/AresiusXP/tutti-frutti/commit/c62783a92e969c43e46ddb3915043e79a39723d9))
+
 ## [1.8.1](https://github.com/AresiusXP/tutti-frutti/compare/v1.8.0...v1.8.1) (2026-11-06)
 
 
