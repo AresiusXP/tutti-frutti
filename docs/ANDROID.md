@@ -290,6 +290,10 @@ The same Custom-Tab fallback is what users without a TWA-capable browser get.
   tag uses that tag's `version-code.txt`, so the bump must be merged **before** the release PR that creates the
   tag. Tags are immutable: to ship a shell change the next release must contain it. Use a releasable
   conventional commit, `fix(android): ...` or `feat(android): ...` (`chore:`, `ci:`, `build:` do not cut a release).
+  A bump pushed on its own (for example a web-editor commit "Increment version code") cuts no release, so no
+  tag contains it and the workflow keeps failing with "versionCode N must be greater than the previous
+  release's M" however `previous_version_code` is set: add a `fix(android): ...` commit, merge the release PR
+  and run the workflow with the **new** tag.
 
 ## 11. Release runbook
 

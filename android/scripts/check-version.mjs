@@ -70,7 +70,10 @@ export function checkVersion({ chartText, codeText, minExclusive, expectVersion 
 		}
 		if (versionCode <= minExclusive) {
 			throw new Error(
-				`versionCode ${versionCode} must be greater than the previous release's ${minExclusive}: bump android/version-code.txt`
+				`versionCode ${versionCode} must be greater than the previous release's ${minExclusive}. ` +
+					`This is the value of android/version-code.txt in the tag being built. Tags are immutable, so a bump ` +
+					`made after the tag was created is not in it: bump the file, merge a releasable commit ` +
+					`(fix(android): ...), merge the release PR and build the NEW tag`
 			);
 		}
 	}
