@@ -281,6 +281,7 @@ The same Custom-Tab fallback is what users without a TWA-capable browser get.
   |---|---|---|---|---|
   | 1 | v1.6.0 | 2026-10-30 | Internal testing (first upload, created the app-signing key) | Crashes on launch (`ManageDataLauncherActivity`); never ship it |
   | 2 | v1.7.1 | 2026-10-31 | Internal testing | First usable build; release bundle launch-tested on an Android 15 emulator |
+| 3 | v1.8.2 | 2026-11-08 | Closed testing (built, upload pending) | Same shell as code 2 on the current website and dependencies; build run 42488227435, sha256 `b87a285c…cb03` |
 
 * `scripts/check-version.mjs` validates the file format, that the versionName is semantic, and with
   `--min-exclusive N` that versionCode > N (N = the previous Play release). `release-android.yml` runs it with
