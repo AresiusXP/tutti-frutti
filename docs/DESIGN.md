@@ -349,8 +349,8 @@ Round total = sum over categories; added to the player's running total.
   rules are unchanged. Public rooms do not collect account-to-seat links for
   statistics or produce statistics outbox records.
 * **Filling:** with `PUBLIC_BOTS_ENABLED=true`, a public lobby whose human host
-  is connected and alone gets one automated seat after a random **20–30 s** and
-  a second after **40–55 s total**, capped at two. Timing starts at a successful
+  is connected and alone gets one automated seat after a random **10–12 s** and
+  a second after **30–35 s total**, capped at two. Timing starts at a successful
   human WebSocket join, not REST creation. An interruption resets the wait;
   another tab of the same identity does not count as another human. Private
   rooms never fill. The human host still presses Start.
@@ -393,8 +393,8 @@ Round total = sum over categories; added to the player's running total.
   schedules are rebuilt rather than replayed.
 * **Operations:** `PUBLIC_BOTS_ENABLED` (default true) disables **new additions**
   when false; existing opponents finish normally. `PUBLIC_BOTS_MAX` defaults to
-  2 (allowed 1–2). `PUBLIC_BOTS_FIRST_MIN_SECONDS`/`MAX_SECONDS` default 20/30;
-  `PUBLIC_BOTS_SECOND_MIN_SECONDS`/`MAX_SECONDS` default 40/55, measured from the
+  2 (allowed 1–2). `PUBLIC_BOTS_FIRST_MIN_SECONDS`/`MAX_SECONDS` default 10/12;
+  `PUBLIC_BOTS_SECOND_MIN_SECONDS`/`MAX_SECONDS` default 30/35, measured from the
   same wait start. Bounds are 1–300 s, each min ≤ max, second min > first max.
   Helm equivalents live under `server.publicBots`. Human activity and automated
   seats have separate metrics so synthetic occupancy never masquerades as

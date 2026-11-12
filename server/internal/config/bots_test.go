@@ -14,10 +14,10 @@ func TestLoadPublicBots(t *testing.T) {
 		max     int
 		delays  [4]time.Duration
 	}{
-		{"defaults", nil, true, 2, [4]time.Duration{20, 30, 40, 55}},
-		{"disabled", map[string]string{"PUBLIC_BOTS_ENABLED": " false "}, false, 2, [4]time.Duration{20, 30, 40, 55}},
-		{"one bot", map[string]string{"PUBLIC_BOTS_MAX": " 1 "}, true, 1, [4]time.Duration{20, 30, 40, 55}},
-		{"explicit enabled", map[string]string{"PUBLIC_BOTS_ENABLED": "true", "PUBLIC_BOTS_MAX": "2"}, true, 2, [4]time.Duration{20, 30, 40, 55}},
+		{"defaults", nil, true, 2, [4]time.Duration{10, 12, 30, 35}},
+		{"disabled", map[string]string{"PUBLIC_BOTS_ENABLED": " false "}, false, 2, [4]time.Duration{10, 12, 30, 35}},
+		{"one bot", map[string]string{"PUBLIC_BOTS_MAX": " 1 "}, true, 1, [4]time.Duration{10, 12, 30, 35}},
+		{"explicit enabled", map[string]string{"PUBLIC_BOTS_ENABLED": "true", "PUBLIC_BOTS_MAX": "2"}, true, 2, [4]time.Duration{10, 12, 30, 35}},
 		{"custom ranges", map[string]string{
 			"PUBLIC_BOTS_FIRST_MIN_SECONDS": " 1 ", "PUBLIC_BOTS_FIRST_MAX_SECONDS": "2",
 			"PUBLIC_BOTS_SECOND_MIN_SECONDS": "3", "PUBLIC_BOTS_SECOND_MAX_SECONDS": "300",
@@ -89,8 +89,8 @@ func TestLoadPublicBotsInvalid(t *testing.T) {
 		key  string
 	}{
 		{"first range reversed", map[string]string{"PUBLIC_BOTS_FIRST_MIN_SECONDS": "31"}, "PUBLIC_BOTS_FIRST_MIN_SECONDS"},
-		{"second range reversed", map[string]string{"PUBLIC_BOTS_SECOND_MAX_SECONDS": "39"}, "PUBLIC_BOTS_SECOND_MIN_SECONDS"},
-		{"ranges touch", map[string]string{"PUBLIC_BOTS_SECOND_MIN_SECONDS": "30"}, "PUBLIC_BOTS_SECOND_MIN_SECONDS"},
+		{"second range reversed", map[string]string{"PUBLIC_BOTS_SECOND_MAX_SECONDS": "29"}, "PUBLIC_BOTS_SECOND_MIN_SECONDS"},
+		{"ranges touch", map[string]string{"PUBLIC_BOTS_SECOND_MIN_SECONDS": "12"}, "PUBLIC_BOTS_SECOND_MIN_SECONDS"},
 		{"ranges overlap", map[string]string{"PUBLIC_BOTS_FIRST_MAX_SECONDS": "41"}, "PUBLIC_BOTS_SECOND_MIN_SECONDS"},
 		{"disabled still validates", map[string]string{"PUBLIC_BOTS_ENABLED": "false", "PUBLIC_BOTS_MAX": "0"}, "PUBLIC_BOTS_MAX"},
 	} {

@@ -44,10 +44,13 @@ for (const locale of ['es', 'en', 'nl'] as const) {
 
 		await expect.poll(() => socket.state?.view.players.length, REAL_TIME).toBeGreaterThanOrEqual(2);
 		const firstFill = socket.states.find((state) => state.view.players.length === 2)!;
-		// One second of transport tolerance around the server's 20–30 s production range.
-		expect(firstFill.serverTime - joinedAt).toBeGreaterThanOrEqual(19_000);
-		expect(firstFill.serverTime - joinedAt).toBeLessThanOrEqual(31_000);
+		// One second of transport tolerance around the server's 10–12 s production range.
+		expect(firstFill.serverTime - joinedAt).toBeGreaterThanOrEqual(9_000);
+		expect(firstFill.serverTime - joinedAt).toBeLessThanOrEqual(13_000);
 		await expect.poll(() => socket.state?.view.players.length, REAL_TIME).toBe(3);
+		const secondFill = socket.states.find((state) => state.view.players.length === 3)!;
+		expect(secondFill.serverTime - joinedAt).toBeGreaterThanOrEqual(29_000);
+		expect(secondFill.serverTime - joinedAt).toBeLessThanOrEqual(36_000);
 		expectOrdinarySeats(socket.state!);
 		const automated = socket.state!.view.players.filter((player) => player.id !== hostID);
 
@@ -160,8 +163,8 @@ test('human lobby arrivals cancel pending fill and prune existing fallback seats
 			secondSocket.state!.view.youId,
 			thirdSocket.state!.view.youId
 		]);
-	// Pongs advance the observed server clock past BOTH production fill deadlines (max 55 s).
-	await expect.poll(() => waiting.serverTime - cancelAt, REAL_TIME).toBeGreaterThan(55_000);
+	// Pongs advance the observed server clock past BOTH production fill deadlines (max 35 s).
+	await expect.poll(() => waiting.serverTime - cancelAt, REAL_TIME).toBeGreaterThan(35_000);
 	const afterArrival = waiting.states.slice(arrivalIndex);
 	expect(afterArrival.every((state) => state.view.players.length === 2)).toBe(true);
 	expect(waiting.state!.view.players.map((player) => player.name)).toEqual(['Waiting', 'Early']);

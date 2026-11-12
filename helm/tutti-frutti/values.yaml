@@ -60,10 +60,10 @@ server:
     max: 2
     # Seconds since waiting started: each 1..300, min <= max,
     # and secondMinSeconds must exceed firstMaxSeconds.
-    firstMinSeconds: 20
-    firstMaxSeconds: 30
-    secondMinSeconds: 40
-    secondMaxSeconds: 55
+    firstMinSeconds: 10
+    firstMaxSeconds: 12
+    secondMinSeconds: 30
+    secondMaxSeconds: 35
   # Take the rate-limit client IP from the rightmost X-Forwarded-For entry
   # (TRUST_FORWARDED_FOR). On its own, only enable when exactly one trusted
   # proxy hop appends the header (with more hops use clientIPHeader below).

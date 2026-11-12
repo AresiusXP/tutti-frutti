@@ -147,16 +147,16 @@ func NewHub(cfg Config) *Hub {
 	}
 	cfg.MaxBots = min(cfg.MaxBots, 2)
 	if cfg.BotFirstDelayMin <= 0 {
-		cfg.BotFirstDelayMin = 20 * time.Second
+		cfg.BotFirstDelayMin = 10 * time.Second
 	}
 	if cfg.BotFirstDelayMax <= 0 {
-		cfg.BotFirstDelayMax = 30 * time.Second
+		cfg.BotFirstDelayMax = 12 * time.Second
 	}
 	if cfg.BotSecondDelayMin <= 0 {
-		cfg.BotSecondDelayMin = 40 * time.Second
+		cfg.BotSecondDelayMin = 30 * time.Second
 	}
 	if cfg.BotSecondDelayMax <= 0 {
-		cfg.BotSecondDelayMax = 55 * time.Second
+		cfg.BotSecondDelayMax = 35 * time.Second
 	}
 	cfg.BotFirstDelayMax = max(cfg.BotFirstDelayMin, cfg.BotFirstDelayMax)
 	cfg.BotSecondDelayMin = max(cfg.BotFirstDelayMin, cfg.BotSecondDelayMin)

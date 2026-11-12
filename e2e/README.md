@@ -82,7 +82,7 @@ name, works the same way: `EDGE_PORT=18400 POSTGRES_PORT=15400 docker compose -p
 ## Projects
 
 - **`chromium`** — Pixel 7 emulation at 390×844, every spec except the next two. The default fast loop.
-- **`slow`** — `*.slow.spec.ts`: waits for the _server's_ clock (a 60 s round time limit, the shortest allowed; the 15 s of a vote to stop; public fallback's 20–30 s / 40–55 s fills).
+- **`slow`** — `*.slow.spec.ts`: waits for the _server's_ clock (a 60 s round time limit, the shortest allowed; the 15 s of a vote to stop; public fallback's 10–12 s / 30–35 s fills).
 - **`restart`** — `*.restart.spec.ts`: restarts the server container (`docker compose -p $E2E_COMPOSE_PROJECT restart
 server`). Every other test would notice, so it runs **alone, after the other two** (project dependencies; if
   one of them fails it does not run — fix that first, or `--project=restart --no-deps`).
@@ -130,8 +130,8 @@ language with real words: the chooser aims at the cast's letter (M, S, B) and th
 
 `16-public-fallback.slow.spec.ts` adds four tests:
 
-- In every language, wait for the **production** first fill (20–30 seconds, with a one-second transport
-  tolerance) and second fill (40–55 seconds), then complete a two-round game. The WS host shortens the
+- In every language, wait for the **production** first fill (10–12 seconds, with a one-second transport
+  tolerance) and second fill (30–35 seconds), then complete a two-round game. The WS host shortens the
   phases using ordinary commands. Automated seats make answer progress while answers remain hidden,
   do not enter stop/reject electorates, and take their chooser turn. The host finishes in a real browser,
   where the final screen shows the casual caption and no automated-player labels. Wire player objects

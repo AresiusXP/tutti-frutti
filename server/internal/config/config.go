@@ -121,10 +121,10 @@ func Load(getenv func(string) string) (Config, error) {
 		PublicRoomsEnabled: true,
 		BotsEnabled:        true,
 		MaxBots:            2,
-		BotFirstDelayMin:   20 * time.Second,
-		BotFirstDelayMax:   30 * time.Second,
-		BotSecondDelayMin:  40 * time.Second,
-		BotSecondDelayMax:  55 * time.Second,
+		BotFirstDelayMin:   10 * time.Second,
+		BotFirstDelayMax:   12 * time.Second,
+		BotSecondDelayMin:  30 * time.Second,
+		BotSecondDelayMax:  35 * time.Second,
 	}
 
 	port, err := strconv.Atoi(cfg.Port)
