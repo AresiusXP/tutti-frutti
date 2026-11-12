@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.9.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.8.2...v1.9.0) (2026-11-12)
+
+
+### Features
+
+* speed up public-room bot filling ([4d08d9a](https://github.com/AresiusXP/tutti-frutti/commit/4d08d9a9e3c63da713c402aebdd2791d711648b3))
+
+
+### Documentation
+
+* record versionCode 3 (v1.8.2) in the Play upload log ([1a13a7b](https://github.com/AresiusXP/tutti-frutti/commit/1a13a7b6d2fc20577f3492d848ac51554a4394ff))
+
 ## [1.8.2](https://github.com/AresiusXP/tutti-frutti/compare/v1.8.1...v1.8.2) (2026-11-08)
 
 
