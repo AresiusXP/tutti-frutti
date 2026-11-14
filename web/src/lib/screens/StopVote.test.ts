@@ -793,7 +793,8 @@ describe('spectators and players outside the vote', () => {
 		expect(banner()).toBeNull();
 		expect(screen.queryAllByRole('textbox')).toHaveLength(0);
 		expect(screen.queryByTestId('basta-button')).toBeNull();
-		expect(screen.queryByRole('button')).toBeNull();
+		// nothing to press but the "How to play" link
+		expect(screen.getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['help-button']);
 	});
 
 	it('the line goes away with the vote', async () => {

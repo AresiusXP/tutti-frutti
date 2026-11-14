@@ -3,6 +3,7 @@
 	import Button from '#lib/components/Button.svelte';
 	import Screen from '#lib/components/Screen.svelte';
 	import type { RoomSession } from '#lib/game/session.ts';
+	import HelpButton from '#lib/help/HelpButton.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import ConfirmBar from '#lib/review/ConfirmBar.svelte';
 	import RankRow from '#lib/review/RankRow.svelte';
@@ -71,6 +72,10 @@
 				/>
 			{/each}
 		</ol>
+
+		<div class="flex justify-center">
+			<HelpButton section="points" variant="text" />
+		</div>
 
 		{#snippet footer()}
 			{#if session.isHost}

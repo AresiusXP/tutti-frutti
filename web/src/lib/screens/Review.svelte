@@ -8,6 +8,9 @@
 	import AnswerCard from '#lib/review/AnswerCard.svelte';
 	import CategoryStrip from '#lib/review/CategoryStrip.svelte';
 	import ConfirmBar from '#lib/review/ConfirmBar.svelte';
+	import HelpButton from '#lib/help/HelpButton.svelte';
+	import HelpTip from '#lib/help/HelpTip.svelte';
+	import { tips } from '#lib/help/tips.svelte.ts';
 	import { answerGroups } from '#lib/review/groups.ts';
 	import {
 		firstPickable,
@@ -172,6 +175,13 @@
 		else session.finishReview();
 	}
 
+	/**
+	 * "Finish review" is the big button only when there is nothing left to go through: on the last
+	 * category, or once the host has opened every one. Before that "Next category" is the big one and
+	 * Finish is a small button, so a tap meant to move on cannot end the review by accident.
+	 */
+	const finishBig = $derived(category >= total - 1 || visited.size >= total);
+
 	const arrow =
 		'flex h-14 w-12 shrink-0 items-center justify-center rounded-2xl bg-night-3 text-xl font-black text-cream shadow-pop transition active:translate-y-1 active:shadow-none disabled:bg-night-2 disabled:text-cream-muted disabled:shadow-none';
 </script>
@@ -198,6 +208,7 @@
 						total
 					})}
 				</h1>
+				<HelpButton section="review" />
 			</div>
 			<CategoryStrip
 				{labels}
@@ -212,6 +223,10 @@
 			<p class="rounded-2xl bg-night-2 p-3 text-center text-cream-muted" role="status">
 				{m.review_spectator()}
 			</p>
+		{/if}
+
+		{#if voter && !tips.seen('review')}
+			<HelpTip id="review" text={m.help_tip_review()} />
 		{/if}
 
 		{#if proposals.length > 0}
@@ -367,20 +382,45 @@
 							<path d="M15.5 4.5 7 12l8.5 7.5z" />
 						</svg>
 					</button>
-					<Button tone="lime" class="min-w-0 flex-1 px-2! text-xl" onclick={finish}>
-						{m.review_finish()}
-					</Button>
-					<button
-						type="button"
-						class={arrow}
-						aria-label={m.review_next()}
-						disabled={category >= total - 1}
-						onclick={() => go(category + 1)}
-					>
-						<svg aria-hidden="true" viewBox="0 0 24 24" class="size-6" fill="currentColor">
-							<path d="M8.5 4.5 17 12l-8.5 7.5z" />
-						</svg>
-					</button>
+					{#if finishBig}
+						<Button tone="lime" class="min-w-0 flex-1 px-2! text-xl" onclick={finish}>
+							{m.review_finish()}
+						</Button>
+						<button
+							type="button"
+							class={arrow}
+							aria-label={m.review_next()}
+							disabled={category >= total - 1}
+							onclick={() => go(category + 1)}
+						>
+							<svg aria-hidden="true" viewBox="0 0 24 24" class="size-6" fill="currentColor">
+								<path d="M8.5 4.5 17 12l-8.5 7.5z" />
+							</svg>
+						</button>
+					{:else}
+						<Button
+							tone="banana"
+							class="flex min-w-0 flex-1 items-center justify-center gap-1 px-2! text-lg! leading-tight"
+							onclick={() => go(category + 1)}
+						>
+							{m.review_next()}
+							<svg
+								aria-hidden="true"
+								viewBox="0 0 24 24"
+								class="size-5 shrink-0"
+								fill="currentColor"
+							>
+								<path d="M8.5 4.5 17 12l-8.5 7.5z" />
+							</svg>
+						</Button>
+						<button
+							type="button"
+							class="flex h-12 w-24 shrink-0 items-center justify-center rounded-2xl bg-night-2 px-2 text-center text-sm leading-tight font-bold text-cream ring-1 ring-night-3 transition active:bg-night-3"
+							onclick={finish}
+						>
+							{m.review_finish()}
+						</button>
+					{/if}
 				</div>
 			{:else}
 				<p class="py-2 text-center font-bold text-cream-muted" role="status">

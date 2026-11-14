@@ -8,6 +8,7 @@ import { msg, msgPattern, type Locale, type Params } from './messages';
 import type { Network } from './network';
 import { ClosedPage } from './pages/closed';
 import { GatePage } from './pages/gate';
+import { HelpPage } from './pages/help';
 import { HomePage, ROOM_URL, type AvatarChoice } from './pages/home';
 import { CategoryPicker, LobbyPage } from './pages/lobby';
 import { LetterPage, PlayingPage } from './pages/playing';
@@ -48,6 +49,12 @@ export interface PlayerOptions {
 	 */
 	acceptTerms?: boolean;
 	/**
+	 * Every player starts with the one-time tip cards (`tf.tips`) already seen, the way a returning player
+	 * would, so that they never sit on top of the playing and review screens of the specs about something
+	 * else; `true` is a first visit that gets them (`24-help.spec.ts`).
+	 */
+	tips?: boolean;
+	/**
 	 * Cookies and localStorage of an earlier context (`context.storageState()`): the same browser profile
 	 * after its process was killed. sessionStorage is never part of it, so the tab starts fresh.
 	 */
@@ -67,6 +74,7 @@ export class Player {
 	readonly final = new FinalPage(this);
 	readonly closed = new ClosedPage(this);
 	readonly rooms = new RoomsPage(this);
+	readonly help = new HelpPage(this);
 	readonly terms = new TermsGatePage(this);
 	readonly safety = new SafetyPage(this);
 

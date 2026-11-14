@@ -7,6 +7,7 @@
 	import { OnceCommand } from '#lib/play/once.svelte.ts';
 	import { badgeAvatar } from '#lib/play/progress.ts';
 	import { roundLabel } from '#lib/play/round.ts';
+	import HelpButton from '#lib/help/HelpButton.svelte';
 	import SafetyButton from '#lib/safety/SafetyButton.svelte';
 
 	let { session }: { session: RoomSession } = $props();
@@ -92,7 +93,8 @@
 			</div>
 		{/if}
 	</section>
-	<div class="flex justify-center">
+	<div class="flex flex-wrap justify-center">
+		<HelpButton section="basics" variant="text" />
 		<SafetyButton request={{ start: 'players' }} label={m.report_players_aria()} text />
 	</div>
 </Screen>
