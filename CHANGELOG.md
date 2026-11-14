@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.9.0...v1.10.0) (2026-11-14)
+
+
+### Features
+
+* **web:** add how-to-play guide and tips, calmer review footer ([#55](https://github.com/AresiusXP/tutti-frutti/issues/55)) ([e24f2fa](https://github.com/AresiusXP/tutti-frutti/commit/e24f2fa218a3f205c391870698927c5101c7bc14))
+
 ## [1.9.0](https://github.com/AresiusXP/tutti-frutti/compare/v1.8.2...v1.9.0) (2026-11-12)
 
 
