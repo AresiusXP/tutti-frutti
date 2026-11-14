@@ -46,6 +46,24 @@ describe('Lobby', () => {
 		setNavigator({ share: undefined, clipboard: undefined });
 	});
 
+	describe('help', () => {
+		it.each([
+			['the host', host],
+			['everyone else', guest]
+		])('%s can open "How to play" on the basics, next to Share and QR', async (_who, make) => {
+			render(Lobby, { session: make() });
+			const button = screen.getByRole('button', { name: 'Cómo se juega' });
+			expect(button.className).toContain('size-12');
+			await fireEvent.click(button);
+			const dialog = screen.getByRole('dialog', { name: 'Cómo se juega' });
+			expect(
+				within(dialog)
+					.queryAllByRole('button', { expanded: true })
+					.map((b) => b.id)
+			).toEqual(['help-heading-basics']);
+		});
+	});
+
 	describe('the host', () => {
 		it('shows public games as casual without an editable visibility setting', () => {
 			i18n.set('en');

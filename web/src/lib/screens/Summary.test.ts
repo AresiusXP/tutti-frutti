@@ -258,3 +258,16 @@ describe('Summary in Dutch', () => {
 		expect(screen.getByRole('button', { name: 'Volgende ronde' })).toBeTruthy();
 	});
 });
+
+describe('Summary help', () => {
+	it('offers "How to play", open on the points', async () => {
+		open();
+		await fireEvent.click(screen.getByRole('button', { name: 'Cómo se juega' }));
+		const dialog = screen.getByRole('dialog', { name: 'Cómo se juega' });
+		expect(
+			within(dialog)
+				.queryAllByRole('button', { expanded: true })
+				.map((b) => b.id)
+		).toEqual(['help-heading-points']);
+	});
+});

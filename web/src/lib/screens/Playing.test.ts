@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fieldProblems } from '#lib/a11y.testkit.ts';
 import { FakeSession } from '#lib/game/fake.svelte.ts';
 import { makeRound, makeSettings, makeView, player } from '#lib/game/fixtures.ts';
+import { tips } from '#lib/help/tips.svelte.ts';
 import { i18n } from '#lib/i18n.svelte.ts';
 import type { Phase, Player, RoundView, View } from '#lib/protocol/index.ts';
 import Playing from './Playing.svelte';
@@ -858,5 +859,46 @@ describe('Playing: screen wake lock', () => {
 
 	it('works without the Wake Lock API', () => {
 		expect(() => setup()).not.toThrow();
+	});
+});
+
+describe('Playing: help', () => {
+	const tip = () => screen.queryByRole('region', { name: 'Consejo' });
+
+	beforeEach(() => tips.reset());
+	afterEach(() => {
+		tips.markSeen('playing');
+		tips.markSeen('review');
+	});
+
+	it('shows the first-time tip to a player, above the fields, until it is closed', async () => {
+		const { unmount } = setup();
+		const card = tip()!;
+		expect(card.textContent).toContain('¡BASTA!');
+		const first = input('Nombre');
+		expect(card.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		await fireEvent.click(within(card).getByRole('button', { name: 'Entendido' }));
+		expect(tip()).toBeNull();
+		unmount();
+		setup();
+		expect(tip()).toBeNull();
+	});
+
+	it('does not show it to a spectator, who has no fields', () => {
+		setup({ youId: 'p4' });
+		expect(tip()).toBeNull();
+		expect(tips.seen('playing')).toBe(false);
+	});
+
+	it('offers "How to play" at the foot of the screen, open on the playing part', async () => {
+		tips.markSeen('playing');
+		setup();
+		await fireEvent.click(screen.getByRole('button', { name: 'Cómo se juega' }));
+		const dialog = screen.getByRole('dialog', { name: 'Cómo se juega' });
+		expect(
+			within(dialog)
+				.queryAllByRole('button', { expanded: true })
+				.map((b) => b.id)
+		).toEqual(['help-heading-playing']);
 	});
 });

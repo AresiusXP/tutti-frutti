@@ -83,6 +83,18 @@ describe('static/privacy.html', () => {
 		}
 	});
 
+	it('says the browser remembers which one-time tips were seen (tf.tips) in every language', () => {
+		// a list of tip names ("playing", "review"), nothing about the player: see "How to play guide and tips"
+		for (const [locale, fact] of [
+			['en', 'which tips you have already seen'],
+			['es', 'qué consejos ya viste'],
+			['nl', 'welke tips je al gezien hebt']
+		]) {
+			const section = sections.find((s) => s.includes(`id="${locale}"`))!.replace(/\s+/g, ' ');
+			expect(section, locale).toContain(fact);
+		}
+	});
+
 	it('says what the browser keeps to resume the last game (tf.recentRoom) in every language', () => {
 		// the code and a random technical ID only, forgotten after 24 hours or on leaving: see "Resume recent game"
 		for (const [locale, facts] of [

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Button from '#lib/components/Button.svelte';
+	import HelpButton from '#lib/help/HelpButton.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { toasts } from '#lib/toast.svelte.ts';
 	import { copyText, shareInvite } from './invite';
@@ -45,5 +46,6 @@
 			<span aria-hidden="true">▦</span>
 			{m.lobby_qr()}
 		</Button>
+		<HelpButton section="basics" />
 	</div>
 </section>

@@ -12,6 +12,7 @@
 	import AvatarBadge from '#lib/components/AvatarBadge.svelte';
 	import AvatarPicker from '#lib/components/AvatarPicker.svelte';
 	import Button from '#lib/components/Button.svelte';
+	import HelpButton from '#lib/help/HelpButton.svelte';
 	import LanguageSwitch from '#lib/components/LanguageSwitch.svelte';
 	import RoomCodeInput from '#lib/components/RoomCodeInput.svelte';
 	import Wordmark from '#lib/components/Wordmark.svelte';
@@ -154,6 +155,7 @@
 		<div class="flex w-full items-center justify-between gap-2">
 			<AccountChip />
 			<div class="ml-auto flex items-center gap-2">
+				<HelpButton section="basics" />
 				<LegalButton />
 				<LanguageSwitch />
 			</div>

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
@@ -92,6 +92,22 @@ describe('Home actions', () => {
 		vi.mocked(goto).mockClear();
 		vi.mocked(api.createRoom).mockReset();
 		vi.mocked(api.getRoom).mockReset();
+	});
+
+	describe('help', () => {
+		it('has a 48 px "How to play" button in the header that opens the guide on the basics', async () => {
+			render(Home);
+			const button = screen.getByRole('button', { name: 'Cómo se juega' });
+			expect(button.className).toContain('size-12');
+			expect(button.closest('header')).not.toBeNull();
+			await fireEvent.click(button);
+			const dialog = screen.getByRole('dialog', { name: 'Cómo se juega' });
+			expect(
+				within(dialog)
+					.queryAllByRole('button', { expanded: true })
+					.map((b) => b.id)
+			).toEqual(['help-heading-basics']);
+		});
 	});
 
 	describe('accessibility', () => {

@@ -27,6 +27,9 @@
 		timerTone
 	} from '#lib/play/time.ts';
 	import { createWakeLock } from '#lib/play/wakelock.ts';
+	import HelpButton from '#lib/help/HelpButton.svelte';
+	import HelpTip from '#lib/help/HelpTip.svelte';
+	import { tips } from '#lib/help/tips.svelte.ts';
 	import SafetyButton from '#lib/safety/SafetyButton.svelte';
 	import { toasts } from '#lib/toast.svelte.ts';
 
@@ -480,6 +483,10 @@
 			banner={phase === 'grace' ? banner : undefined}
 		/>
 
+		{#if participant && !tips.seen('playing')}
+			<HelpTip id="playing" text={m.help_tip_playing()} />
+		{/if}
+
 		{#if participant}
 			<div role="group" aria-label={m.play_answers_label()} class="flex flex-col gap-3 pb-2">
 				{#each labels as label, i (i)}
@@ -508,7 +515,8 @@
 			</p>
 			{#if info}{@render onlooker()}{/if}
 		{/if}
-		<div class="flex justify-center">
+		<div class="flex flex-wrap justify-center">
+			<HelpButton section="playing" variant="text" class="mb-1" />
 			<SafetyButton
 				request={{ start: 'players' }}
 				label={m.report_players_aria()}

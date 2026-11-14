@@ -222,6 +222,12 @@ Avatar fields (`emoji`, `color`) are refused when they hold a control character.
 ### Review
 
 * One category at a time; the host navigates (◀ ▶), everyone sees the same card.
+* **Footer of the host.** *Finish review* is the big button only when nothing is left to go through: on the last
+  category, or once the host has opened every category (then it stays big even after going back). Before
+  that the big button is **Next category** and *Finish review* a small 48 px one at its right (◀ stays at the
+  left), so a tap meant to move on cannot end the review. The small button still asks "You haven't opened every
+  category yet" before finishing early. Both keep their full label as accessible name; only one button named
+  *Next category* exists at a time.
 * Each answer shows its points badge (10 unique / 5 shared / 0 empty or
   invalid), live.
 * **Reject vote:** a player votes against someone else's answer. It is rejected
@@ -572,7 +578,9 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 5. **Basta overlay** — caller name + 3-2-1 (also when a vote to stop passed:
    the caller is the asker).
 6. **Review** — category carousel ("País · 2/6"), one card per answer (player,
-   answer, points badge, 👎 count, "same"), host ◀ ▶ + **Finish review**. A host
+   answer, points badge, 👎 count, "same"), host ◀ ▶ + **Finish review** (big only
+   at the end of the review, see "Review"; before that **Next category** is the big
+   button), a "?" button in the header (opens the guide on the review part). A host
    signed in with Google also gets **Ask the AI** (≥ 48 px) for the category on
    screen; while the AI works everybody sees a status line, then every judged
    answer shows a chip ("AI: looks valid" / "AI: doubtful" plus its short reason,
@@ -582,6 +590,37 @@ Limits: answer ≤ 40 chars, nickname ≤ 16, custom category ≤ 24.
 7. **Round summary** — round points, totals, **Next round** (host).
 8. **Final** — podium, stats, **Rematch**, **Home**, and under the round history a quiet
    *support the game* card (see "Support links"; not shown in the Android app).
+
+#### How to play guide and tips
+
+New players got lost on what the screens ask of them (above all the **Same** button of the review), so the game
+explains itself in two ways. Both are web only (they reach the Android app through the website).
+
+* **The guide** (`web/src/lib/help/HelpSheet.svelte`, a full-height `Sheet`, so Android Back, Escape and focus
+  work as for every sheet). Four parts that open **one at a time** (an accordion of 56 px headers, so it reads
+  well on a 360 px phone in every language): *The basics* (rooms, the letter), *During the round* (answers,
+  the Stop / ¡BASTA! button, asking everyone to stop, the time limit), *Reviewing the answers* (Reject, Same,
+  the votes, the AI as a suggestion; with copies of the real buttons) and *Points and winning* (+10 / +5 / 0 with the
+  real points pills). The text is written from the rules of this document (reject = more than half of the others,
+  same = majority with the proposer counting as a yes, 10 / 5 only among valid answers, 3 s grace, 15 s vote) and
+  in each language's own wording of the call (¡BASTA! in Spanish, "Stop!" in English and Dutch). The sheet opens
+  on the part of the screen it was opened from (`section`).
+* **Where it opens from** (`HelpButton`, 48 px): a round "?" in Home's header (next to the legal button), in the
+  lobby (next to Share and QR, opens on the basics) and in the review header (opens on the review part); a quiet
+  "How to play" text link at the foot of the letter screen (basics), the playing screen (the playing part, also for
+  spectators) and the round summary (points).
+* **One-time tips** (`HelpTip`): a card at the top of the **playing** screen (for players who take part) and the
+  **review** screen (for players who can vote; spectators and non-voters get none). It says in two lines what
+  the controls do and has **Got it** and **How to play** (the guide on the matching part), both 48 px; it is a
+  labelled region ("Tip"), never a modal, so it never blocks typing or voting. A tip counts as seen when the
+  player taps *Got it* **or when the screen it was on goes away**, so it comes back neither next round nor
+  next game. The ids of the seen tips are kept in `localStorage['tf.tips']` (a JSON array of `playing` /
+  `review`, `web/src/lib/help/tips.svelte.ts`; corrupt data or blocked storage just shows the tip again) and are
+  listed in the privacy policy ("which tips you have already seen").
+* **Tests.** The unit tests mark the tips as seen in a setup file (`src/test.setup.ts`) and bring them back with
+  `tips.reset()`; the e2e fixture seeds `tf.tips` for every player (`PlayerOptions.tips: true` is a first visit)
+  and so does `web/scripts/screenshots.mjs`, so a tip never sits on a store screenshot. `24-help.spec.ts`
+  covers the guide (es, en, nl; accessibility; Back) and the tips. Messages: `web/messages/help/` (`help_*`).
 
 Accessibility: touch targets ≥ 48 px, high contrast (4.5:1 for text, after opacity), `aria-live` for Basta and
 letter reveal. Every screen has **exactly one `h1`** (visually hidden where the design shows none: the playing
@@ -623,7 +662,7 @@ strict CSP needs no change, and crawlers and people without JavaScript read it t
   display name only, scopes `openid profile`, no email or picture; the display name becomes the first
   nickname when the browser has none, so other players can see it), the three cookies (`tf_guest` 1 year,
   `tf_session` 30 days, `tf_oauth` 10 minutes, all `HttpOnly`, `Secure`, `SameSite=Lax`), the browser
-  storage (`tf.nickname`, `tf.avatar`, `tf.customs`, `tf.recentRoom`, the language; the nickname, the avatar and the picked
+  storage (`tf.nickname`, `tf.avatar`, `tf.customs`, `tf.recentRoom`, `tf.tips`, the language; the nickname, the avatar and the picked
   custom category labels are sent to the server when creating or joining a room and, signed in, to save
   the profile), what the server logs (per request: method, path, status, duration; WebSocket errors with
   the IP and the guest id; the same for connection events only at debug level), the safety records
@@ -1044,6 +1083,7 @@ lib/protocol/*             generated wire types (tygo), never hand-edited
 lib/screens/*              one screen per phase, picked by RoomScreen.svelte
 lib/components/            JoinGate, ConnectingScreen, ConnectionBanner, ClosedScreen, LegalLinks, ...
 lib/safety/                terms store + gate, report / block sheet, block list (see "Safety UI", 9c)
+lib/help/                  "How to play" guide (HelpSheet, HelpButton), one-time tips (HelpTip, tips.svelte.ts)
 routes/+page.svelte        Home (create / join)
 routes/[code=roomcode]/    the room: gate -> connecting -> phase screens -> closed
 ```

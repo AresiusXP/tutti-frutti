@@ -118,6 +118,7 @@ export default defineConfig({
 	preview: { proxy },
 	test: {
 		include: ['src/**/*.{test,spec}.ts'],
+		setupFiles: ['./src/test.setup.ts'],
 		environment: 'node',
 		// the PWA plugin (and with it `virtual:pwa-register`) is not loaded under Vitest
 		alias: {

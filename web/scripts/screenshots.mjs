@@ -32,6 +32,10 @@ const context = await browser.newContext({
 	locale: 'es-AR',
 	reducedMotion: 'reduce'
 });
+// The one-time tip cards (`tf.tips`) are marked as seen: a store screenshot must not show one.
+await context.addInitScript(() =>
+	localStorage.setItem('tf.tips', JSON.stringify(['playing', 'review']))
+);
 const page = await context.newPage();
 try {
 	for (const { name, scenario } of list) {

@@ -77,6 +77,18 @@ export class App {
 		});
 		this.#contexts.push(context);
 		this.guard.attach(context, name);
+		// Returning players have seen the tips (see `PlayerOptions.tips`). Only written when the browser has no
+		// list yet, and never allowed to throw in a frame without storage (about:blank).
+		if (options.tips !== true) {
+			await context.addInitScript(() => {
+				try {
+					if (localStorage.getItem('tf.tips') === null)
+						localStorage.setItem('tf.tips', JSON.stringify(['playing', 'review']));
+				} catch {
+					// no storage in this frame
+				}
+			});
+		}
 		// Over the context's own request API (same cookie jar as the page): a returning player.
 		if (options.acceptTerms !== false) await acceptTerms(context.request, locale);
 		const network = options.network ? new Network(context, this.guard) : undefined;

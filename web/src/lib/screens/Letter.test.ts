@@ -48,6 +48,23 @@ const stopButton = () =>
 beforeEach(() => i18n.set('es'));
 afterEach(() => vi.useRealTimers());
 
+describe('Letter: help', () => {
+	it('offers "How to play" at the foot, open on the basics, to the chooser and to the others', async () => {
+		for (const chooserId of ['p1', 'p2']) {
+			const { unmount } = setup({ chooserId });
+			await fireEvent.click(screen.getByRole('button', { name: 'Cómo se juega' }));
+			const dialog = screen.getByRole('dialog', { name: 'Cómo se juega' });
+			expect(
+				within(dialog)
+					.queryAllByRole('button', { expanded: true })
+					.map((b) => b.id)
+			).toEqual(['help-heading-basics']);
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Entendido' }));
+			unmount();
+		}
+	});
+});
+
 describe('Letter: the chooser', () => {
 	it('sees a huge STOP button and the hint', () => {
 		setup();
@@ -153,7 +170,8 @@ describe('Letter: everybody else', () => {
 		setup({ chooserId: 'p2' });
 		expect(screen.getByText('Beto está eligiendo la letra…')).toBeTruthy();
 		expect(stopButton()).toBeNull();
-		expect(screen.queryByRole('button')).toBeNull();
+		// nothing to press but the "How to play" link
+		expect(screen.getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['help-button']);
 		expect(screen.queryByText('Te sumás en la próxima ronda')).toBeNull();
 	});
 
@@ -196,7 +214,8 @@ describe('Letter: players who join mid-game', () => {
 		});
 		expect(screen.getByText('Beto está eligiendo la letra…')).toBeTruthy();
 		expect(screen.getByText('Te sumás en la próxima ronda')).toBeTruthy();
-		expect(screen.queryByRole('button')).toBeNull();
+		// nothing to press but the "How to play" link
+		expect(screen.getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['help-button']);
 	});
 });
 

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FakeSession } from '#lib/game/fake.svelte.ts';
+import { tips } from '#lib/help/tips.svelte.ts';
 import { i18n } from '#lib/i18n.svelte.ts';
 import { curate, labelNameMismatches } from '#lib/a11y.testkit.ts';
 import { reviewView, vote, type ReviewOptions } from '#lib/review/fixtures.ts';
@@ -137,6 +138,112 @@ describe('Review finish', () => {
 		}
 		await fireEvent.click(screen.getByRole('button', { name: 'Terminar revisión' }));
 		expect(session.sent).toEqual([{ cmd: 'finishReview', args: [] }]);
+	});
+});
+
+describe('Review footer: Finish is only the big button at the end', () => {
+	const next = () => screen.getAllByRole('button', { name: 'Categoría siguiente' });
+	const finishButton = () => screen.getByRole('button', { name: 'Terminar revisión' });
+	const isBig = (button: HTMLElement) => button.className.includes('h-14');
+
+	it('before the last category "Next category" is the big button and Finish a small one', async () => {
+		const { session } = open({ category: 0 });
+		expect(next()).toHaveLength(1);
+		expect(isBig(next()[0])).toBe(true);
+		expect(next()[0].className).toContain('bg-banana');
+		expect(isBig(finishButton())).toBe(false);
+		expect(finishButton().className).not.toContain('bg-lime');
+		await fireEvent.click(next()[0]);
+		expect(session.sent).toEqual([{ cmd: 'reviewNav', args: [1] }]);
+	});
+
+	it('the small Finish still asks before ending a review with unopened categories', async () => {
+		const { session } = open({ category: 2 });
+		await fireEvent.click(finishButton());
+		expect(screen.getByText('Todavía no abriste todas las categorías (1/6).')).toBeTruthy();
+		expect(session.sent).toEqual([]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Terminar igual' }));
+		expect(session.sent).toEqual([{ cmd: 'finishReview', args: [] }]);
+	});
+
+	it('on the last category Finish is the big lime button and the next arrow is disabled', () => {
+		open({ category: 5 });
+		expect(isBig(finishButton())).toBe(true);
+		expect(finishButton().className).toContain('bg-lime');
+		expect(next()).toHaveLength(1);
+		expect((next()[0] as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('moving to the last category swaps the buttons', async () => {
+		const { session } = open({ category: 4 });
+		expect(finishButton().className).not.toContain('bg-lime');
+		session.setView(reviewView({ category: 5 }));
+		await tick();
+		expect(finishButton().className).toContain('bg-lime');
+	});
+
+	it('once every category was opened Finish stays big, even when the host goes back', async () => {
+		const { session } = open({ category: 0 });
+		for (let c = 1; c < 6; c++) {
+			session.setView(reviewView({ category: c }));
+			await tick();
+		}
+		session.setView(reviewView({ category: 1 }));
+		await tick();
+		expect(isBig(finishButton())).toBe(true);
+		expect(finishButton().className).toContain('bg-lime');
+		expect((next()[0] as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('a player who is not the host never gets these buttons', () => {
+		open({ youId: 'p2', category: 0 });
+		expect(screen.queryByRole('button', { name: 'Categoría siguiente' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Terminar revisión' })).toBeNull();
+	});
+});
+
+describe('Review help', () => {
+	const tip = () => screen.queryByRole('region', { name: 'Consejo' });
+	beforeEach(() => tips.reset());
+	afterEach(() => {
+		tips.markSeen('playing');
+		tips.markSeen('review');
+	});
+
+	it('has a "How to play" button in the header that opens the review part of the guide', async () => {
+		tips.markSeen('review');
+		open({ category: 1 });
+		await fireEvent.click(screen.getByRole('button', { name: 'Cómo se juega' }));
+		const dialog = screen.getByRole('dialog', { name: 'Cómo se juega' });
+		expect(
+			within(dialog)
+				.queryAllByRole('button', { expanded: true })
+				.map((b) => b.id)
+		).toEqual(['help-heading-review']);
+	});
+
+	it('shows the tip to a player who can vote, once', async () => {
+		const { unmount } = open({ youId: 'p2' });
+		expect(tip()?.textContent).toContain('Tocá Rechazar');
+		await fireEvent.click(within(tip()!).getByRole('button', { name: 'Entendido' }));
+		expect(tip()).toBeNull();
+		expect(tips.seen('review')).toBe(true);
+		unmount();
+		open({ youId: 'p2' });
+		expect(tip()).toBeNull();
+	});
+
+	it('counts the tip as seen when the review ends without a tap', () => {
+		const { unmount } = open({ youId: 'p2' });
+		expect(tip()).not.toBeNull();
+		unmount();
+		expect(tips.seen('review')).toBe(true);
+	});
+
+	it('does not show it to someone who is only watching', () => {
+		open({ spectator: true });
+		expect(tip()).toBeNull();
+		expect(tips.seen('review')).toBe(false);
 	});
 });
 

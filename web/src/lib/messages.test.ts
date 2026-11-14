@@ -7,7 +7,18 @@ import { REPORT_REASONS } from './safety/targets';
 type Catalog = Record<string, string>;
 
 /** Message areas: the shared catalog plus one folder per feature (each owned by one part of the app). */
-const AREAS = ['', 'net/', 'lobby/', 'play/', 'review/', 'account/', 'support/', 'pwa/', 'safety/'];
+const AREAS = [
+	'',
+	'net/',
+	'lobby/',
+	'play/',
+	'review/',
+	'account/',
+	'support/',
+	'pwa/',
+	'safety/',
+	'help/'
+];
 
 function readArea(area: string, locale: string): Catalog {
 	const raw = JSON.parse(
@@ -190,7 +201,8 @@ describe('Dutch wording', () => {
 			'review_letter',
 			'review_offline',
 			'final_podium',
-			'final_home'
+			'final_home',
+			'help_tip_label'
 		]);
 		for (const key of Object.keys(nl)) {
 			const copied = nl[key] === en[key] || nl[key] === es[key];

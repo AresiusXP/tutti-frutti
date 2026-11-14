@@ -14,7 +14,8 @@
 			"./messages/support/{locale}.json",
 			"./messages/rooms/{locale}.json",
 			"./messages/pwa/{locale}.json",
-			"./messages/safety/{locale}.json"
+			"./messages/safety/{locale}.json",
+			"./messages/help/{locale}.json"
 		]
 	}
 }
